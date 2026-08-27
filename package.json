@@ -1,0 +1,16 @@
+{
+  "name": "student-service",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+  "dev": "concurrently --kill-others-on-fail --names api,web --prefix-colors blue,green \"npm run dev:api\" \"npm run dev:web\"",
+  "dev:api": "npm run dev --workspace @student-service/api",
+  "dev:web": "npm run dev --workspace @student-service/web -- --port 3001"
+},
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

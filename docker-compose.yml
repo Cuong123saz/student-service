@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: student-service-postgres
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: student_service
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - student_service_data:/var/lib/postgresql/data
+
+volumes:
+  student_service_data:
+    # Keep using the database volume created before the repository rename.
+    external: true
+    name: student-service-api_student_service_data
