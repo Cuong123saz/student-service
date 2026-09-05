@@ -3,6 +3,26 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
 
+  app: {
+    head: {
+      htmlAttrs: {
+        lang: 'vi',
+      },
+      title: 'Cổng Dịch vụ Sinh viên | Học viện Quản lý Giáo dục',
+      meta: [
+        {
+          name: 'description',
+          content:
+            'Cổng tra cứu và thực hiện dịch vụ sinh viên của Học viện Quản lý Giáo dục.',
+        },
+        {
+          name: 'theme-color',
+          content: '#0e2341',
+        },
+      ],
+    },
+  },
+
   devtools: {
     enabled: true,
   },

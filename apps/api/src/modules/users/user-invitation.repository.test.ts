@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {
   eq,
+  sql,
 } from 'drizzle-orm'
 import {
   after,
@@ -18,13 +19,24 @@ import {
   userRoles,
   users,
 } from '../auth/auth.schema.js'
+import {
+  auditLogs,
+} from '../audit/audit.schema.js'
+import {
+  academicAdvisorAssignments,
+  academicClasses,
+  faculties,
+  studentProfiles,
+} from '../organizations/organization.schema.js'
 
 import {
   userActionTokens,
 } from './user-account.schema.js'
 
 import {
+  AcademicClassNotFoundError,
   DrizzleUserInvitationRepository,
+  InvitationConflictError,
 } from './user-invitation.repository.js'
 
 const databaseUrl =
@@ -44,7 +56,12 @@ const invitedAt =
   new Date('2026-01-01T00:00:00.000Z')
 
 beforeEach(async () => {
+  await db.execute(sql`TRUNCATE TABLE ${auditLogs}`)
   await db.delete(userActionTokens)
+  await db.delete(studentProfiles)
+  await db.delete(academicAdvisorAssignments)
+  await db.delete(academicClasses)
+  await db.delete(faculties)
   await db.delete(userRoles)
   await db.delete(users)
   await db.delete(roles)
@@ -97,6 +114,31 @@ async function createStudentRole() {
     })
 }
 
+async function createAcademicClass() {
+  const faculty = (await db
+    .insert(faculties)
+    .values({
+      code: 'QLGD',
+      name: 'Khoa Quản lý giáo dục',
+      status: 'ACTIVE',
+    })
+    .returning({ id: faculties.id }))[0]
+  assert.ok(faculty)
+
+  const academicClass = (await db
+    .insert(academicClasses)
+    .values({
+      facultyId: faculty.id,
+      code: 'QLGD-K15A',
+      name: 'Quản lý giáo dục K15A',
+      status: 'ACTIVE',
+    })
+    .returning({ id: academicClasses.id }))[0]
+  assert.ok(academicClass)
+
+  return academicClass
+}
+
 test(
   'tạo user INVITED cùng role và activation token trong một transaction',
   async () => {
@@ -104,6 +146,8 @@ test(
 
     const actor =
       await createActor()
+    const academicClass =
+      await createAcademicClass()
 
     const repository =
       new DrizzleUserInvitationRepository()
@@ -129,6 +173,14 @@ test(
           tokenHash,
           tokenExpiresAt,
           createdByUserId: actor.id,
+          studentCode: 'SV001',
+          classId: academicClass.id,
+          actorUsername: 'system.admin',
+          auditContext: {
+            requestId: 'req-1',
+            ipAddress: '127.0.0.1',
+            userAgent: 'test',
+          },
         })
 
     const invitedUsers =
@@ -196,6 +248,36 @@ test(
           code: 'STUDENT',
         },
       ],
+    )
+
+    const storedProfiles = await db
+      .select({
+        studentCode: studentProfiles.studentCode,
+        classId: studentProfiles.classId,
+      })
+      .from(studentProfiles)
+      .where(eq(studentProfiles.userId, result.userId))
+
+    assert.deepEqual(storedProfiles, [
+      {
+        studentCode: 'SV001',
+        classId: academicClass.id,
+      },
+    ])
+
+    const storedAuditEvents = await db
+      .select({
+        action: auditLogs.action,
+        resourceId: auditLogs.resourceId,
+        before: auditLogs.before,
+        after: auditLogs.after,
+      })
+      .from(auditLogs)
+      .where(eq(auditLogs.resourceId, result.userId))
+
+    assert.deepEqual(
+      storedAuditEvents.map((event) => event.action).sort(),
+      ['ROLE_ASSIGNMENT', 'USER_INVITATION_CREATE'],
     )
 
     const storedTokens =
@@ -275,6 +357,8 @@ test(
 
     const actor =
       await createActor()
+    const academicClass =
+      await createAcademicClass()
 
     const repository =
       new DrizzleUserInvitationRepository()
@@ -304,6 +388,15 @@ test(
               invalidExpiresAt,
             createdByUserId:
               actor.id,
+            studentCode: 'SV002',
+            classId: academicClass.id,
+            actorUsername:
+              'system.admin',
+            auditContext: {
+              requestId: 'req-2',
+              ipAddress: '127.0.0.1',
+              userAgent: 'test',
+            },
           }),
       (error: unknown) => {
         assert.ok(isRecord(error))
@@ -372,5 +465,162 @@ test(
       roleAssignments,
       [],
     )
+  },
+)
+
+test(
+  'từ chối classId không tồn tại trước khi tạo user',
+  async () => {
+    await createStudentRole()
+    const actor = await createActor()
+    const repository =
+      new DrizzleUserInvitationRepository()
+
+    await assert.rejects(
+      () => repository.createInvitedUserWithToken({
+        username: 'student.no-class',
+        email: 'student.no-class@example.edu.vn',
+        fullName: 'Sinh viên chưa có lớp',
+        targetRoles: ['STUDENT'],
+        studentCode: 'SV-NO-CLASS',
+        classId: '00000000-0000-4000-8000-000000000999',
+        invitedAt,
+        tokenHash: 'c'.repeat(64),
+        tokenExpiresAt: new Date(
+          invitedAt.getTime() + 72 * 60 * 60 * 1000,
+        ),
+        createdByUserId: actor.id,
+        actorUsername: 'system.admin',
+        auditContext: {
+          requestId: 'req-no-class',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+        },
+      }),
+      AcademicClassNotFoundError,
+    )
+
+    const partialUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.username, 'student.no-class'))
+
+    assert.deepEqual(partialUsers, [])
+  },
+)
+
+test(
+  'từ chối studentCode trùng và chỉ rõ field xung đột',
+  async () => {
+    await createStudentRole()
+    const actor = await createActor()
+    const academicClass = await createAcademicClass()
+    const repository =
+      new DrizzleUserInvitationRepository()
+    const tokenExpiresAt = new Date(
+      invitedAt.getTime() + 72 * 60 * 60 * 1000,
+    )
+
+    const baseInput = {
+      fullName: 'Sinh viên đầu tiên',
+      targetRoles: ['STUDENT'],
+      studentCode: 'SV-DUPLICATE',
+      classId: academicClass.id,
+      invitedAt,
+      tokenExpiresAt,
+      createdByUserId: actor.id,
+      actorUsername: 'system.admin',
+      auditContext: {
+        requestId: 'req-duplicate',
+        ipAddress: '127.0.0.1',
+        userAgent: 'test',
+      },
+    } as const
+
+    await repository.createInvitedUserWithToken({
+      ...baseInput,
+      username: 'student.first',
+      email: 'student.first@example.edu.vn',
+      tokenHash: 'd'.repeat(64),
+    })
+
+    await assert.rejects(
+      () => repository.createInvitedUserWithToken({
+        ...baseInput,
+        username: 'student.second',
+        email: 'student.second@example.edu.vn',
+        tokenHash: 'e'.repeat(64),
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof InvitationConflictError)
+        assert.equal(error.field, 'studentCode')
+        return true
+      },
+    )
+
+    const partialUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.username, 'student.second'))
+
+    assert.deepEqual(partialUsers, [])
+  },
+)
+
+test(
+  'rollback toàn bộ khi audit bắt buộc không ghi được',
+  async () => {
+    await createStudentRole()
+    const actor = await createActor()
+    const academicClass = await createAcademicClass()
+    const repository =
+      new DrizzleUserInvitationRepository()
+
+    await assert.rejects(
+      () => repository.createInvitedUserWithToken({
+        username: 'student.audit-failure',
+        email: 'student.audit-failure@example.edu.vn',
+        fullName: 'Sinh viên Audit Failure',
+        targetRoles: ['STUDENT'],
+        studentCode: 'SV-AUDIT-FAILURE',
+        classId: academicClass.id,
+        invitedAt,
+        tokenHash: 'f'.repeat(64),
+        tokenExpiresAt: new Date(
+          invitedAt.getTime() + 72 * 60 * 60 * 1000,
+        ),
+        createdByUserId: actor.id,
+        // audit_logs.actor_username chỉ cho phép tối đa 100 ký tự.
+        // Lỗi này được kích hoạt sau các insert nghiệp vụ để chứng minh rollback.
+        actorUsername: 'a'.repeat(101),
+        auditContext: {
+          requestId: 'req-audit-failure',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+        },
+      }),
+    )
+
+    const partialUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.username, 'student.audit-failure'))
+
+    const partialProfiles = await db
+      .select({ userId: studentProfiles.userId })
+      .from(studentProfiles)
+      .where(eq(
+        studentProfiles.studentCode,
+        'SV-AUDIT-FAILURE',
+      ))
+
+    const partialTokens = await db
+      .select({ id: userActionTokens.id })
+      .from(userActionTokens)
+      .where(eq(userActionTokens.tokenHash, 'f'.repeat(64)))
+
+    assert.deepEqual(partialUsers, [])
+    assert.deepEqual(partialProfiles, [])
+    assert.deepEqual(partialTokens, [])
   },
 )

@@ -9,6 +9,14 @@ import {
   buildApp,
 } from '../../app.js'
 
+import type {
+  AuditLogUseCase,
+} from '../audit/audit.service.js'
+import type {
+  AuditEventInput,
+  ListAuditEventsInput,
+} from '../audit/audit.types.js'
+
 import {
   ADMIN_JWT_AUDIENCE,
   ADMIN_SESSION_COOKIE_NAME,
@@ -20,8 +28,16 @@ import {
   ForbiddenRoleAssignmentError,
 } from './role-assignment-policy.js'
 
+import {
+  AcademicClassNotFoundError,
+  InvitationConflictError,
+  InvitationNotResendableError,
+  InvitationUserNotFoundError,
+} from './user-invitation.repository.js'
+
 import type {
   CreateUserInvitationInput,
+  ResendUserInvitationInput,
   UserInvitationUseCase,
 } from './user-invitation.service.js'
 
@@ -34,12 +50,17 @@ const actorUserId =
 const invitedUserId =
   '85ca4291-c7bd-4370-a117-976bf237261c'
 
+const classId =
+  'bc6573e5-18df-4780-ab06-9e256ba7d83a'
+
 const validPayload = {
   username: 'student001',
   email:
     'student001@example.edu.vn',
   fullName: 'Nguyễn Văn A',
   roles: ['STUDENT'],
+  studentCode: 'SV001',
+  classId,
 }
 
 class FakeUserInvitationService
@@ -48,8 +69,13 @@ implements UserInvitationUseCase {
     CreateUserInvitationInput
     | undefined
 
+  receivedResendInput:
+    ResendUserInvitationInput
+    | undefined
+
   constructor(
     private readonly failure?: Error,
+    private readonly resendFailure?: Error,
   ) {}
 
   async createInvitation(
@@ -63,9 +89,41 @@ implements UserInvitationUseCase {
 
     return {
       userId: invitedUserId,
+      deliveryStatus: 'SENT' as const,
+    }
+  }
+
+  async resendInvitation(
+    input: ResendUserInvitationInput,
+  ) {
+    this.receivedResendInput = input
+
+    if (this.resendFailure) {
+      throw this.resendFailure
+    }
+
+    return {
+      userId: invitedUserId,
+      deliveryStatus: 'SENT' as const,
     }
   }
 }
+
+class NoopAuditLogService
+implements AuditLogUseCase {
+  async record(
+    _event: AuditEventInput,
+  ) {}
+
+  async listRecent(
+    _input: ListAuditEventsInput,
+  ) {
+    return []
+  }
+}
+
+const auditLogService =
+  new NoopAuditLogService()
 
 interface AdminCookieOptions {
   mustChangePassword?: boolean
@@ -113,6 +171,7 @@ test(
       new FakeUserInvitationService()
 
     const app = buildApp({
+      auditLogService,
       userInvitationService:
         service,
     })
@@ -154,6 +213,7 @@ test(
       new FakeUserInvitationService()
 
     const app = buildApp({
+      auditLogService,
       userInvitationService:
         service,
     })
@@ -207,6 +267,7 @@ test(
       new FakeUserInvitationService()
 
     const app = buildApp({
+      auditLogService,
       userInvitationService:
         service,
     })
@@ -257,6 +318,7 @@ test(
       new FakeUserInvitationService()
 
     const app = buildApp({
+      auditLogService,
       userInvitationService:
         service,
     })
@@ -290,6 +352,9 @@ test(
           id: invitedUserId,
           status: 'INVITED',
         },
+        invitation: {
+          deliveryStatus: 'SENT',
+        },
       },
     )
 
@@ -297,12 +362,20 @@ test(
       service.receivedInput,
       {
         actorUserId,
+        actorUsername: 'admin001',
         actorRoles: ['ADMIN'],
         username: 'student001',
         email:
           'student001@example.edu.vn',
         fullName: 'Nguyễn Văn A',
         targetRoles: ['STUDENT'],
+        studentCode: 'SV001',
+        classId,
+        auditContext: {
+          requestId: 'req-1',
+          ipAddress: '127.0.0.1',
+          userAgent: 'lightMyRequest',
+        },
       },
     )
   },
@@ -317,6 +390,7 @@ test(
       )
 
     const app = buildApp({
+      auditLogService,
       userInvitationService:
         service,
     })
@@ -352,5 +426,163 @@ test(
         message: 'Forbidden',
       },
     )
+  },
+)
+
+test(
+  'POST invitation trả 422 và field classId khi lớp không tồn tại',
+  async (context) => {
+    const service = new FakeUserInvitationService(
+      new AcademicClassNotFoundError(),
+    )
+    const app = buildApp({
+      auditLogService,
+      userInvitationService: service,
+    })
+    context.after(() => app.close())
+
+    const response = await app.inject({
+      method: 'POST',
+      url: endpoint,
+      headers: {
+        cookie: await createAdminCookie(app),
+      },
+      payload: validPayload,
+    })
+
+    assert.equal(response.statusCode, 422)
+    assert.deepEqual(response.json(), {
+      error: {
+        code: 'UNPROCESSABLE_ENTITY',
+        field: 'classId',
+        message: 'Academic class not found or inactive',
+      },
+      requestId: 'req-1',
+    })
+  },
+)
+
+test(
+  'POST invitation trả 409 và field studentCode khi mã sinh viên trùng',
+  async (context) => {
+    const service = new FakeUserInvitationService(
+      new InvitationConflictError('studentCode'),
+    )
+    const app = buildApp({
+      auditLogService,
+      userInvitationService: service,
+    })
+    context.after(() => app.close())
+
+    const response = await app.inject({
+      method: 'POST',
+      url: endpoint,
+      headers: {
+        cookie: await createAdminCookie(app),
+      },
+      payload: validPayload,
+    })
+
+    assert.equal(response.statusCode, 409)
+    assert.deepEqual(response.json(), {
+      error: {
+        code: 'CONFLICT',
+        field: 'studentCode',
+        message: 'studentCode already exists',
+      },
+      requestId: 'req-1',
+    })
+  },
+)
+
+test(
+  'POST resend tạo lại lời mời cho user INVITED',
+  async (context) => {
+    const service = new FakeUserInvitationService()
+    const app = buildApp({
+      auditLogService,
+      userInvitationService: service,
+    })
+    context.after(() => app.close())
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/users/${invitedUserId}/invitations/resend`,
+      headers: {
+        cookie: await createAdminCookie(app),
+      },
+    })
+
+    assert.equal(response.statusCode, 200)
+    assert.deepEqual(response.json(), {
+      user: {
+        id: invitedUserId,
+        status: 'INVITED',
+      },
+      invitation: {
+        deliveryStatus: 'SENT',
+      },
+    })
+    assert.deepEqual(service.receivedResendInput, {
+      actorUserId,
+      actorUsername: 'admin001',
+      actorRoles: ['ADMIN'],
+      userId: invitedUserId,
+      auditContext: {
+        requestId: 'req-1',
+        ipAddress: '127.0.0.1',
+        userAgent: 'lightMyRequest',
+      },
+    })
+  },
+)
+
+test(
+  'POST resend phân biệt user không tồn tại và lời mời không thể gửi lại',
+  async (context) => {
+    const notFoundService = new FakeUserInvitationService(
+      undefined,
+      new InvitationUserNotFoundError(),
+    )
+    const activeUserService = new FakeUserInvitationService(
+      undefined,
+      new InvitationNotResendableError(),
+    )
+    const notFoundApp = buildApp({
+      auditLogService,
+      userInvitationService: notFoundService,
+    })
+    const activeUserApp = buildApp({
+      auditLogService,
+      userInvitationService: activeUserService,
+    })
+    context.after(async () => {
+      await notFoundApp.close()
+      await activeUserApp.close()
+    })
+
+    const notFoundResponse = await notFoundApp.inject({
+      method: 'POST',
+      url: `/api/v1/admin/users/${invitedUserId}/invitations/resend`,
+      headers: {
+        cookie: await createAdminCookie(notFoundApp),
+      },
+    })
+    const activeUserResponse = await activeUserApp.inject({
+      method: 'POST',
+      url: `/api/v1/admin/users/${invitedUserId}/invitations/resend`,
+      headers: {
+        cookie: await createAdminCookie(activeUserApp),
+      },
+    })
+
+    assert.equal(notFoundResponse.statusCode, 404)
+    assert.deepEqual(notFoundResponse.json(), {
+      message: 'Invited user not found',
+    })
+    assert.equal(activeUserResponse.statusCode, 409)
+    assert.deepEqual(activeUserResponse.json(), {
+      message: 'Invitation cannot be resent',
+    })
   },
 )

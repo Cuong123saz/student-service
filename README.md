@@ -14,15 +14,22 @@ Cổng dịch vụ sinh viên được xây dựng dưới dạng monorepo TypeS
 - Nuxt hiển thị trạng thái loading, empty và error.
 - Integration test cho các API dịch vụ bằng `Fastify.inject()`.
 
-### Sprint 2 — Identity foundation (đang thực hiện)
+### Sprint 2 — Identity, tổ chức học vụ và hồ sơ sinh viên
 
-- Cấu hình môi trường API tập trung.
-- Các bảng `users`, `roles` và `user_roles`.
-- Seed role hệ thống.
-- Hash và xác minh mật khẩu bằng Argon2id.
-- Unit test cho `PasswordHasher`.
+- Xác thực dùng chung, tách cookie/session và audience cho cổng quản trị và cổng người dùng.
+- Đăng nhập, đăng xuất, lấy session hiện tại và bắt buộc admin đổi mật khẩu tạm.
+- Phân quyền route theo role; backend không tin quyền do frontend tự khai báo.
+- Admin tạo tài khoản theo role. Sinh viên bắt buộc có `studentCode` và `classId` hợp lệ.
+- Gửi email kích hoạt, đặt mật khẩu lần đầu và gửi lại lời mời khi email thất bại.
+- Token một lần chỉ lưu SHA-256 hash, có thời hạn, revoke/consume và chống hai token cùng sống.
+- Transaction tạo đồng thời user, role, hồ sơ sinh viên, token và audit bắt buộc.
+- Khoa, lớp, cố vấn học tập và phân công cố vấn có hiệu lực theo thời gian.
+- Trang “Hồ sơ của tôi” hiển thị hồ sơ học vụ và trạng thái cố vấn được/chưa được phân công.
+- Audit log bất biến có `metadata` và snapshot `before`/`after` nullable.
+- Global error handler, security headers và rate limit cho các route nhạy cảm.
 
-API đăng nhập, session/token và middleware phân quyền chưa được hoàn thành.
+Sprint 2 được triển khai và kiểm thử cho môi trường local. Màn hình quản lý đầy đủ khoa/lớp,
+import Excel và giao diện tra cứu audit được để sang Sprint 3 trở đi.
 
 ## Kiến trúc
 
@@ -104,7 +111,9 @@ cd D:\student-service
 npm run db:seed --workspace @student-service/api
 ```
 
-Seed được thiết kế để có thể chạy lại mà không tạo dữ liệu trùng.
+Seed được thiết kế để có thể chạy lại mà không tạo dữ liệu trùng và bị chặn khi
+`APP_ENV=production`. Seed tạo dữ liệu demo tối thiểu gồm một khoa, một lớp và một cố vấn
+đang phụ trách; lệnh sẽ in `classId` dùng cho form mời sinh viên.
 
 ## Chạy ứng dụng
 
@@ -136,6 +145,23 @@ npm run dev:web
 GET /services
 GET /services?status=ACTIVE
 GET /services/:id
+
+POST /api/v1/admin/auth/login
+GET  /api/v1/admin/auth/me
+POST /api/v1/admin/auth/logout
+POST /api/v1/admin/auth/change-password
+
+POST /api/v1/user/auth/login
+GET  /api/v1/user/auth/me
+POST /api/v1/user/auth/logout
+
+POST /api/v1/auth/activate
+POST /api/v1/admin/users/invitations
+POST /api/v1/admin/users/:userId/invitations/resend
+
+GET /api/v1/user/profile
+GET /api/v1/user/advisor
+GET /api/v1/admin/audit-logs
 ```
 
 ## Kiểm thử
@@ -201,4 +227,3 @@ npm run build --workspace @student-service/web
 - Chữ ký số theo từng bước trong workflow.
 - Quản lý điểm rèn luyện, hoạt động ngoại khóa và nghiên cứu khoa học.
 - Xuất Word, PDF và Excel theo nghiệp vụ.
-

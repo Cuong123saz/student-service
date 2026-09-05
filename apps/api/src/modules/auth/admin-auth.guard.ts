@@ -64,3 +64,25 @@ export async function requireAdminReadySession(
     })
   }
 }
+
+export async function requireSystemAdminSession(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const session = request.adminSession
+
+  if (!session) {
+    return reply.code(401).send({
+      message: 'Unauthorized',
+    })
+  }
+
+  if (
+    !session.roles
+      .includes('SYSTEM_ADMIN')
+  ) {
+    return reply.code(403).send({
+      message: 'Forbidden',
+    })
+  }
+}

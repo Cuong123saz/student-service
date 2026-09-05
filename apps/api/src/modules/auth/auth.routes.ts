@@ -1,6 +1,9 @@
-import type {FastifyInstance,} from 'fastify'
+import type {FastifyInstance,FastifyPluginOptions,} from 'fastify'
 import {  type Static,Type,} from '@sinclair/typebox'
 import {requireAdminSession,} from './admin-auth.guard.js'
+import {isAdminSession,} from './auth-session.js'
+import {getAuditRequestContext,} from '../audit/audit-request-context.js'
+import {recordAuditEventSafely,type AuditRecorder,} from '../audit/audit.service.js'
 import { env } from '../../config/env.js'
 import {DrizzleAuthUserRepository,} from './auth.repository.js'
 import { AuthService, InvalidCredentialsError,} from './auth.service.js'
@@ -96,6 +99,7 @@ const dummyPasswordHashPromise =
 
 export async function adminAuthRoutes(
   app: FastifyInstance,
+  options: AdminAuthRoutesOptions,
 ) {
   const dummyPasswordHash =
     await dummyPasswordHashPromise
@@ -163,6 +167,26 @@ const passwordChangeService =
             request.body.newPassword,
         })
 
+      await recordAuditEventSafely(
+        options.auditRecorder,
+        request.log,
+        {
+          actorType: 'USER',
+          actorUserId: session.sub,
+          actorUsername:
+            session.username,
+          action:
+            'ADMIN_PASSWORD_CHANGE',
+          resourceType: 'USER',
+          resourceId: session.sub,
+          outcome: 'SUCCESS',
+          ...getAuditRequestContext(
+            request,
+          ),
+          metadata: {},
+        },
+      )
+
       reply.clearCookie(
         ADMIN_SESSION_COOKIE_NAME,
         adminSessionCookieOptions,
@@ -174,6 +198,29 @@ const passwordChangeService =
         error
         instanceof AccountUnavailableError
       ) {
+        await recordAuditEventSafely(
+          options.auditRecorder,
+          request.log,
+          {
+            actorType: 'USER',
+            actorUserId: session.sub,
+            actorUsername:
+              session.username,
+            action:
+              'ADMIN_PASSWORD_CHANGE',
+            resourceType: 'USER',
+            resourceId: session.sub,
+            outcome: 'FAILURE',
+            ...getAuditRequestContext(
+              request,
+            ),
+            metadata: {
+              reason:
+                'ACCOUNT_UNAVAILABLE',
+            },
+          },
+        )
+
         reply.clearCookie(
           ADMIN_SESSION_COOKIE_NAME,
           adminSessionCookieOptions,
@@ -192,6 +239,29 @@ const passwordChangeService =
         || error
           instanceof InvalidPasswordError
       ) {
+        await recordAuditEventSafely(
+          options.auditRecorder,
+          request.log,
+          {
+            actorType: 'USER',
+            actorUserId: session.sub,
+            actorUsername:
+              session.username,
+            action:
+              'ADMIN_PASSWORD_CHANGE',
+            resourceType: 'USER',
+            resourceId: session.sub,
+            outcome: 'FAILURE',
+            ...getAuditRequestContext(
+              request,
+            ),
+            metadata: {
+              reason:
+                error.name,
+            },
+          },
+        )
+
         return reply.code(400).send({
           message: error.message,
         })
@@ -210,10 +280,58 @@ const passwordChangeService =
       },
     },
   },
-  async (_request, reply) => {
+  async (request, reply) => {
+    const serializedSession =
+      request.cookies[
+        ADMIN_SESSION_COOKIE_NAME
+      ]
+    let actorUserId: string | null = null
+    let actorUsername: string | null = null
+
+    if (serializedSession) {
+      try {
+        const decoded: unknown =
+          request.server.jwt.verify(
+            serializedSession,
+            {
+              allowedAud:
+                ADMIN_JWT_AUDIENCE,
+              allowedIss: JWT_ISSUER,
+            },
+          )
+
+        if (isAdminSession(decoded)) {
+          actorUserId = decoded.sub
+          actorUsername =
+            decoded.username
+        }
+      } catch {
+        // Logout stays idempotent even if the cookie is invalid or expired.
+      }
+    }
+
     reply.clearCookie(
       ADMIN_SESSION_COOKIE_NAME,
       adminSessionCookieOptions,
+    )
+
+    await recordAuditEventSafely(
+      options.auditRecorder,
+      request.log,
+      {
+        actorType:
+          actorUserId
+            ? 'USER'
+            : 'ANONYMOUS',
+        actorUserId,
+        actorUsername,
+        action: 'ADMIN_LOGOUT',
+        resourceType: 'ADMIN_SESSION',
+        resourceId: null,
+        outcome: 'SUCCESS',
+        ...getAuditRequestContext(request),
+        metadata: {},
+      },
     )
 
     return reply.code(204).send()
@@ -297,6 +415,29 @@ app.post<{
           )
 
         if (!canAccessAdminPortal) {
+          await recordAuditEventSafely(
+            options.auditRecorder,
+            request.log,
+            {
+              actorType: 'USER',
+              actorUserId: user.id,
+              actorUsername:
+                user.username,
+              action: 'ADMIN_LOGIN',
+              resourceType:
+                'ADMIN_SESSION',
+              resourceId: null,
+              outcome: 'FAILURE',
+              ...getAuditRequestContext(
+                request,
+              ),
+              metadata: {
+                reason:
+                  'PORTAL_ACCESS_DENIED',
+              },
+            },
+          )
+
           return reply
             .code(403)
             .send({
@@ -330,11 +471,52 @@ reply.setCookie(
   },
 )
 
+await recordAuditEventSafely(
+  options.auditRecorder,
+  request.log,
+  {
+    actorType: 'USER',
+    actorUserId: user.id,
+    actorUsername: user.username,
+    action: 'ADMIN_LOGIN',
+    resourceType: 'ADMIN_SESSION',
+    resourceId: null,
+    outcome: 'SUCCESS',
+    ...getAuditRequestContext(request),
+    metadata: {},
+  },
+)
+
  return reply.code(200).send({user, }) } catch (error: unknown) {
         if (
           error
           instanceof InvalidCredentialsError
         ) {
+          await recordAuditEventSafely(
+            options.auditRecorder,
+            request.log,
+            {
+              actorType: 'ANONYMOUS',
+              actorUserId: null,
+              actorUsername:
+                request.body.username
+                  .trim()
+                  .toLowerCase(),
+              action: 'ADMIN_LOGIN',
+              resourceType:
+                'ADMIN_SESSION',
+              resourceId: null,
+              outcome: 'FAILURE',
+              ...getAuditRequestContext(
+                request,
+              ),
+              metadata: {
+                reason:
+                  'INVALID_CREDENTIALS',
+              },
+            },
+          )
+
           return reply
             .code(401)
             .send({
@@ -347,4 +529,9 @@ reply.setCookie(
       }
     },
   )
+}
+
+export interface AdminAuthRoutesOptions
+extends FastifyPluginOptions {
+  auditRecorder: AuditRecorder
 }

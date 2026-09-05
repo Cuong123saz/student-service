@@ -78,3 +78,23 @@ export async function requireUserSession(
 
   request.userSession = decoded
 }
+
+export async function requireStudentRole(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  if (!request.userSession) {
+    return reply.code(401).send({
+      message: 'Unauthorized',
+    })
+  }
+
+  if (
+    !request.userSession.roles
+      .includes('STUDENT')
+  ) {
+    return reply.code(403).send({
+      message: 'Forbidden',
+    })
+  }
+}

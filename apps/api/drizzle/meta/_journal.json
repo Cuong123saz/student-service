@@ -36,6 +36,27 @@
       "when": 1788425783057,
       "tag": "0004_separate-token-check-responsibilities",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788615653096,
+      "tag": "0005_academic-organization-foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788616657300,
+      "tag": "0006_audit-log-foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788619609248,
+      "tag": "0007_audit-state-snapshots",
+      "breakpoints": true
     }
   ]
 }
