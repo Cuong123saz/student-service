@@ -5,7 +5,7 @@ import type {
 export interface UserForAuthentication {
   id: string
   username: string
-  passwordHash: string
+  passwordHash: string | null
   status: string
   mustChangePassword: boolean
   roles: string[]
@@ -28,7 +28,11 @@ export interface LoginInput {
   username: string
   password: string
 }
-
+export interface AuthenticationUseCase {
+  authenticate(
+    input: LoginInput,
+  ): Promise<AuthenticatedUser>
+}
 export class InvalidCredentialsError
 extends Error {
   constructor() {
@@ -37,7 +41,8 @@ extends Error {
   }
 }
 
-export class AuthService {
+export class AuthService
+implements AuthenticationUseCase {
   constructor(
     private readonly userRepository:
       AuthUserRepository,
@@ -72,6 +77,7 @@ export class AuthService {
 
     if (
       !user
+      || !user.passwordHash
       || user.status !== 'ACTIVE'
       || !passwordMatches
     ) {

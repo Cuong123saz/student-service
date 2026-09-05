@@ -7,7 +7,7 @@ import {
 
 export interface UserPasswordState {
   id: string
-  passwordHash: string
+  passwordHash: string | null
   status: string
 }
 
@@ -76,6 +76,7 @@ export class PasswordChangeService {
 
     if (
       !user
+      || !user.passwordHash
       || user.status !== 'ACTIVE'
     ) {
       throw new AccountUnavailableError()

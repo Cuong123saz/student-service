@@ -12,6 +12,11 @@ type RequiredEnvironmentVariable =
   | 'API_PORT'
   | 'APP_ENV'
   | 'JWT_SECRET'
+  | 'WEB_BASE_URL'
+  | 'SMTP_HOST'
+  | 'SMTP_PORT'
+  | 'SMTP_SECURE'
+  | 'MAIL_FROM'
 
 function readRequiredEnvironmentVariable(
   name: RequiredEnvironmentVariable,
@@ -27,8 +32,8 @@ function readRequiredEnvironmentVariable(
 
   return value
 }
-
 function readPort(
+  name: 'API_PORT' | 'SMTP_PORT',
   value: string,
 ): number {
   const port = Number(value)
@@ -39,7 +44,7 @@ function readPort(
     || port > 65_535
   ) {
     throw new Error(
-      `API_PORT must be a valid port number, received: ${value}`,
+      `${name} must be a valid port number, received: ${value}`,
     )
   }
 
@@ -61,7 +66,22 @@ function readAppEnvironment(
 
   return value
 }
+function readBoolean(
+  name: 'SMTP_SECURE',
+  value: string,
+): boolean {
+  if (value === 'true') {
+    return true
+  }
 
+  if (value === 'false') {
+    return false
+  }
+
+  throw new Error(
+    `${name} must be true or false, received: ${value}`,
+  )
+}
 function readJwtSecret(
   value: string,
 ): string {
@@ -91,17 +111,45 @@ export const env = Object.freeze({
     readRequiredEnvironmentVariable(
       'CORS_ORIGIN',
     ),
+webBaseUrl:
+  readRequiredEnvironmentVariable(
+    'WEB_BASE_URL',
+  ),
 
+smtpHost:
+  readRequiredEnvironmentVariable(
+    'SMTP_HOST',
+  ),
+
+smtpPort: readPort(
+  'SMTP_PORT',
+  readRequiredEnvironmentVariable(
+    'SMTP_PORT',
+  ),
+),
+
+smtpSecure: readBoolean(
+  'SMTP_SECURE',
+  readRequiredEnvironmentVariable(
+    'SMTP_SECURE',
+  ),
+),
+
+mailFrom:
+  readRequiredEnvironmentVariable(
+    'MAIL_FROM',
+  ),
   apiHost:
     readRequiredEnvironmentVariable(
       'API_HOST',
     ),
 
   apiPort: readPort(
-    readRequiredEnvironmentVariable(
-      'API_PORT',
-    ),
+  'API_PORT',
+  readRequiredEnvironmentVariable(
+    'API_PORT',
   ),
+),
 
   appEnvironment,
 

@@ -5,15 +5,19 @@
   "description": "Student service API",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "db:seed": "tsx src/db/seed.ts",
     "db:migrate:test": "drizzle-kit migrate --config=drizzle.test.config.ts",
     "auth:bootstrap-admin": "tsx src/modules/auth/bootstrap-system-admin.ts",
-"test:unit": "tsx --test src/modules/auth/password-hasher.test.ts src/modules/auth/auth.service.test.ts src/modules/auth/auth-session.test.ts src/modules/auth/password-policy.test.ts src/modules/auth/password-change.service.test.ts src/http/error-handler.test.ts",    "test:integration": "npm run db:migrate:test && tsx --env-file=.env.test --test --test-concurrency=1 src/modules/services/service.routes.test.ts src/modules/auth/auth.repository.test.ts src/modules/auth/auth.routes.test.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "mail:smoke": "tsx src/scripts/send-test-invitation-email.ts",
+    "auth:recover-admin": "tsx src/modules/auth/recover-system-admin-password.ts",
+    "test:unit": "tsx --test src/modules/auth/password-hasher.test.ts src/modules/auth/auth.service.test.ts src/modules/auth/auth-session.test.ts src/modules/auth/password-policy.test.ts src/modules/auth/password-change.service.test.ts src/http/error-handler.test.ts src/modules/users/role-assignment-policy.test.ts src/modules/users/account-activation.service.test.ts src/modules/users/user-invitation.service.test.ts src/modules/users/user-action-token.test.ts src/modules/users/smtp-invitation-mailer.test.ts ",
+    "test:integration": "npm run db:migrate:test && tsx --env-file=.env.test --test --test-concurrency=1 src/modules/services/service.routes.test.ts src/modules/auth/auth.repository.test.ts src/modules/auth/auth.routes.test.ts src/modules/users/user-account.schema.test.ts src/modules/users/user-invitation.repository.test.ts src/modules/users/admin-user.routes.test.ts  src/modules/users/account-activation.repository.test.ts  src/modules/users/account-activation.routes.test.ts src/modules/auth/user-auth.guard.test.ts src/modules/auth/user-auth.routes.test.ts",
     "test": "npm run test:unit && npm run test:integration"
   },
-  "type": "module",
+  "type": "module", 
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
@@ -25,10 +29,12 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.1",
+    "nodemailer": "^9.1.1",
     "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
+    "@types/nodemailer": "^8.0.1",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2"

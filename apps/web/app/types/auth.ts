@@ -22,3 +22,22 @@ export interface AdminLoginResponse {
 export interface CurrentAdminResponse {
   user: AdminSessionUser
 }
+export interface UserSessionUser {
+  id: string
+  username: string
+  mustChangePassword: boolean
+  roles: string[]
+}
+
+export interface UserLoginInput {
+  username: string
+  password: string
+}
+
+export interface UserLoginResponse {
+  user: UserSessionUser
+}
+
+export interface CurrentUserResponse {
+  user: UserSessionUser
+}

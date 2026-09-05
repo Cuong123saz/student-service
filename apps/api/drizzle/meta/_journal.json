@@ -15,6 +15,27 @@
       "when": 1787799574737,
       "tag": "0001_auth-foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788423368193,
+      "tag": "0002_user-action-tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788424866465,
+      "tag": "0003_invitation-operational-fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788425783057,
+      "tag": "0004_separate-token-check-responsibilities",
+      "breakpoints": true
     }
   ]
 }

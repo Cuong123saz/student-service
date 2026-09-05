@@ -42,7 +42,17 @@ export const SYSTEM_ROLES = [
     isSystem: true,
   },
 ] as const
+export const USER_API_PREFIX =
+  '/api/v1/user'
 
+export const USER_SESSION_COOKIE_NAME =
+  'user_session'
+
+export const USER_SESSION_TTL_SECONDS =
+  2 * 60 * 60
+
+export const USER_JWT_AUDIENCE =
+  'student-service-user'
 export type SystemRoleCode =
   (typeof SYSTEM_ROLES)[number]['code']
 

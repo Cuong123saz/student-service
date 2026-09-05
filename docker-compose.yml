@@ -14,8 +14,16 @@ services:
     volumes:
       - student_service_data:/var/lib/postgresql/data
 
+  mailpit:
+    image: axllent/mailpit:v1.27.4
+    container_name: student-service-mailpit
+    restart: unless-stopped
+
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   student_service_data:
-    # Keep using the database volume created before the repository rename.
     external: true
     name: student-service-api_student_service_data

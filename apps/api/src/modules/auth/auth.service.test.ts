@@ -144,7 +144,45 @@ test(
     )
   },
 )
+test(
+  'authenticate từ chối tài khoản chưa có mật khẩu',
+  async () => {
+    const userWithoutPassword:
+      UserForAuthentication = {
+        ...activeUser,
+        passwordHash: null,
 
+        // Giữ ACTIVE để test chỉ tập trung
+        // vào trường hợp passwordHash null.
+        status: 'ACTIVE',
+      }
+
+    const passwordHasher =
+      new FakePasswordHasher()
+
+    const authService = new AuthService(
+      new FakeUserRepository(
+        userWithoutPassword,
+      ),
+      passwordHasher,
+      'dummy-password-hash',
+    )
+
+    await assert.rejects(
+      () =>
+        authService.authenticate({
+          username: 'student001',
+          password: 'SomePassword',
+        }),
+      InvalidCredentialsError,
+    )
+
+    assert.equal(
+      passwordHasher.lastVerifiedHash,
+      'dummy-password-hash',
+    )
+  },
+)
 test(
   'authenticate từ chối tài khoản không active',
   async () => {

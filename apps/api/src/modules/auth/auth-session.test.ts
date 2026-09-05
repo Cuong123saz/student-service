@@ -1,13 +1,25 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-
 import {
   ADMIN_JWT_AUDIENCE,
   JWT_ISSUER,
+  USER_JWT_AUDIENCE,
 } from './auth.constants.js'
 import {
   isAdminSession,
+  isUserSession,
 } from './auth-session.js'
+const validUserSession = {
+  sub: 'student-user-id',
+  username: 'student001',
+  roles: ['STUDENT'],
+  portal: 'user',
+  mustChangePassword: false,
+  aud: USER_JWT_AUDIENCE,
+  iss: JWT_ISSUER,
+  iat: 1,
+  exp: 2,
+}
 
 const validSession = {
   sub: 'user-id',
@@ -82,6 +94,44 @@ test(
       isAdminSession(
         sessionWithoutFlag,
       ),
+      false,
+    )
+  },
+)
+test(
+  'chấp nhận user session hợp lệ',
+  () => {
+    assert.equal(
+      isUserSession(
+        validUserSession,
+      ),
+      true,
+    )
+  },
+)
+
+test(
+  'user session từ chối token thuộc admin portal',
+  () => {
+    assert.equal(
+      isUserSession({
+        ...validUserSession,
+        portal: 'admin',
+      }),
+      false,
+    )
+  },
+)
+
+test(
+  'user session từ chối admin audience',
+  () => {
+    assert.equal(
+      isUserSession({
+        ...validUserSession,
+        aud:
+          ADMIN_JWT_AUDIENCE,
+      }),
       false,
     )
   },

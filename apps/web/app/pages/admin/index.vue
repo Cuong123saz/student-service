@@ -19,7 +19,7 @@ onMounted(async () => {
   ) {
     await navigateTo(
       '/admin/change-password',
-    )
+    )           
   }
 } catch {
     await navigateTo(

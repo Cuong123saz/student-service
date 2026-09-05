@@ -633,13 +633,21 @@ test(
       false,
     )
 
-    assert.equal(
-      await passwordHasher.verify(
-        updatedUser.passwordHash,
-        newPassword,
-      ),
-      true,
-    )
+   const updatedPasswordHash =
+  updatedUser.passwordHash
+
+assert.ok(
+  updatedPasswordHash,
+  'Password hash must be set after changing password',
+)
+
+assert.equal(
+  await passwordHasher.verify(
+    updatedPasswordHash,
+    newPassword,
+  ),
+  true,
+)
 
     // Mật khẩu cũ không đăng nhập được nữa
     const oldPasswordResponse =
