@@ -21,10 +21,16 @@ import {
   requireAdminSession,
 } from '../auth/admin-auth.guard.js'
 
+import type {
+  AuthorizationUseCase,
+} from '../auth/authorization.service.js'
+
 import {
+  AcademicClassOutsideScopeError,
   AcademicClassNotFoundError,
   InvitationConflictError,
   InvitationNotResendableError,
+  InvitationTargetForbiddenError,
   InvitationUserNotFoundError,
 } from './user-invitation.repository.js'
 
@@ -152,6 +158,9 @@ extends FastifyPluginOptions {
     UserInvitationUseCase
 
   auditRecorder: AuditRecorder
+
+  authorizationService:
+    AuthorizationUseCase
 }
 
 export async function adminUserRoutes(
@@ -206,6 +215,24 @@ export async function adminUserRoutes(
       if (!session) {
         return reply.code(401).send({
           message: 'Unauthorized',
+        })
+      }
+
+      const requiredPermission =
+        request.body.roles.includes('STUDENT')
+          ? 'student.create'
+          : 'user.manage'
+
+      const hasPermission = await options
+        .authorizationService
+        .hasPermission({
+          userId: session.sub,
+          permission: requiredPermission,
+        })
+
+      if (!hasPermission) {
+        return reply.code(403).send({
+          message: 'Forbidden',
         })
       }
 
@@ -329,6 +356,14 @@ export async function adminUserRoutes(
               message: error.message,
             },
             requestId: request.id,
+          })
+        }
+
+        if (
+          error instanceof AcademicClassOutsideScopeError
+        ) {
+          return reply.code(403).send({
+            message: 'Forbidden',
           })
         }
 
@@ -466,6 +501,27 @@ export async function adminUserRoutes(
         })
       }
 
+      const canCreateStudent = await options
+        .authorizationService
+        .hasPermission({
+          userId: session.sub,
+          permission: 'student.create',
+        })
+
+      const canManageUser = canCreateStudent
+        ? false
+        : await options.authorizationService
+            .hasPermission({
+              userId: session.sub,
+              permission: 'user.manage',
+            })
+
+      if (!canCreateStudent && !canManageUser) {
+        return reply.code(403).send({
+          message: 'Forbidden',
+        })
+      }
+
       try {
         const result = await options
           .invitationService
@@ -520,6 +576,12 @@ export async function adminUserRoutes(
         if (error instanceof InvitationNotResendableError) {
           return reply.code(409).send({
             message: 'Invitation cannot be resent',
+          })
+        }
+
+        if (error instanceof InvitationTargetForbiddenError) {
+          return reply.code(403).send({
+            message: 'Forbidden',
           })
         }
 

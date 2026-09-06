@@ -43,11 +43,11 @@ const { data: services, status, error, refresh } = await useFetch<Service[]>(
           <span>Mời sinh viên, giảng viên hoặc cán bộ vào hệ thống.</span>
           <b aria-hidden="true">→</b>
         </NuxtLink>
-        <article aria-disabled="true">
-          <strong>Quản lý dịch vụ</strong>
-          <span>Thêm, sửa và cấu hình quy trình dịch vụ.</span>
-          <small>Sắp triển khai</small>
-        </article>
+        <NuxtLink to="/admin/students">
+          <strong>Danh sách sinh viên</strong>
+          <span>Tra cứu tài khoản theo khoa, lớp và phạm vi được phân quyền.</span>
+          <b aria-hidden="true">→</b>
+        </NuxtLink>
       </div>
     </section>
 

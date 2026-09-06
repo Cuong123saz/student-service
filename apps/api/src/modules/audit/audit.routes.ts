@@ -10,8 +10,13 @@ import type {
 import {
   requireAdminReadySession,
   requireAdminSession,
-  requireSystemAdminSession,
 } from '../auth/admin-auth.guard.js'
+import {
+  requireAdminPermission,
+} from '../auth/admin-permission.guard.js'
+import type {
+  AuthorizationUseCase,
+} from '../auth/authorization.service.js'
 import type {
   AuditLogUseCase,
 } from './audit.service.js'
@@ -126,6 +131,8 @@ const listAuditLogsResponseSchema =
 export interface AuditRoutesOptions
 extends FastifyPluginOptions {
   auditLogService: AuditLogUseCase
+  authorizationService:
+    AuthorizationUseCase
 }
 
 export async function auditRoutes(
@@ -140,7 +147,10 @@ export async function auditRoutes(
       preHandler: [
         requireAdminSession,
         requireAdminReadySession,
-        requireSystemAdminSession,
+        requireAdminPermission(
+          options.authorizationService,
+          'audit.read',
+        ),
       ],
       schema: {
         querystring:

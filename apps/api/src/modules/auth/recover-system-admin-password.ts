@@ -27,6 +27,23 @@ type RecoveryVariable =
   | 'RECOVERY_ADMIN_USERNAME'
   | 'RECOVERY_ADMIN_PASSWORD'
 
+function shouldReactivateAdmin(): boolean {
+  const value =
+    process.env.RECOVER_ADMIN_STATUS
+
+  if (value === undefined || value === 'false') {
+    return false
+  }
+
+  if (value === 'true') {
+    return true
+  }
+
+  throw new Error(
+    'RECOVER_ADMIN_STATUS must be true or false',
+  )
+}
+
 function readRequiredVariable(
   name: RecoveryVariable,
 ): string {
@@ -113,9 +130,28 @@ Promise<void> {
     )
   }
 
-  if (admin.status !== 'ACTIVE') {
+  const reactivateAdmin =
+    shouldReactivateAdmin()
+
+  const statusCanBeRecovered =
+    admin.status === 'INACTIVE'
+    || admin.status === 'SUSPENDED'
+
+  if (
+    admin.status !== 'ACTIVE'
+    && !statusCanBeRecovered
+  ) {
     throw new Error(
-      'SYSTEM_ADMIN account is not active',
+      `SYSTEM_ADMIN status cannot be recovered automatically: ${admin.status}`,
+    )
+  }
+
+  if (
+    admin.status !== 'ACTIVE'
+    && !reactivateAdmin
+  ) {
+    throw new Error(
+      'SYSTEM_ADMIN account is not active. Set RECOVER_ADMIN_STATUS=true for explicit reactivation',
     )
   }
 
@@ -131,6 +167,9 @@ Promise<void> {
     .update(users)
     .set({
       passwordHash,
+      status: reactivateAdmin
+        ? 'ACTIVE'
+        : admin.status,
       mustChangePassword: true,
       updatedAt: new Date(),
     })
@@ -141,6 +180,15 @@ Promise<void> {
   console.log(
     `SYSTEM_ADMIN password recovered: ${username}`,
   )
+
+  if (
+    admin.status !== 'ACTIVE'
+    && reactivateAdmin
+  ) {
+    console.log(
+      `SYSTEM_ADMIN reactivated from status: ${admin.status}`,
+    )
+  }
 
   console.log(
     'Password change will be required at the next login',

@@ -16,10 +16,17 @@ import {
   users,
 } from '../auth/auth.schema.js'
 import {
+  authorizationScopes,
+  permissions,
+  rolePermissions,
+  userRoleScopes,
+} from '../auth/authorization.schema.js'
+import {
   auditLogs,
 } from '../audit/audit.schema.js'
 import {
   academicClasses,
+  faculties,
   studentProfiles,
 } from '../organizations/organization.schema.js'
 
@@ -60,6 +67,14 @@ extends Error {
   }
 }
 
+export class AcademicClassOutsideScopeError
+extends Error {
+  constructor() {
+    super('Academic class is outside actor scope')
+    this.name = 'AcademicClassOutsideScopeError'
+  }
+}
+
 export class InvitationUserNotFoundError
 extends Error {
   constructor() {
@@ -73,6 +88,14 @@ extends Error {
   constructor() {
     super('Invitation cannot be resent')
     this.name = 'InvitationNotResendableError'
+  }
+}
+
+export class InvitationTargetForbiddenError
+extends Error {
+  constructor() {
+    super('Invitation target is outside actor authority')
+    this.name = 'InvitationTargetForbiddenError'
   }
 }
 
@@ -238,18 +261,116 @@ implements UserInvitationRepository {
           }
 
           const classes = await transaction
-            .select({ id: academicClasses.id })
+            .select({
+              id: academicClasses.id,
+              facultyId: academicClasses.facultyId,
+            })
             .from(academicClasses)
+            .innerJoin(
+              faculties,
+              eq(
+                academicClasses.facultyId,
+                faculties.id,
+              ),
+            )
             .where(
               and(
                 eq(academicClasses.id, input.classId),
                 eq(academicClasses.status, 'ACTIVE'),
+                eq(faculties.status, 'ACTIVE'),
               ),
             )
             .limit(1)
 
-          if (classes.length === 0) {
+          const academicClass = classes[0]
+
+          if (!academicClass) {
             throw new AcademicClassNotFoundError()
+          }
+
+          const allowedScopes = await transaction
+            .select({
+              scopeId: authorizationScopes.id,
+            })
+            .from(users)
+            .innerJoin(
+              userRoles,
+              eq(users.id, userRoles.userId),
+            )
+            .innerJoin(
+              rolePermissions,
+              eq(
+                userRoles.roleId,
+                rolePermissions.roleId,
+              ),
+            )
+            .innerJoin(
+              permissions,
+              eq(
+                rolePermissions.permissionId,
+                permissions.id,
+              ),
+            )
+            .innerJoin(
+              userRoleScopes,
+              and(
+                eq(
+                  userRoleScopes.userId,
+                  userRoles.userId,
+                ),
+                eq(
+                  userRoleScopes.roleId,
+                  userRoles.roleId,
+                ),
+              ),
+            )
+            .innerJoin(
+              authorizationScopes,
+              eq(
+                userRoleScopes.scopeId,
+                authorizationScopes.id,
+              ),
+            )
+            .where(
+              and(
+                eq(users.id, input.createdByUserId),
+                eq(users.status, 'ACTIVE'),
+                eq(
+                  permissions.code,
+                  'student.create',
+                ),
+                or(
+                  eq(
+                    authorizationScopes.scopeType,
+                    'GLOBAL',
+                  ),
+                  and(
+                    eq(
+                      authorizationScopes.scopeType,
+                      'FACULTY',
+                    ),
+                    eq(
+                      authorizationScopes.facultyId,
+                      academicClass.facultyId,
+                    ),
+                  ),
+                  and(
+                    eq(
+                      authorizationScopes.scopeType,
+                      'CLASS',
+                    ),
+                    eq(
+                      authorizationScopes.classId,
+                      academicClass.id,
+                    ),
+                  ),
+                ),
+              ),
+            )
+            .limit(1)
+
+          if (allowedScopes.length === 0) {
+            throw new AcademicClassOutsideScopeError()
           }
         }
 
@@ -329,6 +450,43 @@ implements UserInvitationRepository {
                 input.invitedAt,
             })),
           )
+
+        const systemAdminRole = roleRows
+          .find(
+            (role) =>
+              role.code === 'SYSTEM_ADMIN',
+          )
+
+        if (systemAdminRole) {
+          const [globalScope] =
+            await transaction
+              .select({
+                id: authorizationScopes.id,
+              })
+              .from(authorizationScopes)
+              .where(
+                eq(
+                  authorizationScopes.scopeType,
+                  'GLOBAL',
+                ),
+              )
+              .limit(1)
+
+          if (!globalScope) {
+            throw new Error(
+              'GLOBAL authorization scope is not configured',
+            )
+          }
+
+          await transaction
+            .insert(userRoleScopes)
+            .values({
+              userId: insertedUser.id,
+              roleId: systemAdminRole.id,
+              scopeId: globalScope.id,
+              assignedAt: input.invitedAt,
+            })
+        }
 
         if (input.studentCode && input.classId) {
           await transaction
@@ -446,8 +604,30 @@ implements UserInvitationRepository {
             status: users.status,
             passwordHash: users.passwordHash,
             activatedAt: users.activatedAt,
+            studentClassId: studentProfiles.classId,
+            studentFacultyId: academicClasses.facultyId,
+            classStatus: academicClasses.status,
+            facultyStatus: faculties.status,
           })
           .from(users)
+          .leftJoin(
+            studentProfiles,
+            eq(studentProfiles.userId, users.id),
+          )
+          .leftJoin(
+            academicClasses,
+            eq(
+              studentProfiles.classId,
+              academicClasses.id,
+            ),
+          )
+          .leftJoin(
+            faculties,
+            eq(
+              academicClasses.facultyId,
+              faculties.id,
+            ),
+          )
           .where(eq(users.id, input.userId))
           .limit(1)
 
@@ -464,6 +644,149 @@ implements UserInvitationRepository {
           || candidate.email === null
         ) {
           throw new InvitationNotResendableError()
+        }
+
+        const targetRoleRows = await transaction
+          .select({ code: roles.code })
+          .from(userRoles)
+          .innerJoin(
+            roles,
+            eq(userRoles.roleId, roles.id),
+          )
+          .where(eq(userRoles.userId, candidate.id))
+
+        const isStudent = targetRoleRows.some(
+          role => role.code === 'STUDENT',
+        )
+
+        if (isStudent) {
+          if (
+            !candidate.studentClassId
+            || !candidate.studentFacultyId
+            || candidate.classStatus !== 'ACTIVE'
+            || candidate.facultyStatus !== 'ACTIVE'
+          ) {
+            throw new InvitationNotResendableError()
+          }
+
+          const allowedScopes = await transaction
+            .select({
+              scopeId: authorizationScopes.id,
+            })
+            .from(users)
+            .innerJoin(
+              userRoles,
+              eq(users.id, userRoles.userId),
+            )
+            .innerJoin(
+              rolePermissions,
+              eq(
+                userRoles.roleId,
+                rolePermissions.roleId,
+              ),
+            )
+            .innerJoin(
+              permissions,
+              eq(
+                rolePermissions.permissionId,
+                permissions.id,
+              ),
+            )
+            .innerJoin(
+              userRoleScopes,
+              and(
+                eq(
+                  userRoleScopes.userId,
+                  userRoles.userId,
+                ),
+                eq(
+                  userRoleScopes.roleId,
+                  userRoles.roleId,
+                ),
+              ),
+            )
+            .innerJoin(
+              authorizationScopes,
+              eq(
+                userRoleScopes.scopeId,
+                authorizationScopes.id,
+              ),
+            )
+            .where(
+              and(
+                eq(users.id, input.createdByUserId),
+                eq(users.status, 'ACTIVE'),
+                eq(
+                  permissions.code,
+                  'student.create',
+                ),
+                or(
+                  eq(
+                    authorizationScopes.scopeType,
+                    'GLOBAL',
+                  ),
+                  and(
+                    eq(
+                      authorizationScopes.scopeType,
+                      'FACULTY',
+                    ),
+                    eq(
+                      authorizationScopes.facultyId,
+                      candidate.studentFacultyId,
+                    ),
+                  ),
+                  and(
+                    eq(
+                      authorizationScopes.scopeType,
+                      'CLASS',
+                    ),
+                    eq(
+                      authorizationScopes.classId,
+                      candidate.studentClassId,
+                    ),
+                  ),
+                ),
+              ),
+            )
+            .limit(1)
+
+          if (allowedScopes.length === 0) {
+            throw new InvitationTargetForbiddenError()
+          }
+        } else {
+          const allowedPermissions = await transaction
+            .select({ roleId: userRoles.roleId })
+            .from(users)
+            .innerJoin(
+              userRoles,
+              eq(users.id, userRoles.userId),
+            )
+            .innerJoin(
+              rolePermissions,
+              eq(
+                userRoles.roleId,
+                rolePermissions.roleId,
+              ),
+            )
+            .innerJoin(
+              permissions,
+              eq(
+                rolePermissions.permissionId,
+                permissions.id,
+              ),
+            )
+            .where(
+              and(
+                eq(users.id, input.createdByUserId),
+                eq(users.status, 'ACTIVE'),
+                eq(permissions.code, 'user.manage'),
+              ),
+            )
+            .limit(1)
+
+          if (allowedPermissions.length === 0) {
+            throw new InvitationTargetForbiddenError()
+          }
         }
 
         await transaction

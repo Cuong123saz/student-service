@@ -8,6 +8,10 @@ const isLoggingOut = ref(false)
 
 const navigation = [
   { label: 'Tổng quan', to: '/admin', exact: true },
+  { label: 'Danh sách sinh viên', to: '/admin/students' },
+  { label: 'Cơ cấu và cố vấn', to: '/admin/organizations' },
+  { label: 'Vai trò và phạm vi', to: '/admin/access-control' },
+  { label: 'Ma trận quyền', to: '/admin/role-permissions' },
   { label: 'Mời người dùng', to: '/admin/users/invite' },
 ]
 

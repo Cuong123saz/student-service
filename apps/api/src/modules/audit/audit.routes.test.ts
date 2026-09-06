@@ -10,6 +10,10 @@ import {
   JWT_ISSUER,
 } from '../auth/auth.constants.js'
 import type {
+  AuthorizationUseCase,
+  PermissionCheckInput,
+} from '../auth/authorization.service.js'
+import type {
   AuditLogUseCase,
 } from './audit.service.js'
 import type {
@@ -57,14 +61,35 @@ implements AuditLogUseCase {
   }
 }
 
+class FakeAuthorizationService
+implements AuthorizationUseCase {
+  constructor(
+    private readonly allowedUserIds:
+      ReadonlySet<string>,
+  ) {}
+
+  receivedChecks:
+    PermissionCheckInput[] = []
+
+  async hasPermission(
+    input: PermissionCheckInput,
+  ) {
+    this.receivedChecks.push(input)
+
+    return this.allowedUserIds
+      .has(input.userId)
+  }
+}
+
 async function createAdminCookie(
   app: FastifyInstance,
   roles: string[],
+  userId = actorUserId,
 ) {
   await app.ready()
   const token = app.jwt.sign(
     {
-      sub: actorUserId,
+      sub: userId,
       username: 'system.admin',
       roles,
       mustChangePassword: false,
@@ -82,13 +107,30 @@ async function createAdminCookie(
 }
 
 test(
-  'GET audit logs chỉ cho SYSTEM_ADMIN và chuyển bộ lọc',
+  'GET audit logs yêu cầu audit.read và chuyển bộ lọc',
   async (context) => {
     const service = new FakeAuditLogService()
+    const allowedUserId =
+      '4dfbd34b-179d-4edc-a94c-94bf428a5a29'
+    const authorizationService =
+      new FakeAuthorizationService(
+        new Set([allowedUserId]),
+      )
     const app = buildApp({
       auditLogService: service,
+      authorizationService,
     })
     context.after(() => app.close())
+
+    const unauthorized = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/audit-logs',
+    })
+
+    assert.equal(
+      unauthorized.statusCode,
+      401,
+    )
 
     const adminCookie =
       await createAdminCookie(
@@ -107,6 +149,7 @@ test(
       await createAdminCookie(
         app,
         ['SYSTEM_ADMIN'],
+        allowedUserId,
       )
     const response = await app.inject({
       method: 'GET',
@@ -121,6 +164,20 @@ test(
     })
 
     assert.equal(response.statusCode, 200)
+    assert.deepEqual(
+      authorizationService
+        .receivedChecks,
+      [
+        {
+          userId: actorUserId,
+          permission: 'audit.read',
+        },
+        {
+          userId: allowedUserId,
+          permission: 'audit.read',
+        },
+      ],
+    )
     assert.deepEqual(
       service.receivedListInput,
       {

@@ -6,7 +6,8 @@ import type {
 } from 'fastify'
 
 import {
-  buildApp,
+  buildApp as createApp,
+  type BuildAppOptions,
 } from '../../app.js'
 
 import type {
@@ -23,15 +24,21 @@ import {
   ADMIN_SESSION_TTL_SECONDS,
   JWT_ISSUER,
 } from '../auth/auth.constants.js'
+import type {
+  AuthorizationUseCase,
+  PermissionCheckInput,
+} from '../auth/authorization.service.js'
 
 import {
   ForbiddenRoleAssignmentError,
 } from './role-assignment-policy.js'
 
 import {
+  AcademicClassOutsideScopeError,
   AcademicClassNotFoundError,
   InvitationConflictError,
   InvitationNotResendableError,
+  InvitationTargetForbiddenError,
   InvitationUserNotFoundError,
 } from './user-invitation.repository.js'
 
@@ -124,6 +131,35 @@ implements AuditLogUseCase {
 
 const auditLogService =
   new NoopAuditLogService()
+
+class FakeAuthorizationService
+implements AuthorizationUseCase {
+  receivedChecks: PermissionCheckInput[] = []
+
+  constructor(
+    private readonly allowed: boolean,
+  ) {}
+
+  async hasPermission(
+    input: PermissionCheckInput,
+  ) {
+    this.receivedChecks.push(input)
+    return this.allowed
+  }
+}
+
+const allowedAuthorizationService =
+  new FakeAuthorizationService(true)
+
+function buildApp(
+  options: BuildAppOptions,
+) {
+  return createApp({
+    authorizationService:
+      allowedAuthorizationService,
+    ...options,
+  })
+}
 
 interface AdminCookieOptions {
   mustChangePassword?: boolean
@@ -430,6 +466,45 @@ test(
 )
 
 test(
+  'POST invitation yêu cầu student.create trước khi gọi use case',
+  async (context) => {
+    const service =
+      new FakeUserInvitationService()
+    const authorizationService =
+      new FakeAuthorizationService(false)
+
+    const app = buildApp({
+      auditLogService,
+      userInvitationService: service,
+      authorizationService,
+    })
+    context.after(() => app.close())
+
+    const response = await app.inject({
+      method: 'POST',
+      url: endpoint,
+      headers: {
+        cookie: await createAdminCookie(app),
+      },
+      payload: validPayload,
+    })
+
+    assert.equal(response.statusCode, 403)
+    assert.deepEqual(response.json(), {
+      message: 'Forbidden',
+    })
+    assert.equal(service.receivedInput, undefined)
+    assert.deepEqual(
+      authorizationService.receivedChecks,
+      [{
+        userId: actorUserId,
+        permission: 'student.create',
+      }],
+    )
+  },
+)
+
+test(
   'POST invitation trả 422 và field classId khi lớp không tồn tại',
   async (context) => {
     const service = new FakeUserInvitationService(
@@ -458,6 +533,34 @@ test(
         message: 'Academic class not found or inactive',
       },
       requestId: 'req-1',
+    })
+  },
+)
+
+test(
+  'POST invitation che giấu chi tiết khi lớp nằm ngoài scope',
+  async (context) => {
+    const service = new FakeUserInvitationService(
+      new AcademicClassOutsideScopeError(),
+    )
+    const app = buildApp({
+      auditLogService,
+      userInvitationService: service,
+    })
+    context.after(() => app.close())
+
+    const response = await app.inject({
+      method: 'POST',
+      url: endpoint,
+      headers: {
+        cookie: await createAdminCookie(app),
+      },
+      payload: validPayload,
+    })
+
+    assert.equal(response.statusCode, 403)
+    assert.deepEqual(response.json(), {
+      message: 'Forbidden',
     })
   },
 )
@@ -533,6 +636,79 @@ test(
         ipAddress: '127.0.0.1',
         userAgent: 'lightMyRequest',
       },
+    })
+  },
+)
+
+test(
+  'POST resend yêu cầu quyền quản lý lời mời',
+  async (context) => {
+    const service = new FakeUserInvitationService()
+    const authorizationService =
+      new FakeAuthorizationService(false)
+    const app = buildApp({
+      auditLogService,
+      userInvitationService: service,
+      authorizationService,
+    })
+    context.after(() => app.close())
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/users/${invitedUserId}/invitations/resend`,
+      headers: {
+        cookie: await createAdminCookie(app),
+      },
+    })
+
+    assert.equal(response.statusCode, 403)
+    assert.deepEqual(response.json(), {
+      message: 'Forbidden',
+    })
+    assert.equal(
+      service.receivedResendInput,
+      undefined,
+    )
+    assert.deepEqual(
+      authorizationService.receivedChecks,
+      [
+        {
+          userId: actorUserId,
+          permission: 'student.create',
+        },
+        {
+          userId: actorUserId,
+          permission: 'user.manage',
+        },
+      ],
+    )
+  },
+)
+
+test(
+  'POST resend trả 403 khi tài khoản đích ngoài phạm vi',
+  async (context) => {
+    const service = new FakeUserInvitationService(
+      undefined,
+      new InvitationTargetForbiddenError(),
+    )
+    const app = buildApp({
+      auditLogService,
+      userInvitationService: service,
+    })
+    context.after(() => app.close())
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/users/${invitedUserId}/invitations/resend`,
+      headers: {
+        cookie: await createAdminCookie(app),
+      },
+    })
+
+    assert.equal(response.statusCode, 403)
+    assert.deepEqual(response.json(), {
+      message: 'Forbidden',
     })
   },
 )

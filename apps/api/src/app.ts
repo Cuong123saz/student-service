@@ -30,6 +30,23 @@ import {
 import {
   adminAuthRoutes,
 } from './modules/auth/auth.routes.js'
+import {
+  DrizzleAuthorizationRepository,
+} from './modules/auth/authorization.repository.js'
+import {
+  AuthorizationService,
+  type AuthorizationUseCase,
+} from './modules/auth/authorization.service.js'
+import {
+  DrizzleRolePermissionRepository,
+} from './modules/auth/role-permission.repository.js'
+import {
+  rolePermissionRoutes,
+} from './modules/auth/role-permission.routes.js'
+import {
+  RolePermissionService,
+  type RolePermissionUseCase,
+} from './modules/auth/role-permission.service.js'
 import type {
   AuthenticationUseCase,
 } from './modules/auth/auth.service.js'
@@ -42,6 +59,26 @@ import {
 import {
   DrizzleStudentProfileRepository,
 } from './modules/organizations/student-profile.repository.js'
+import {
+  DrizzleAcademicCatalogRepository,
+} from './modules/organizations/academic-catalog.repository.js'
+import {
+  academicCatalogRoutes,
+} from './modules/organizations/academic-catalog.routes.js'
+import {
+  AcademicCatalogService,
+  type AcademicCatalogUseCase,
+} from './modules/organizations/academic-catalog.service.js'
+import {
+  DrizzleOrganizationManagementRepository,
+} from './modules/organizations/organization-management.repository.js'
+import {
+  organizationManagementRoutes,
+} from './modules/organizations/organization-management.routes.js'
+import {
+  OrganizationManagementService,
+  type OrganizationManagementUseCase,
+} from './modules/organizations/organization-management.service.js'
 import {
   studentProfileRoutes,
 } from './modules/organizations/student-profile.routes.js'
@@ -66,6 +103,16 @@ import {
   adminUserRoutes,
 } from './modules/users/admin-user.routes.js'
 import {
+  DrizzleAdminStudentRepository,
+} from './modules/users/admin-student.repository.js'
+import {
+  adminStudentRoutes,
+} from './modules/users/admin-student.routes.js'
+import {
+  AdminStudentService,
+  type AdminStudentUseCase,
+} from './modules/users/admin-student.service.js'
+import {
   SmtpInvitationMailer,
 } from './modules/users/smtp-invitation-mailer.js'
 import {
@@ -75,6 +122,16 @@ import {
   UserInvitationService,
   type UserInvitationUseCase,
 } from './modules/users/user-invitation.service.js'
+import {
+  DrizzleUserAccessRepository,
+} from './modules/users/user-access.repository.js'
+import {
+  userAccessRoutes,
+} from './modules/users/user-access.routes.js'
+import {
+  UserAccessService,
+  type UserAccessUseCase,
+} from './modules/users/user-access.service.js'
 
 export interface BuildAppOptions {
   userInvitationService?:
@@ -90,6 +147,22 @@ export interface BuildAppOptions {
     StudentProfileUseCase
 
   auditLogService?: AuditLogUseCase
+
+  authorizationService?:
+    AuthorizationUseCase
+
+  adminStudentService?:
+    AdminStudentUseCase
+
+  academicCatalogService?:
+    AcademicCatalogUseCase
+
+  organizationManagementService?:
+    OrganizationManagementUseCase
+
+  userAccessService?: UserAccessUseCase
+
+  rolePermissionService?: RolePermissionUseCase
 }
 
 function createDefaultUserInvitationService():
@@ -139,6 +212,42 @@ export function buildApp(
     options.auditLogService
     ?? new AuditLogService(
       new DrizzleAuditLogRepository(),
+    )
+
+  const authorizationService =
+    options.authorizationService
+    ?? new AuthorizationService(
+      new DrizzleAuthorizationRepository(),
+    )
+
+  const adminStudentService =
+    options.adminStudentService
+    ?? new AdminStudentService(
+      new DrizzleAdminStudentRepository(),
+    )
+
+  const academicCatalogService =
+    options.academicCatalogService
+    ?? new AcademicCatalogService(
+      new DrizzleAcademicCatalogRepository(),
+    )
+
+  const organizationManagementService =
+    options.organizationManagementService
+    ?? new OrganizationManagementService(
+      new DrizzleOrganizationManagementRepository(),
+    )
+
+  const userAccessService =
+    options.userAccessService
+    ?? new UserAccessService(
+      new DrizzleUserAccessRepository(),
+    )
+
+  const rolePermissionService =
+    options.rolePermissionService
+    ?? new RolePermissionService(
+      new DrizzleRolePermissionRepository(),
     )
 
   app.decorateRequest(
@@ -221,6 +330,7 @@ export function buildApp(
       prefix: ADMIN_API_PREFIX,
       invitationService,
       auditRecorder: auditLogService,
+      authorizationService,
     },
   )
 
@@ -229,6 +339,53 @@ export function buildApp(
     {
       prefix: ADMIN_API_PREFIX,
       auditLogService,
+      authorizationService,
+    },
+  )
+
+  app.register(
+    adminStudentRoutes,
+    {
+      prefix: ADMIN_API_PREFIX,
+      studentService:
+        adminStudentService,
+      authorizationService,
+    },
+  )
+
+  app.register(
+    academicCatalogRoutes,
+    {
+      prefix: ADMIN_API_PREFIX,
+      academicCatalogService,
+      authorizationService,
+    },
+  )
+
+  app.register(
+    organizationManagementRoutes,
+    {
+      prefix: ADMIN_API_PREFIX,
+      organizationManagementService,
+      authorizationService,
+    },
+  )
+
+  app.register(
+    userAccessRoutes,
+    {
+      prefix: ADMIN_API_PREFIX,
+      userAccessService,
+      authorizationService,
+    },
+  )
+
+  app.register(
+    rolePermissionRoutes,
+    {
+      prefix: ADMIN_API_PREFIX,
+      rolePermissionService,
+      authorizationService,
     },
   )
 

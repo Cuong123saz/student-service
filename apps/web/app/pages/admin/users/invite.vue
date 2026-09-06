@@ -5,6 +5,12 @@ definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 
 const { user } = useAdminAuth()
 const { createInvitation, resendInvitation } = useUserInvitation()
+const {
+  faculties,
+  isLoading: isCatalogLoading,
+  errorMessage: catalogErrorMessage,
+  load: loadCatalog,
+} = useAcademicCatalog()
 const form = reactive({ fullName: '', username: '', email: '', roles: [] as SystemRoleCode[], studentCode: '', classId: '' })
 const errors = reactive({ fullName: '', username: '', email: '', roles: '', studentCode: '', classId: '' })
 const isSubmitting = ref(false)
@@ -31,6 +37,10 @@ const availableRoles = computed(() => (
 ))
 const isStudent = computed(() => form.roles.includes('STUDENT'))
 
+onMounted(() => {
+  void loadCatalog()
+})
+
 function validate() {
   errors.fullName = form.fullName.trim().length < 2 ? 'Vui lòng nhập họ và tên.' : ''
   errors.username = !/^[a-z0-9_.]+$/.test(form.username.trim())
@@ -43,7 +53,7 @@ function validate() {
   errors.studentCode = isStudent.value && !form.studentCode.trim()
     ? 'Vui lòng nhập mã sinh viên.' : ''
   errors.classId = isStudent.value && !form.classId.trim()
-    ? 'Vui lòng nhập mã lớp.' : ''
+    ? 'Vui lòng chọn lớp học vụ.' : ''
   return !Object.values(errors).some(Boolean)
 }
 
@@ -171,17 +181,47 @@ async function handleResend() {
           :error="errors.studentCode"
           @update:model-value="errors.studentCode = ''; successMessage = ''; requestError = ''"
         />
-        <BaseInput
+        <BaseAlert
+          v-if="catalogErrorMessage"
+          variant="warning"
+          title="Chưa tải được danh mục lớp"
+        >
+          {{ catalogErrorMessage }}
+          <button
+            type="button"
+            class="invite-catalog-retry"
+            :disabled="isCatalogLoading"
+            @click="loadCatalog"
+          >
+            {{ isCatalogLoading ? 'Đang thử lại…' : 'Thử lại' }}
+          </button>
+        </BaseAlert>
+        <BaseSelect
           id="invite-class-id"
           v-model="form.classId"
-          label="Mã lớp học vụ"
-          placeholder="UUID lớp do hệ thống cung cấp"
-          hint="Tạm thời nhập mã định danh lớp đã được seed; màn hình chọn lớp sẽ bổ sung sau."
+          label="Lớp học vụ"
           required
-          :disabled="isSubmitting"
+          :disabled="isSubmitting || isCatalogLoading || Boolean(catalogErrorMessage)"
           :error="errors.classId"
           @update:model-value="errors.classId = ''; successMessage = ''; requestError = ''"
-        />
+        >
+          <option value="" disabled>
+            {{ isCatalogLoading ? 'Đang tải danh mục…' : 'Chọn lớp học vụ' }}
+          </option>
+          <optgroup
+            v-for="faculty in faculties"
+            :key="faculty.id"
+            :label="`${faculty.code} · ${faculty.name}`"
+          >
+            <option
+              v-for="academicClass in faculty.classes"
+              :key="academicClass.id"
+              :value="academicClass.id"
+            >
+              {{ academicClass.code }} · {{ academicClass.name }}
+            </option>
+          </optgroup>
+        </BaseSelect>
       </template>
       <BaseInput
         id="invite-username"
@@ -246,6 +286,8 @@ async function handleResend() {
 .invite-form__actions { display: flex; gap: 10px; padding-top: 4px; }
 .invite-resend { display: block; margin-top: 9px; padding: 0; border: 0; color: var(--color-primary); background: transparent; font-size: 13px; font-weight: 800; cursor: pointer; }
 .invite-resend:disabled { opacity: .6; cursor: wait; }
+.invite-catalog-retry { display: block; margin-top: 8px; padding: 0; border: 0; color: currentcolor; background: transparent; cursor: pointer; font-size: 13px; font-weight: 800; text-decoration: underline; }
+.invite-catalog-retry:disabled { cursor: wait; opacity: .6; }
 @media (max-width: 520px) {
   .invite-form { padding: 21px 18px; }
   .invite-form__actions { flex-direction: column; }

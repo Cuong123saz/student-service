@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  and,
   eq,
   sql,
 } from 'drizzle-orm'
@@ -20,6 +21,12 @@ import {
   users,
 } from '../auth/auth.schema.js'
 import {
+  authorizationScopes,
+  permissions,
+  rolePermissions,
+  userRoleScopes,
+} from '../auth/authorization.schema.js'
+import {
   auditLogs,
 } from '../audit/audit.schema.js'
 import {
@@ -34,9 +41,11 @@ import {
 } from './user-account.schema.js'
 
 import {
+  AcademicClassOutsideScopeError,
   AcademicClassNotFoundError,
   DrizzleUserInvitationRepository,
   InvitationConflictError,
+  InvitationTargetForbiddenError,
 } from './user-invitation.repository.js'
 
 const databaseUrl =
@@ -58,6 +67,10 @@ const invitedAt =
 beforeEach(async () => {
   await db.execute(sql`TRUNCATE TABLE ${auditLogs}`)
   await db.delete(userActionTokens)
+  await db.delete(userRoleScopes)
+  await db.delete(authorizationScopes)
+  await db.delete(rolePermissions)
+  await db.delete(permissions)
   await db.delete(studentProfiles)
   await db.delete(academicAdvisorAssignments)
   await db.delete(academicClasses)
@@ -114,12 +127,15 @@ async function createStudentRole() {
     })
 }
 
-async function createAcademicClass() {
+async function createAcademicClass(
+  facultyCode = 'QLGD',
+  classCode = 'QLGD-K15A',
+) {
   const faculty = (await db
     .insert(faculties)
     .values({
-      code: 'QLGD',
-      name: 'Khoa Quản lý giáo dục',
+      code: facultyCode,
+      name: `Khoa ${facultyCode}`,
       status: 'ACTIVE',
     })
     .returning({ id: faculties.id }))[0]
@@ -129,14 +145,76 @@ async function createAcademicClass() {
     .insert(academicClasses)
     .values({
       facultyId: faculty.id,
-      code: 'QLGD-K15A',
-      name: 'Quản lý giáo dục K15A',
+      code: classCode,
+      name: `Lớp ${classCode}`,
       status: 'ACTIVE',
     })
-    .returning({ id: academicClasses.id }))[0]
+    .returning({
+      id: academicClasses.id,
+      facultyId: academicClasses.facultyId,
+    }))[0]
   assert.ok(academicClass)
 
   return academicClass
+}
+
+type InvitationScope =
+  | { scopeType: 'GLOBAL' }
+  | {
+      scopeType: 'FACULTY'
+      facultyId: string
+    }
+  | {
+      scopeType: 'CLASS'
+      classId: string
+    }
+
+async function grantStudentCreateScope(
+  actorUserId: string,
+  scopeValues: InvitationScope,
+) {
+  const [actorRole] = await db
+    .insert(roles)
+    .values({
+      code: 'ADMIN',
+      name: 'Quản trị nghiệp vụ',
+      isSystem: true,
+    })
+    .returning({ id: roles.id })
+  assert.ok(actorRole)
+
+  const [permission] = await db
+    .insert(permissions)
+    .values({
+      code: 'student.create',
+      name: 'Tạo sinh viên',
+      isSystem: true,
+    })
+    .returning({ id: permissions.id })
+  assert.ok(permission)
+
+  await db.insert(userRoles).values({
+    userId: actorUserId,
+    roleId: actorRole.id,
+  })
+  await db.insert(rolePermissions).values({
+    roleId: actorRole.id,
+    permissionId: permission.id,
+  })
+
+  const [scope] = await db
+    .insert(authorizationScopes)
+    .values(scopeValues)
+    .returning({ id: authorizationScopes.id })
+  assert.ok(scope)
+
+  await db.insert(userRoleScopes).values({
+    userId: actorUserId,
+    roleId: actorRole.id,
+    scopeId: scope.id,
+  })
+
+  return actorRole.id
 }
 
 test(
@@ -148,6 +226,10 @@ test(
       await createActor()
     const academicClass =
       await createAcademicClass()
+    await grantStudentCreateScope(
+      actor.id,
+      { scopeType: 'GLOBAL' },
+    )
 
     const repository =
       new DrizzleUserInvitationRepository()
@@ -359,6 +441,10 @@ test(
       await createActor()
     const academicClass =
       await createAcademicClass()
+    await grantStudentCreateScope(
+      actor.id,
+      { scopeType: 'GLOBAL' },
+    )
 
     const repository =
       new DrizzleUserInvitationRepository()
@@ -458,12 +544,14 @@ test(
 
     const roleAssignments =
       await db
-        .select()
+        .select({
+          userId: userRoles.userId,
+        })
         .from(userRoles)
 
     assert.deepEqual(
       roleAssignments,
-      [],
+      [{ userId: actor.id }],
     )
   },
 )
@@ -473,6 +561,10 @@ test(
   async () => {
     await createStudentRole()
     const actor = await createActor()
+    await grantStudentCreateScope(
+      actor.id,
+      { scopeType: 'GLOBAL' },
+    )
     const repository =
       new DrizzleUserInvitationRepository()
 
@@ -510,11 +602,75 @@ test(
 )
 
 test(
+  'từ chối tạo sinh viên ở lớp nằm ngoài scope của actor',
+  async () => {
+    await createStudentRole()
+    const actor = await createActor()
+    const allowedClass = await createAcademicClass(
+      'FACULTY-ALLOWED',
+      'CLASS-ALLOWED',
+    )
+    const outsideClass = await createAcademicClass(
+      'FACULTY-OUTSIDE',
+      'CLASS-OUTSIDE',
+    )
+    await grantStudentCreateScope(
+      actor.id,
+      {
+        scopeType: 'CLASS',
+        classId: allowedClass.id,
+      },
+    )
+
+    const repository =
+      new DrizzleUserInvitationRepository()
+
+    await assert.rejects(
+      () => repository.createInvitedUserWithToken({
+        username: 'student.outside-scope',
+        email: 'student.outside-scope@example.edu.vn',
+        fullName: 'Sinh viên ngoài phạm vi',
+        targetRoles: ['STUDENT'],
+        studentCode: 'SV-OUTSIDE-SCOPE',
+        classId: outsideClass.id,
+        invitedAt,
+        tokenHash: '1'.repeat(64),
+        tokenExpiresAt: new Date(
+          invitedAt.getTime() + 72 * 60 * 60 * 1000,
+        ),
+        createdByUserId: actor.id,
+        actorUsername: 'system.admin',
+        auditContext: {
+          requestId: 'req-outside-scope',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+        },
+      }),
+      AcademicClassOutsideScopeError,
+    )
+
+    const partialUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(
+        users.username,
+        'student.outside-scope',
+      ))
+
+    assert.deepEqual(partialUsers, [])
+  },
+)
+
+test(
   'từ chối studentCode trùng và chỉ rõ field xung đột',
   async () => {
     await createStudentRole()
     const actor = await createActor()
     const academicClass = await createAcademicClass()
+    await grantStudentCreateScope(
+      actor.id,
+      { scopeType: 'GLOBAL' },
+    )
     const repository =
       new DrizzleUserInvitationRepository()
     const tokenExpiresAt = new Date(
@@ -568,11 +724,217 @@ test(
 )
 
 test(
+  'gửi lại lời mời sinh viên khi actor còn quyền và scope',
+  async () => {
+    await createStudentRole()
+    const actor = await createActor()
+    const academicClass = await createAcademicClass()
+    await grantStudentCreateScope(
+      actor.id,
+      { scopeType: 'GLOBAL' },
+    )
+    const repository =
+      new DrizzleUserInvitationRepository()
+    const originalTokenHash = '5'.repeat(64)
+    const replacementTokenHash = '6'.repeat(64)
+
+    const invitation = await repository
+      .createInvitedUserWithToken({
+        username: 'student.resend.allowed',
+        email: 'student.resend.allowed@example.edu.vn',
+        fullName: 'Sinh viên được gửi lại',
+        targetRoles: ['STUDENT'],
+        studentCode: 'SV-RESEND-ALLOWED',
+        classId: academicClass.id,
+        invitedAt,
+        tokenHash: originalTokenHash,
+        tokenExpiresAt: new Date(
+          invitedAt.getTime() + 72 * 60 * 60 * 1000,
+        ),
+        createdByUserId: actor.id,
+        actorUsername: 'system.admin',
+        auditContext: {
+          requestId: 'req-create-resend-allowed',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+        },
+      })
+
+    const resendAt = new Date(
+      invitedAt.getTime() + 60 * 60 * 1000,
+    )
+    const result = await repository
+      .replaceActivationToken({
+        userId: invitation.userId,
+        tokenHash: replacementTokenHash,
+        tokenExpiresAt: new Date(
+          resendAt.getTime() + 72 * 60 * 60 * 1000,
+        ),
+        createdAt: resendAt,
+        createdByUserId: actor.id,
+        actorUsername: 'system.admin',
+        auditContext: {
+          requestId: 'req-resend-allowed',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+        },
+      })
+
+    assert.deepEqual(result, {
+      userId: invitation.userId,
+      email: 'student.resend.allowed@example.edu.vn',
+      fullName: 'Sinh viên được gửi lại',
+    })
+
+    const tokens = await db
+      .select({
+        tokenHash: userActionTokens.tokenHash,
+        revokedAt: userActionTokens.revokedAt,
+      })
+      .from(userActionTokens)
+      .where(eq(
+        userActionTokens.userId,
+        invitation.userId,
+      ))
+
+    assert.equal(
+      tokens.find(
+        token => token.tokenHash === originalTokenHash,
+      )?.revokedAt?.toISOString(),
+      resendAt.toISOString(),
+    )
+    assert.equal(
+      tokens.find(
+        token => token.tokenHash === replacementTokenHash,
+      )?.revokedAt,
+      null,
+    )
+  },
+)
+
+test(
+  'gửi lại ngoài scope rollback việc revoke và tạo token mới',
+  async () => {
+    await createStudentRole()
+    const actor = await createActor()
+    const targetClass = await createAcademicClass(
+      'FACULTY-TARGET',
+      'CLASS-TARGET',
+    )
+    const actorRoleId = await grantStudentCreateScope(
+      actor.id,
+      { scopeType: 'GLOBAL' },
+    )
+    const repository =
+      new DrizzleUserInvitationRepository()
+    const originalTokenHash = '7'.repeat(64)
+    const rejectedTokenHash = '8'.repeat(64)
+
+    const invitation = await repository
+      .createInvitedUserWithToken({
+        username: 'student.resend.outside',
+        email: 'student.resend.outside@example.edu.vn',
+        fullName: 'Sinh viên ngoài phạm vi gửi lại',
+        targetRoles: ['STUDENT'],
+        studentCode: 'SV-RESEND-OUTSIDE',
+        classId: targetClass.id,
+        invitedAt,
+        tokenHash: originalTokenHash,
+        tokenExpiresAt: new Date(
+          invitedAt.getTime() + 72 * 60 * 60 * 1000,
+        ),
+        createdByUserId: actor.id,
+        actorUsername: 'system.admin',
+        auditContext: {
+          requestId: 'req-create-resend-outside',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+        },
+      })
+
+    await db.delete(userRoleScopes).where(
+      and(
+        eq(userRoleScopes.userId, actor.id),
+        eq(userRoleScopes.roleId, actorRoleId),
+      ),
+    )
+    await db.delete(authorizationScopes)
+
+    const otherClass = await createAcademicClass(
+      'FACULTY-OTHER',
+      'CLASS-OTHER',
+    )
+    const [otherScope] = await db
+      .insert(authorizationScopes)
+      .values({
+        scopeType: 'CLASS',
+        classId: otherClass.id,
+      })
+      .returning({ id: authorizationScopes.id })
+    assert.ok(otherScope)
+    await db.insert(userRoleScopes).values({
+      userId: actor.id,
+      roleId: actorRoleId,
+      scopeId: otherScope.id,
+    })
+
+    const resendAt = new Date(
+      invitedAt.getTime() + 60 * 60 * 1000,
+    )
+
+    await assert.rejects(
+      () => repository.replaceActivationToken({
+        userId: invitation.userId,
+        tokenHash: rejectedTokenHash,
+        tokenExpiresAt: new Date(
+          resendAt.getTime() + 72 * 60 * 60 * 1000,
+        ),
+        createdAt: resendAt,
+        createdByUserId: actor.id,
+        actorUsername: 'system.admin',
+        auditContext: {
+          requestId: 'req-resend-outside',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+        },
+      }),
+      InvitationTargetForbiddenError,
+    )
+
+    const tokens = await db
+      .select({
+        tokenHash: userActionTokens.tokenHash,
+        revokedAt: userActionTokens.revokedAt,
+      })
+      .from(userActionTokens)
+      .where(eq(
+        userActionTokens.userId,
+        invitation.userId,
+      ))
+
+    assert.deepEqual(tokens, [{
+      tokenHash: originalTokenHash,
+      revokedAt: null,
+    }])
+    assert.equal(
+      tokens.some(
+        token => token.tokenHash === rejectedTokenHash,
+      ),
+      false,
+    )
+  },
+)
+
+test(
   'rollback toàn bộ khi audit bắt buộc không ghi được',
   async () => {
     await createStudentRole()
     const actor = await createActor()
     const academicClass = await createAcademicClass()
+    await grantStudentCreateScope(
+      actor.id,
+      { scopeType: 'GLOBAL' },
+    )
     const repository =
       new DrizzleUserInvitationRepository()
 

@@ -12,6 +12,10 @@ import {
   users,
 } from './auth.schema.js'
 import {
+  authorizationScopes,
+  userRoleScopes,
+} from './authorization.schema.js'
+import {
   Argon2PasswordHasher,
 } from './password-hasher.js'
 
@@ -76,6 +80,27 @@ async function bootstrapSystemAdmin() {
   if (!systemAdminRole) {
     throw new Error(
       'SYSTEM_ADMIN role does not exist. Run db:seed first.',
+    )
+  }
+
+  const globalScopeRows = await db
+    .select({
+      id: authorizationScopes.id,
+    })
+    .from(authorizationScopes)
+    .where(
+      eq(
+        authorizationScopes.scopeType,
+        'GLOBAL',
+      ),
+    )
+    .limit(1)
+
+  const globalScope = globalScopeRows[0]
+
+  if (!globalScope) {
+    throw new Error(
+      'GLOBAL authorization scope does not exist. Run database migrations first.',
     )
   }
 
@@ -155,6 +180,14 @@ async function bootstrapSystemAdmin() {
         .values({
           userId: insertedUser.id,
           roleId: systemAdminRole.id,
+        })
+
+      await transaction
+        .insert(userRoleScopes)
+        .values({
+          userId: insertedUser.id,
+          roleId: systemAdminRole.id,
+          scopeId: globalScope.id,
         })
     },
   )

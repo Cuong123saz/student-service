@@ -31,6 +31,13 @@ export default defineNuxtConfig({
     '~/assets/css/main.css',
   ],
 
+  // Admin auth is resolved from an HttpOnly cookie in client middleware.
+  // Keeping this area client-rendered avoids rendering the protected layout
+  // on the server before the session check redirects an expired visitor.
+  routeRules: {
+    '/admin/**': { ssr: false },
+  },
+
   runtimeConfig: {
     public: {
       apiBase: 'http://localhost:3000',

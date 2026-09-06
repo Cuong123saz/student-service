@@ -10,6 +10,9 @@ import {
   JWT_ISSUER,
 } from '../auth/auth.constants.js'
 import type {
+  AuthorizationUseCase,
+} from '../auth/authorization.service.js'
+import type {
   CreateUserInvitationInput,
   UserInvitationUseCase,
 } from '../users/user-invitation.service.js'
@@ -25,6 +28,13 @@ const actorUserId =
   '2f230120-c001-4e71-a17d-f18541e64d87'
 const invitedUserId =
   '85ca4291-c7bd-4370-a117-976bf237261c'
+
+const authorizationService:
+AuthorizationUseCase = {
+  async hasPermission() {
+    return true
+  },
+}
 
 class FakeInvitationService
 implements UserInvitationUseCase {
@@ -92,6 +102,7 @@ test(
       userInvitationService:
         new FakeInvitationService(),
       auditLogService,
+      authorizationService,
     })
     context.after(() => app.close())
 

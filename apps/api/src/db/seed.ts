@@ -8,6 +8,17 @@ import { services } from './schema.js'
 import { env } from '../config/env.js'
 import { SYSTEM_ROLES } from '../modules/auth/auth.constants.js'
 import {
+  SYSTEM_PERMISSIONS,
+  SYSTEM_ROLE_PERMISSIONS,
+  type SystemPermissionCode,
+} from '../modules/auth/authorization.constants.js'
+import {
+  authorizationScopes,
+  permissions,
+  rolePermissions,
+  userRoleScopes,
+} from '../modules/auth/authorization.schema.js'
+import {
   roles,
   userRoles,
   users,
@@ -16,6 +27,7 @@ import {
   academicAdvisorAssignments,
   academicClasses,
   faculties,
+  organizationalUnits,
 } from '../modules/organizations/organization.schema.js'
 
 const DEMO_FACULTY_ID =
@@ -85,6 +97,169 @@ async function seed() {
           },
         })
     }
+
+    for (
+      const permission
+      of SYSTEM_PERMISSIONS
+    ) {
+      await transaction
+        .insert(permissions)
+        .values({
+          ...permission,
+          isSystem: true,
+        })
+        .onConflictDoUpdate({
+          target: permissions.code,
+          set: {
+            name: permission.name,
+            description:
+              permission.description,
+            isSystem: true,
+          },
+        })
+    }
+
+    const rolePermissionEntries =
+      Object.entries(
+        SYSTEM_ROLE_PERMISSIONS,
+      ) as [
+        keyof typeof SYSTEM_ROLE_PERMISSIONS,
+        readonly SystemPermissionCode[],
+      ][]
+
+    for (
+      const [roleCode, permissionCodes]
+      of rolePermissionEntries
+    ) {
+      const roleRow = (await transaction
+        .select({ id: roles.id })
+        .from(roles)
+        .where(eq(roles.code, roleCode))
+        .limit(1))[0]
+
+      if (!roleRow) {
+        throw new Error(
+          `Role was not seeded: ${roleCode}`,
+        )
+      }
+
+      for (
+        const permissionCode
+        of permissionCodes
+      ) {
+        const permissionRow =
+          (await transaction
+            .select({
+              id: permissions.id,
+            })
+            .from(permissions)
+            .where(
+              eq(
+                permissions.code,
+                permissionCode,
+              ),
+            )
+            .limit(1))[0]
+
+        if (!permissionRow) {
+          throw new Error(
+            `Permission was not seeded: ${permissionCode}`,
+          )
+        }
+
+        await transaction
+          .insert(rolePermissions)
+          .values({
+            roleId: roleRow.id,
+            permissionId:
+              permissionRow.id,
+          })
+          // Seed only adds safe defaults. It must not silently revoke
+          // grants configured after the initial installation.
+          .onConflictDoNothing()
+      }
+    }
+
+    await transaction
+      .insert(authorizationScopes)
+      .values({ scopeType: 'GLOBAL' })
+      .onConflictDoNothing()
+
+    const [globalScope] = await transaction
+      .select({ id: authorizationScopes.id })
+      .from(authorizationScopes)
+      .where(
+        eq(
+          authorizationScopes.scopeType,
+          'GLOBAL',
+        ),
+      )
+      .limit(1)
+
+    if (!globalScope) {
+      throw new Error(
+        'GLOBAL authorization scope was not seeded',
+      )
+    }
+
+    const [systemAdminRole] =
+      await transaction
+        .select({ id: roles.id })
+        .from(roles)
+        .where(
+          eq(roles.code, 'SYSTEM_ADMIN'),
+        )
+        .limit(1)
+
+    if (!systemAdminRole) {
+      throw new Error(
+        'SYSTEM_ADMIN role was not seeded',
+      )
+    }
+
+    const systemAdminAssignments =
+      await transaction
+        .select({ userId: userRoles.userId })
+        .from(userRoles)
+        .where(
+          eq(
+            userRoles.roleId,
+            systemAdminRole.id,
+          ),
+        )
+
+    if (systemAdminAssignments.length > 0) {
+      await transaction
+        .insert(userRoleScopes)
+        .values(
+          systemAdminAssignments.map(
+            (assignment) => ({
+              userId: assignment.userId,
+              roleId: systemAdminRole.id,
+              scopeId: globalScope.id,
+            }),
+          ),
+        )
+        .onConflictDoNothing()
+    }
+
+    await transaction
+      .insert(organizationalUnits)
+      .values([
+        {
+          code: 'DAO_TAO',
+          name: 'Phòng Đào tạo',
+        },
+        {
+          code: 'CTSV',
+          name: 'Phòng Công tác sinh viên',
+        },
+        {
+          code: 'KH_TAI_CHINH',
+          name: 'Phòng Kế hoạch và Tài chính',
+        },
+      ])
+      .onConflictDoNothing()
 
     await transaction
       .insert(faculties)
@@ -178,6 +353,46 @@ async function seed() {
       .values({
         userId: advisorRow.id,
         roleId: advisorRoleRow.id,
+      })
+      .onConflictDoNothing()
+
+    await transaction
+      .insert(authorizationScopes)
+      .values({
+        scopeType: 'CLASS',
+        classId: classRow.id,
+      })
+      .onConflictDoNothing()
+
+    const [classScope] = await transaction
+      .select({ id: authorizationScopes.id })
+      .from(authorizationScopes)
+      .where(
+        and(
+          eq(
+            authorizationScopes.scopeType,
+            'CLASS',
+          ),
+          eq(
+            authorizationScopes.classId,
+            classRow.id,
+          ),
+        ),
+      )
+      .limit(1)
+
+    if (!classScope) {
+      throw new Error(
+        'Demo class scope was not seeded',
+      )
+    }
+
+    await transaction
+      .insert(userRoleScopes)
+      .values({
+        userId: advisorRow.id,
+        roleId: advisorRoleRow.id,
+        scopeId: classScope.id,
       })
       .onConflictDoNothing()
 
