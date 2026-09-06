@@ -1,69 +1,135 @@
-# Student Service
+# Student Service Portal
 
-Cổng dịch vụ sinh viên được xây dựng dưới dạng monorepo TypeScript. Hệ thống hướng tới việc cho phép sinh viên tra cứu và thực hiện thủ tục trực tuyến; cán bộ, giảng viên cố vấn và người ký xử lý hồ sơ theo quyền được phân công.
+Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, được xây dựng dưới dạng monorepo TypeScript. Hệ thống hướng tới một nơi thống nhất để sinh viên tra cứu dịch vụ, thực hiện thủ tục, quản lý hồ sơ học vụ, điểm rèn luyện, hoạt động ngoại khóa và nghiên cứu khoa học.
 
-> Trạng thái hiện tại: triển khai và kiểm thử trên môi trường local, chưa triển khai production.
+> Trạng thái hiện tại: Sprint 1 và Sprint 2 đã hoàn thành trên môi trường local. Dự án chưa triển khai production.
 
-## Phạm vi hiện tại
+## Trạng thái dự án
 
-### Sprint 1 — Service catalog
+### Sprint 1 — Danh mục dịch vụ
 
-- Danh sách dịch vụ sinh viên.
+- Hiển thị danh sách dịch vụ sinh viên.
 - Lọc dịch vụ theo trạng thái `ACTIVE` hoặc `INACTIVE`.
 - Xem chi tiết dịch vụ.
-- Nuxt hiển thị trạng thái loading, empty và error.
-- Integration test cho các API dịch vụ bằng `Fastify.inject()`.
+- Nuxt xử lý loading, empty và error state.
+- Có integration test cho API dịch vụ bằng `Fastify.inject()`.
 
-### Sprint 2 — Identity, tổ chức học vụ và hồ sơ sinh viên
+### Sprint 2 — Identity và hồ sơ sinh viên
 
-- Xác thực dùng chung, tách cookie/session và audience cho cổng quản trị và cổng người dùng.
-- Đăng nhập, đăng xuất, lấy session hiện tại và bắt buộc admin đổi mật khẩu tạm.
-- Phân quyền route theo role; backend không tin quyền do frontend tự khai báo.
-- Admin tạo tài khoản theo role. Sinh viên bắt buộc có `studentCode` và `classId` hợp lệ.
-- Gửi email kích hoạt, đặt mật khẩu lần đầu và gửi lại lời mời khi email thất bại.
-- Token một lần chỉ lưu SHA-256 hash, có thời hạn, revoke/consume và chống hai token cùng sống.
-- Transaction tạo đồng thời user, role, hồ sơ sinh viên, token và audit bắt buộc.
-- Khoa, lớp, cố vấn học tập và phân công cố vấn có hiệu lực theo thời gian.
-- Trang “Hồ sơ của tôi” hiển thị hồ sơ học vụ và trạng thái cố vấn được/chưa được phân công.
-- Audit log bất biến có `metadata` và snapshot `before`/`after` nullable.
-- Global error handler, security headers và rate limit cho các route nhạy cảm.
+- Một hệ thống danh tính dùng chung, nhưng tách session và audience giữa cổng quản trị và cổng người dùng.
+- Đăng nhập, đăng xuất và lấy thông tin session hiện tại cho admin và sinh viên.
+- Bắt buộc admin đổi mật khẩu tạm ở lần đăng nhập tiếp theo.
+- Admin tạo tài khoản theo role; tài khoản sinh viên bắt buộc có mã sinh viên và lớp hợp lệ.
+- Gửi email kích hoạt, đặt mật khẩu lần đầu và gửi lại lời mời.
+- Token kích hoạt dùng một lần, có thời hạn và chỉ lưu SHA-256 hash trong database.
+- Transaction chống hai request cùng kích hoạt một tài khoản.
+- Hồ sơ sinh viên, khoa, lớp và phân công cố vấn theo thời gian hiệu lực.
+- API hồ sơ cá nhân và xác định cố vấn hiện hành.
+- Bảo vệ route theo role với phản hồi `401` và `403`.
+- Audit log cho tạo tài khoản, gán role và các thay đổi dữ liệu quan trọng.
+- Helmet, CORS theo môi trường, rate limit cho route nhạy cảm và global error handler.
+- Giao diện public, đăng nhập, kích hoạt tài khoản, portal sinh viên, hồ sơ cá nhân và trang quản trị cơ bản.
 
-Sprint 2 được triển khai và kiểm thử cho môi trường local. Màn hình quản lý đầy đủ khoa/lớp,
-import Excel và giao diện tra cứu audit được để sang Sprint 3 trở đi.
+### Sprint 3 — Đang thực hiện
+
+- Nền tảng permission và ánh xạ role-permission — đã hoàn thành.
+- Nền tảng scope `GLOBAL`/`FACULTY`/`CLASS`/`ORGANIZATION` — đã hoàn thành.
+- Danh sách người dùng, gán role hệ thống và scope theo thẩm quyền — đã hoàn thành.
+- Chỉnh catalog role-permission với bảo vệ SYSTEM_ADMIN và audit transaction — đã hoàn thành.
+- Quản lý khoa, lớp và phân công cố vấn trên giao diện admin — đã hoàn thành.
+- Quản lý đơn vị hành chính và scope tương ứng trên giao diện admin — đã hoàn thành.
+- Import Excel/CSV có bước xem trước và báo lỗi theo dòng.
+- Export Excel theo quyền và phạm vi dữ liệu.
+- Gửi lời mời hàng loạt qua job queue.
+- Giao diện tra cứu audit log.
+
+Các module biểu mẫu thủ tục, workflow, sinh tài liệu, chữ ký số và điểm rèn luyện thuộc các sprint sau; không đưa vào Sprint 3.
+
+Ma trận quyền mặc định và các quyết định bảo mật của RBAC được ghi tại [`docs/authorization-matrix.md`](docs/authorization-matrix.md).
+Mô hình phạm vi dữ liệu được ghi tại [`docs/data-scope-model.md`](docs/data-scope-model.md).
+
+## Luồng đã chạy được
+
+### Admin
+
+```text
+Tạo SYSTEM_ADMIN
+→ đăng nhập cổng quản trị
+→ tạo lời mời sinh viên
+→ hệ thống gửi email kích hoạt
+→ xem audit log
+→ đăng xuất
+```
+
+### Sinh viên
+
+```text
+Nhận email kích hoạt
+→ mở liên kết kích hoạt
+→ đặt mật khẩu
+→ đăng nhập cổng sinh viên
+→ xem hồ sơ cá nhân
+→ xem cố vấn hiện hành
+→ đăng xuất
+```
 
 ## Kiến trúc
+
+Dự án sử dụng modular monolith. Các module nghiệp vụ được tách trong một Fastify API và dùng chung PostgreSQL; chưa tách microservice ở giai đoạn hiện tại.
 
 ```text
 student-service/
 ├── apps/
-│   ├── api/        Fastify API, Drizzle ORM và PostgreSQL
-│   └── web/        Nuxt frontend
+│   ├── api/
+│   │   ├── drizzle/          Database migrations
+│   │   └── src/
+│   │       ├── config/       Environment configuration
+│   │       ├── db/           Drizzle schema, client và seed
+│   │       ├── http/         Global HTTP concerns
+│   │       └── modules/
+│   │           ├── audit/
+│   │           ├── auth/
+│   │           ├── organizations/
+│   │           ├── services/
+│   │           └── users/
+│   └── web/
+│       └── app/
+│           ├── assets/
+│           ├── components/
+│           ├── composables/
+│           ├── layouts/
+│           ├── middleware/
+│           ├── pages/
+│           └── types/
 ├── docker-compose.yml
 ├── docker-compose.test.yml
-└── package.json    npm workspaces và lệnh chạy chung
+├── package-lock.json
+└── package.json
 ```
-
-Dự án sử dụng kiến trúc modular monolith. Mỗi nghiệp vụ lớn sẽ là một module trong Fastify; không tách microservice ở giai đoạn hiện tại.
 
 ## Công nghệ
 
 - TypeScript
-- Fastify
-- Nuxt và Vue
+- Fastify 5
+- Nuxt 4 và Vue 3
 - PostgreSQL 17
 - Drizzle ORM và Drizzle Kit
 - Node.js test runner
-- Argon2id
+- Argon2
+- Nodemailer và Mailpit
 - Docker Compose
 - npm workspaces
 
 ## Yêu cầu môi trường
 
-- Node.js 22 trở lên
-- npm
-- Docker Desktop có Docker Compose
+- Node.js 22 trở lên.
+- npm.
+- Docker Desktop có Docker Compose.
+- PowerShell cho các ví dụ lệnh bên dưới.
 
-## Cài đặt
+## Bắt đầu nhanh
+
+### 1. Cài dependency
 
 Tại thư mục gốc dự án:
 
@@ -72,50 +138,89 @@ cd D:\student-service
 npm install
 ```
 
-Tạo file cấu hình development cho API:
+### 2. Tạo cấu hình local
 
 ```powershell
 Copy-Item apps/api/.env.example apps/api/.env
-```
-
-Tạo file cấu hình test cho API:
-
-```powershell
 Copy-Item apps/api/.env.test.example apps/api/.env.test
 ```
 
-Các file `.env` thật chỉ dùng trên máy local và không được commit.
+Giá trị mặc định trong file mẫu phù hợp với Docker Compose của dự án. Hãy thay `JWT_SECRET` trong `apps/api/.env` bằng chuỗi ngẫu nhiên dài ít nhất 32 ký tự.
 
-## Khởi tạo database development
+Không commit `.env`, mật khẩu, JWT secret, token, connection string production hoặc khóa ký số.
 
-Khởi động PostgreSQL development:
+### 3. Khởi động PostgreSQL và Mailpit
+
+Volume development đang được khai báo là external. Lệnh tạo volume có thể chạy lại an toàn:
 
 ```powershell
+docker volume create student-service-api_student_service_data
 docker compose up -d
 docker compose ps
 ```
 
-PostgreSQL development chạy tại `localhost:5433`.
+Các dịch vụ local:
 
-Chạy migration:
+| Thành phần | Địa chỉ |
+| --- | --- |
+| PostgreSQL development | `localhost:5433` |
+| SMTP Mailpit | `localhost:1025` |
+| Mailpit Web UI | `http://localhost:8025` |
+
+### 4. Chạy migration development
+
+Drizzle config nằm trong workspace API, vì vậy hãy chạy lệnh tại đúng thư mục:
 
 ```powershell
 cd D:\student-service\apps\api
 npm exec -- drizzle-kit migrate --config=drizzle.config.ts
+cd D:\student-service
 ```
 
-Seed dữ liệu ban đầu:
+### 5. Seed dữ liệu demo
 
 ```powershell
-cd D:\student-service
 npm run db:seed --workspace @student-service/api
 ```
 
-Seed được thiết kế để có thể chạy lại mà không tạo dữ liệu trùng và bị chặn khi
-`APP_ENV=production`. Seed tạo dữ liệu demo tối thiểu gồm một khoa, một lớp và một cố vấn
-đang phụ trách; lệnh sẽ in `classId` dùng cho form mời sinh viên.
+Seed có thể chạy lại mà không tạo dữ liệu trùng và bị chặn khi `APP_ENV=production`. Dữ liệu demo gồm:
 
-## Chạy ứng dụng
+- Các system role.
+- Ba dịch vụ sinh viên.
+- Khoa `QLGD`.
+- Lớp `QLGD-K15A`.
+- Một cố vấn active của lớp.
+
+Sau khi hoàn thành, seed in ra `classId` dùng khi tạo lời mời cho sinh viên.
+
+### 6. Tạo tài khoản SYSTEM_ADMIN
+
+Chỉ chạy bootstrap khi database chưa có tài khoản `SYSTEM_ADMIN`:
+
+```powershell
+$env:BOOTSTRAP_ADMIN_USERNAME = "system.admin"
+$env:BOOTSTRAP_ADMIN_FULL_NAME = "Quản trị hệ thống"
+
+$securePassword = Read-Host `
+  "Nhập mật khẩu SYSTEM_ADMIN (tối thiểu 15 ký tự)" `
+  -AsSecureString
+
+$env:BOOTSTRAP_ADMIN_PASSWORD = `
+  [System.Net.NetworkCredential]::new(
+    "",
+    $securePassword
+  ).Password
+
+npm run auth:bootstrap-admin --workspace @student-service/api
+
+Remove-Item Env:BOOTSTRAP_ADMIN_USERNAME
+Remove-Item Env:BOOTSTRAP_ADMIN_FULL_NAME
+Remove-Item Env:BOOTSTRAP_ADMIN_PASSWORD
+```
+
+Script từ chối tạo thêm nếu đã tồn tại một `SYSTEM_ADMIN`.
+
+### 7. Chạy API và Web
 
 Tại thư mục gốc:
 
@@ -123,52 +228,102 @@ Tại thư mục gốc:
 npm run dev
 ```
 
-Địa chỉ local:
-
-| Thành phần | Địa chỉ |
-| --- | --- |
-| Web | `http://localhost:3001` |
-| API | `http://localhost:3000` |
-| PostgreSQL development | `localhost:5433` |
-| PostgreSQL test | `localhost:5434` |
-
-Có thể chạy riêng từng ứng dụng:
+Hoặc chạy riêng:
 
 ```powershell
 npm run dev:api
 npm run dev:web
 ```
 
+| Khu vực | Địa chỉ |
+| --- | --- |
+| Trang chủ | `http://localhost:3001` |
+| Danh mục dịch vụ | `http://localhost:3001/services` |
+| Đăng nhập sinh viên | `http://localhost:3001/login` |
+| Đăng nhập quản trị | `http://localhost:3001/admin/login` |
+| Danh sách sinh viên | `http://localhost:3001/admin/students` |
+| Tạo lời mời sinh viên | `http://localhost:3001/admin/users/invite` |
+| API | `http://localhost:3000` |
+
+Email gửi trong môi trường local được giữ tại Mailpit. Mở `http://localhost:8025` để lấy liên kết kích hoạt thay vì kiểm tra Gmail thật.
+
+## Khôi phục mật khẩu SYSTEM_ADMIN
+
+Chỉ sử dụng khi quên mật khẩu admin. Mật khẩu được đặt ở đây là mật khẩu tạm; admin phải đổi lại sau khi đăng nhập.
+
+```powershell
+$env:ALLOW_ADMIN_PASSWORD_RECOVERY = "true"
+$env:RECOVERY_ADMIN_USERNAME = "system.admin"
+
+$securePassword = Read-Host `
+  "Nhập mật khẩu tạm mới (tối thiểu 15 ký tự)" `
+  -AsSecureString
+
+$env:RECOVERY_ADMIN_PASSWORD = `
+  [System.Net.NetworkCredential]::new(
+    "",
+    $securePassword
+  ).Password
+
+npm run auth:recover-admin --workspace @student-service/api
+
+Remove-Item Env:ALLOW_ADMIN_PASSWORD_RECOVERY
+Remove-Item Env:RECOVERY_ADMIN_USERNAME
+Remove-Item Env:RECOVERY_ADMIN_PASSWORD
+```
+
+Không lưu các biến recovery trong `.env`.
+
+Nếu tài khoản `SYSTEM_ADMIN` bị chuyển khỏi trạng thái `ACTIVE`, thêm biến sau trước khi chạy lệnh recovery để xác nhận chủ đích khôi phục cả trạng thái:
+
+```powershell
+$env:RECOVER_ADMIN_STATUS = "true"
+```
+
+Sau khi hoàn tất, xóa biến bằng `Remove-Item Env:RECOVER_ADMIN_STATUS`. Nếu không có xác nhận này, script từ chối tự kích hoạt lại tài khoản.
+
 ## API hiện có
 
-```text
-GET /services
-GET /services?status=ACTIVE
-GET /services/:id
+### Public
 
-POST /api/v1/admin/auth/login
-GET  /api/v1/admin/auth/me
-POST /api/v1/admin/auth/logout
-POST /api/v1/admin/auth/change-password
+| Method | Endpoint | Mô tả |
+| --- | --- | --- |
+| `GET` | `/services` | Danh sách dịch vụ |
+| `GET` | `/services?status=ACTIVE` | Lọc dịch vụ theo trạng thái |
+| `GET` | `/services/:id` | Chi tiết dịch vụ |
+| `POST` | `/api/v1/auth/activate` | Kích hoạt tài khoản và đặt mật khẩu |
 
-POST /api/v1/user/auth/login
-GET  /api/v1/user/auth/me
-POST /api/v1/user/auth/logout
+### Cổng người dùng
 
-POST /api/v1/auth/activate
-POST /api/v1/admin/users/invitations
-POST /api/v1/admin/users/:userId/invitations/resend
+| Method | Endpoint | Mô tả |
+| --- | --- | --- |
+| `POST` | `/api/v1/user/auth/login` | Đăng nhập |
+| `GET` | `/api/v1/user/auth/me` | Lấy session hiện tại |
+| `POST` | `/api/v1/user/auth/logout` | Đăng xuất |
+| `GET` | `/api/v1/user/profile` | Hồ sơ sinh viên |
+| `GET` | `/api/v1/user/advisor` | Cố vấn hiện hành hoặc trạng thái chưa phân công |
 
-GET /api/v1/user/profile
-GET /api/v1/user/advisor
-GET /api/v1/admin/audit-logs
-```
+### Cổng quản trị
+
+| Method | Endpoint | Mô tả |
+| --- | --- | --- |
+| `POST` | `/api/v1/admin/auth/login` | Đăng nhập admin |
+| `GET` | `/api/v1/admin/auth/me` | Lấy session admin |
+| `POST` | `/api/v1/admin/auth/change-password` | Đổi mật khẩu |
+| `POST` | `/api/v1/admin/auth/logout` | Đăng xuất |
+| `POST` | `/api/v1/admin/users/invitations` | Tạo tài khoản và lời mời |
+| `POST` | `/api/v1/admin/users/:userId/invitations/resend` | Gửi lại lời mời |
+| `GET` | `/api/v1/admin/academic-catalog` | Khoa/lớp đang hoạt động theo permission và scope |
+| `GET` | `/api/v1/admin/students` | Danh sách sinh viên theo permission và scope |
+| `GET` | `/api/v1/admin/audit-logs` | Tra cứu audit log |
+
+Cookie session được gửi tự động bởi trình duyệt. Khi gọi API từ frontend hoặc công cụ kiểm thử, request phải cho phép credentials/cookie.
 
 ## Kiểm thử
 
 ### Unit test
 
-Unit test không cần Fastify hoặc PostgreSQL:
+Unit test không cần PostgreSQL:
 
 ```powershell
 npm run test:unit --workspace @student-service/api
@@ -176,54 +331,92 @@ npm run test:unit --workspace @student-service/api
 
 ### Integration test
 
-Khởi động PostgreSQL test:
+Khởi động database test:
 
 ```powershell
 docker compose -f docker-compose.test.yml up -d
 docker compose -f docker-compose.test.yml ps
 ```
 
-Sau đó chạy:
+Chạy integration test:
+
+```powershell
+npm run test:integration --workspace @student-service/api
+```
+
+Script tự chạy migration bằng `drizzle.test.config.ts`. Database test dùng `tmpfs`, vì vậy dữ liệu không được giữ lại khi container bị xóa và tạo lại.
+
+### Toàn bộ API test
 
 ```powershell
 npm run test --workspace @student-service/api
 ```
 
-Script integration test tự chạy migration bằng `drizzle.test.config.ts` trước khi chạy test. Database test sử dụng `tmpfs`, vì vậy dữ liệu sẽ mất khi container được xóa và tạo lại.
+## Typecheck và build
+
+```powershell
+npm run typecheck --workspace @student-service/api
+npm run build --workspace @student-service/api
+npm run build --workspace @student-service/web
+```
+
+Build API được tạo tại `apps/api/dist`. Build Nuxt được tạo trong thư mục do Nuxt quản lý và không được commit.
+
+## Continuous Integration
+
+Workflow `.github/workflows/ci.yml` tự chạy API typecheck, unit/integration test, API build và Web build trên mỗi pull request và mỗi lần push lên `main`. PostgreSQL test được tạo riêng trong runner; CI không dùng database development.
 
 ## Migration workflow
 
-Sau khi thay đổi Drizzle schema, tạo migration mới tại thư mục API:
+Sau khi sửa Drizzle schema, tạo migration tại workspace API:
 
 ```powershell
 cd D:\student-service\apps\api
 npm exec -- drizzle-kit generate --config=drizzle.config.ts --name=ten-migration
 ```
 
-Luôn review file SQL mới trong `apps/api/drizzle` trước khi chạy migrate.
+Trước khi migrate:
 
-## Build
+1. Review SQL trong `apps/api/drizzle`.
+2. Không sửa hoặc xóa migration đã được dùng trên database chia sẻ.
+3. Chạy migration trên database test.
+4. Chạy typecheck, build và regression test.
 
-```powershell
-npm run build --workspace @student-service/api
-npm run build --workspace @student-service/web
-```
+## Nguyên tắc bảo mật
 
-## Nguyên tắc bảo mật hiện tại
+- Mật khẩu chỉ lưu dưới dạng hash; không log hoặc trả mật khẩu về client.
+- Admin session và user session dùng cookie HttpOnly riêng, audience riêng và thời hạn riêng.
+- Admin session hiện có thời hạn 15 phút; user session có thời hạn 2 giờ.
+- Token kích hoạt raw chỉ xuất hiện trong email; database chỉ lưu SHA-256 hash.
+- Token kích hoạt có purpose, thời hạn, revoke/consume và chỉ được dùng một lần.
+- Các thay đổi nhạy cảm sử dụng transaction và audit log.
+- Frontend có thể ẩn nút theo role, nhưng authorization thật luôn nằm ở Fastify.
+- Global error handler không trả stack trace hoặc thông tin lỗi nội bộ cho client.
+- CORS origin, database URL, SMTP và JWT secret lấy từ biến môi trường.
+- Chữ ký số là bước xác thực tài liệu riêng, không đồng nhất với đăng nhập.
 
-- Không lưu mật khẩu nguyên bản; chỉ lưu Argon2id hash.
-- Không commit `.env`, connection string production, JWT secret hoặc khóa ký số.
-- Role được lấy từ database, không tin role do frontend gửi lên.
-- Backend phải kiểm tra quyền trên từng request.
-- Cổng quản trị và cổng nghiệp vụ sẽ dùng chung hệ thống danh tính nhưng có session và chính sách bảo mật khác nhau.
-- Chữ ký số là một bước xác thực tài liệu riêng, không đồng nhất với đăng nhập.
+## Nợ kỹ thuật đã biết
 
-## Hướng phát triển
+Các mục dưới đây không làm mất giá trị increment Sprint 2 nhưng phải được theo dõi trong Sprint 3 hoặc các sprint gần nhất:
 
-- Hoàn thiện đăng nhập và quản lý session.
-- Phân quyền theo role, permission và phạm vi khoa/lớp.
-- Cấu hình dịch vụ, biểu mẫu và quy trình duyệt.
-- Kê khai hồ sơ, tài liệu minh chứng và xem trước văn bản.
-- Chữ ký số theo từng bước trong workflow.
-- Quản lý điểm rèn luyện, hoạt động ngoại khóa và nghiên cứu khoa học.
-- Xuất Word, PDF và Excel theo nghiệp vụ.
+- Route danh mục dịch vụ vẫn dùng `/services`; các module mới đã dùng `/api/v1`.
+- Root `package.json` hiện chỉ có lệnh chạy development; build, test và check vẫn chạy theo từng workspace.
+- Test integration vẫn liệt kê thủ công từng file test.
+- Một số repository vẫn import database client trực tiếp; chưa có Fastify database plugin dùng chung.
+- Chưa có refresh session và cơ chế thu hồi session theo từng thiết bị.
+- JWT tiếp tục chứa role; permission được kiểm tra lại từ database để thay đổi quyền hoặc khóa tài khoản có hiệu lực ngay. Scope sẽ được hoàn thiện trong các lát cắt tiếp theo của Sprint 3.
+- Thu thập log ngoài máy local chưa cần triển khai khi dự án chưa lên môi trường dùng chung.
+
+## Quy ước đóng góp
+
+- Không commit file `.env` hoặc dữ liệu bí mật.
+- Không chỉnh migration cũ đã được áp dụng; tạo migration mới.
+- Route chỉ xử lý HTTP; nghiệp vụ đặt trong service/policy và truy vấn đặt trong repository.
+- Mọi route mới phải có validation request/response.
+- Thay đổi liên quan quyền cần test `401` và `403`.
+- Thay đổi dữ liệu quan trọng phải có audit log.
+- Trước khi commit, chạy typecheck, build và các test liên quan.
+
+## Phạm vi triển khai
+
+Agile không bắt buộc deploy production sau mỗi sprint. Definition of Done hiện tại yêu cầu build, migration, test và demo thành công trên local. Production deployment, backup, monitoring và hardening toàn diện sẽ được thực hiện khi dự án bước vào giai đoạn phù hợp.
