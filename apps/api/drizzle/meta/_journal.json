@@ -57,6 +57,20 @@
       "when": 1788619609248,
       "tag": "0007_audit-state-snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788637991038,
+      "tag": "0008_rbac-permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788639933260,
+      "tag": "0009_data-scopes",
+      "breakpoints": true
     }
   ]
 }

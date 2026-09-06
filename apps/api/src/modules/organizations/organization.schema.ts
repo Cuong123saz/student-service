@@ -57,6 +57,51 @@ export const faculties = pgTable(
   ],
 )
 
+export const organizationalUnits = pgTable(
+  'organizational_units',
+  {
+    id: uuid('id')
+      .defaultRandom()
+      .primaryKey(),
+
+    code: varchar('code', {
+      length: 50,
+    }).notNull(),
+
+    name: varchar('name', {
+      length: 255,
+    }).notNull(),
+
+    status: varchar('status', {
+      length: 20,
+    })
+      .notNull()
+      .default('ACTIVE'),
+
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex(
+      'organizational_units_code_unique',
+    ).on(table.code),
+
+    check(
+      'organizational_units_status_check',
+      sql`${table.status} IN ('ACTIVE', 'INACTIVE')`,
+    ),
+  ],
+)
+
 export const academicClasses = pgTable(
   'academic_classes',
   {
