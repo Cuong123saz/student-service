@@ -38,9 +38,9 @@ Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, đượ
 - Chỉnh catalog role-permission với bảo vệ SYSTEM_ADMIN và audit transaction — đã hoàn thành.
 - Quản lý khoa, lớp và phân công cố vấn trên giao diện admin — đã hoàn thành.
 - Quản lý đơn vị hành chính và scope tương ứng trên giao diện admin — đã hoàn thành.
-- Import Excel/CSV có bước xem trước và báo lỗi theo dòng.
-- Export Excel theo quyền và phạm vi dữ liệu.
-- Gửi lời mời hàng loạt qua job queue.
+- API import Excel/CSV theo luồng upload → preview → confirm → transaction, có báo lỗi theo dòng và ba chiến lược xử lý trùng — đã hoàn thành.
+- Export Excel theo quyền và phạm vi dữ liệu — đã hoàn thành.
+- Gửi lời mời hàng loạt qua PostgreSQL job queue — đã hoàn thành.
 - Giao diện tra cứu audit log.
 
 Các module biểu mẫu thủ tục, workflow, sinh tài liệu, chữ ký số và điểm rèn luyện thuộc các sprint sau; không đưa vào Sprint 3.
@@ -235,6 +235,14 @@ npm run dev:api
 npm run dev:web
 ```
 
+Sau khi import sinh viên, mở thêm một terminal để chạy worker gửi email kích hoạt qua Mailpit/SMTP:
+
+```powershell
+npm run invitations:worker --workspace @student-service/api
+```
+
+Worker claim job bằng khóa hàng `SKIP LOCKED`, tự retry tối đa 3 lần với backoff và thu hồi job bị treo quá 5 phút. Để xử lý tối đa một job khi kiểm tra local, dùng `npm run invitations:worker:once --workspace @student-service/api`.
+
 | Khu vực | Địa chỉ |
 | --- | --- |
 | Trang chủ | `http://localhost:3001` |
@@ -315,9 +323,30 @@ Sau khi hoàn tất, xóa biến bằng `Remove-Item Env:RECOVER_ADMIN_STATUS`. 
 | `POST` | `/api/v1/admin/users/:userId/invitations/resend` | Gửi lại lời mời |
 | `GET` | `/api/v1/admin/academic-catalog` | Khoa/lớp đang hoạt động theo permission và scope |
 | `GET` | `/api/v1/admin/students` | Danh sách sinh viên theo permission và scope |
+| `POST` | `/api/v1/admin/students/imports/preview` | Upload `.xlsx`/`.csv`, kiểm tra và xem trước; không ghi database |
+| `POST` | `/api/v1/admin/students/imports/:previewId/confirm` | Xác nhận import với chiến lược `SKIP`, `OVERWRITE` hoặc `FAIL` |
+| `GET` | `/api/v1/admin/students/export.xlsx` | Export Excel theo bộ lọc, permission `student.export` và scope được giao |
 | `GET` | `/api/v1/admin/audit-logs` | Tra cứu audit log |
 
 Cookie session được gửi tự động bởi trình duyệt. Khi gọi API từ frontend hoặc công cụ kiểm thử, request phải cho phép credentials/cookie.
+
+### Định dạng import sinh viên
+
+- File tối đa 5 MiB và 1.000 dòng dữ liệu; chỉ đọc worksheet đầu tiên của `.xlsx`.
+- CSV phải dùng UTF-8, hỗ trợ dấu phẩy hoặc dấu chấm phẩy và giá trị được bao bởi dấu nháy kép.
+- Bốn cột bắt buộc: `studentCode`, `fullName`, `email`, `classCode`. Header tiếng Việt tương ứng như `Mã sinh viên`, `Họ và tên`, `Mã lớp` cũng được chấp nhận.
+- `username` được suy ra từ mã sinh viên đã chuẩn hóa sang chữ thường.
+- Trùng trong file và trùng với hệ thống được báo riêng theo `studentCode` và `email`.
+- Preview tồn tại 15 phút, gắn với admin đã upload và chỉ được consume một lần khi commit thành công.
+- Preview có dòng sai validation sẽ không được confirm; cần sửa file và upload lại.
+
+### Export danh sách sinh viên
+
+- Hỗ trợ cùng các bộ lọc `status`, `facultyId`, `classId` và `search` như danh sách quản trị.
+- Backend kiểm tra `student.export` ở route và tiếp tục giới hạn dữ liệu theo scope `GLOBAL`, `FACULTY` hoặc `CLASS` tại repository.
+- File `.xlsx` giữ mã sinh viên dưới dạng text, có hàng tiêu đề, cố định hàng đầu và bộ lọc cột.
+- Mỗi file giới hạn 10.000 sinh viên để tránh dùng bộ nhớ không kiểm soát; nếu vượt giới hạn, API trả `413` để người dùng thu hẹp bộ lọc.
+- Hành động export chỉ trả file sau khi audit `STUDENT_EXPORT` được ghi thành công.
 
 ## Kiểm thử
 
@@ -404,7 +433,12 @@ Các mục dưới đây không làm mất giá trị increment Sprint 2 nhưng 
 - Test integration vẫn liệt kê thủ công từng file test.
 - Một số repository vẫn import database client trực tiếp; chưa có Fastify database plugin dùng chung.
 - Chưa có refresh session và cơ chế thu hồi session theo từng thiết bị.
-- JWT tiếp tục chứa role; permission được kiểm tra lại từ database để thay đổi quyền hoặc khóa tài khoản có hiệu lực ngay. Scope sẽ được hoàn thiện trong các lát cắt tiếp theo của Sprint 3.
+- JWT tiếp tục chứa role; permission và scope được kiểm tra lại từ database để thay đổi quyền hoặc khóa tài khoản có hiệu lực ngay.
+- Chưa có UI import sinh viên; hiện tại mới hoàn thành API và logic nghiệp vụ.
+- Preview import đang lưu trong bộ nhớ của một API process. Khi triển khai nhiều instance cần chuyển sang kho dùng chung có TTL (ví dụ Redis) để confirm không phụ thuộc instance nhận request.
+- XLSX hiện chỉ đọc worksheet đầu tiên; chưa hỗ trợ chọn sheet hoặc ánh xạ cột tùy biến.
+- Tài khoản mới từ import được tạo ở trạng thái `INVITED` và enqueue lời mời trong cùng transaction. Worker email đang chạy như process riêng; chưa có dashboard theo dõi/retry thủ công các job `FAILED` trên giao diện admin.
+- Web build trên Node.js 24 hiện phát cảnh báo `DEP0155` khi template lỗi của dependency gián tiếp `@nuxt/nitro-server@4.5.2` phân giải dependency gián tiếp `@vue/shared@3.5.41`. Hai package này đi vào qua dependency trực tiếp `nuxt` của workspace `apps/web`, không thuộc `apps/api` hay tooling riêng của monorepo. Build vẫn thành công; theo dõi bản nâng cấp Nuxt/Vue tương thích thay vì sửa trực tiếp `node_modules`.
 - Thu thập log ngoài máy local chưa cần triển khai khi dự án chưa lên môi trường dùng chung.
 
 ## Quy ước đóng góp
