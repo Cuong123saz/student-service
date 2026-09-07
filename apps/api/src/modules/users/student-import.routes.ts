@@ -5,6 +5,7 @@ import {
 import type {
   FastifyInstance,
   FastifyPluginOptions,
+  FastifyRequest,
 } from 'fastify'
 
 import {
@@ -39,6 +40,26 @@ import {
   StudentImportConfigurationError,
   StudentImportForbiddenError,
 } from './student-import.repository.js'
+
+const studentImportErrorCodeSchema = Type.Union([
+  Type.Literal('IMPORT_MULTIPART_REQUIRED'),
+  Type.Literal('IMPORT_FILE_REQUIRED'),
+  Type.Literal('IMPORT_FILENAME_INVALID'),
+  Type.Literal('IMPORT_FILE_LIMIT_EXCEEDED'),
+  Type.Literal('IMPORT_FILE_UNSUPPORTED'),
+  Type.Literal('IMPORT_FILE_PARSE_FAILED'),
+  Type.Literal('IMPORT_MISSING_COLUMNS'),
+  Type.Literal('IMPORT_FORBIDDEN'),
+  Type.Literal('IMPORT_PREVIEW_NOT_FOUND'),
+  Type.Literal('IMPORT_VALIDATION_BLOCKED'),
+  Type.Literal('IMPORT_DUPLICATE_BLOCKED'),
+  Type.Literal('IMPORT_AMBIGUOUS_DUPLICATE'),
+  Type.Literal('IMPORT_COMMIT_CONFLICT'),
+])
+
+type StudentImportErrorCode = Static<
+  typeof studentImportErrorCodeSchema
+>
 
 const issueSchema = Type.Object({
   field: Type.String(),
@@ -130,10 +151,32 @@ const commitResponseSchema = Type.Object({
   skipped: Type.Integer(),
 })
 
-const errorResponseSchema = Type.Object({
+const importErrorResponseSchema = Type.Object({
   message: Type.String(),
+
+  // Optional để các guard dùng chung hiện vẫn có thể
+  // trả response cũ: { message: 'Forbidden' }.
+  error: Type.Optional(
+    Type.Object({
+      code: studentImportErrorCodeSchema,
+      requestId: Type.String(),
+    }),
+  ),
 })
 
+function createImportError(
+  request: FastifyRequest,
+  code: StudentImportErrorCode,
+  message: string,
+) {
+  return {
+    message,
+    error: {
+      code,
+      requestId: request.id,
+    },
+  }
+}
 function isPayloadTooLarge(error: unknown): boolean {
   return (
     typeof error === 'object'
@@ -169,11 +212,11 @@ export async function studentImportRoutes(
       schema: {
         response: {
           200: previewResponseSchema,
-          400: errorResponseSchema,
-          401: errorResponseSchema,
-          403: errorResponseSchema,
-          413: errorResponseSchema,
-          429: errorResponseSchema,
+          400: importErrorResponseSchema,
+          401: importErrorResponseSchema,
+          403: importErrorResponseSchema,
+          413: importErrorResponseSchema,
+          429: importErrorResponseSchema,
         },
       },
       config: {
@@ -193,9 +236,13 @@ export async function studentImportRoutes(
       }
 
       if (!request.isMultipart()) {
-        return reply.code(400).send({
-          message: 'A multipart file upload is required',
-        })
+        return reply.code(400).send(
+          createImportError(
+            request,
+            'IMPORT_MULTIPART_REQUIRED',
+            'A multipart file upload is required',
+          ),
+        )
       }
 
       try {
@@ -209,15 +256,23 @@ export async function studentImportRoutes(
         })
 
         if (!file) {
-          return reply.code(400).send({
-            message: 'Import file is required',
-          })
+          return reply.code(400).send(
+            createImportError(
+              request,
+              'IMPORT_FILE_REQUIRED',
+              'Import file is required',
+            ),
+          )
         }
 
         if (file.filename.length > 255) {
-          return reply.code(400).send({
-            message: 'File name is too long',
-          })
+          return reply.code(400).send(
+            createImportError(
+              request,
+              'IMPORT_FILENAME_INVALID',
+              'File name is too long',
+            ),
+          )
         }
 
         const fileBuffer = await file.toBuffer()
@@ -235,28 +290,55 @@ export async function studentImportRoutes(
           error instanceof StudentImportRowLimitError
           || isPayloadTooLarge(error)
         ) {
-          return reply.code(413).send({
-            message:
-              error instanceof Error
+          return reply.code(413).send(
+            createImportError(
+              request,
+              'IMPORT_FILE_LIMIT_EXCEEDED',
+              error instanceof StudentImportRowLimitError
                 ? error.message
                 : 'Import file is too large',
-          })
+            ),
+          )
         }
 
-        if (
-          error instanceof UnsupportedStudentImportFileError
-          || error instanceof StudentImportFileParseError
-          || error instanceof StudentImportMissingColumnsError
-        ) {
-          return reply.code(400).send({
-            message: error.message,
-          })
+        if (error instanceof UnsupportedStudentImportFileError) {
+          return reply.code(400).send(
+            createImportError(
+              request,
+              'IMPORT_FILE_UNSUPPORTED',
+              error.message,
+            ),
+          )
+        }
+
+        if (error instanceof StudentImportFileParseError) {
+          return reply.code(400).send(
+            createImportError(
+              request,
+              'IMPORT_FILE_PARSE_FAILED',
+              error.message,
+            ),
+          )
+        }
+
+        if (error instanceof StudentImportMissingColumnsError) {
+          return reply.code(400).send(
+            createImportError(
+              request,
+              'IMPORT_MISSING_COLUMNS',
+              error.message,
+            ),
+          )
         }
 
         if (error instanceof StudentImportForbiddenError) {
-          return reply.code(403).send({
-            message: 'Forbidden',
-          })
+          return reply.code(403).send(
+            createImportError(
+              request,
+              'IMPORT_FORBIDDEN',
+              'Forbidden',
+            ),
+          )
         }
 
         throw error
@@ -276,13 +358,13 @@ export async function studentImportRoutes(
         body: confirmBodySchema,
         response: {
           200: commitResponseSchema,
-          400: errorResponseSchema,
-          401: errorResponseSchema,
-          403: errorResponseSchema,
-          404: errorResponseSchema,
-          409: errorResponseSchema,
-          422: errorResponseSchema,
-          429: errorResponseSchema,
+          400: importErrorResponseSchema,
+          401: importErrorResponseSchema,
+          403: importErrorResponseSchema,
+          404: importErrorResponseSchema,
+          409: importErrorResponseSchema,
+          422: importErrorResponseSchema,
+          429: importErrorResponseSchema,
         },
       },
       config: {
@@ -321,37 +403,75 @@ export async function studentImportRoutes(
           error
             instanceof StudentImportPreviewNotFoundError
         ) {
-          return reply.code(404).send({
-            message: error.message,
-          })
+          return reply.code(404).send(
+            createImportError(
+              request,
+              'IMPORT_PREVIEW_NOT_FOUND',
+              error.message,
+            ),
+          )
         }
 
         if (
           error
             instanceof StudentImportValidationBlockedError
         ) {
-          return reply.code(422).send({
-            message: error.message,
-          })
+          return reply.code(422).send(
+            createImportError(
+              request,
+              'IMPORT_VALIDATION_BLOCKED',
+              error.message,
+            ),
+          )
         }
 
         if (
           error
             instanceof StudentImportDuplicateBlockedError
-          || error
+        ) {
+          return reply.code(409).send(
+            createImportError(
+              request,
+              'IMPORT_DUPLICATE_BLOCKED',
+              error.message,
+            ),
+          )
+        }
+
+        if (
+          error
             instanceof StudentImportAmbiguousDuplicateError
-          || error
+        ) {
+          return reply.code(409).send(
+            createImportError(
+              request,
+              'IMPORT_AMBIGUOUS_DUPLICATE',
+              error.message,
+            ),
+          )
+        }
+
+        if (
+          error
             instanceof StudentImportCommitConflictError
         ) {
-          return reply.code(409).send({
-            message: error.message,
-          })
+          return reply.code(409).send(
+            createImportError(
+              request,
+              'IMPORT_COMMIT_CONFLICT',
+              error.message,
+            ),
+          )
         }
 
         if (error instanceof StudentImportForbiddenError) {
-          return reply.code(403).send({
-            message: 'Forbidden',
-          })
+          return reply.code(403).send(
+            createImportError(
+              request,
+              'IMPORT_FORBIDDEN',
+              'Forbidden',
+            ),
+          )
         }
 
         if (

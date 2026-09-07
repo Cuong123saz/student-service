@@ -365,6 +365,18 @@ test(
     })
 
     assert.equal(confirmResponse.statusCode, 409)
+    const errorBody = confirmResponse.json<{
+      message: string
+      error: {
+        code: string
+        requestId: string
+      }
+    }>()
+    assert.equal(
+      errorBody.error.code,
+      'IMPORT_COMMIT_CONFLICT',
+    )
+    assert.ok(errorBody.error.requestId)
 
     const rolledBackUsers = await db
       .select({ username: users.username })
@@ -382,6 +394,171 @@ test(
         ),
       )
     assert.deepEqual(importAudits, [])
+  },
+)
+
+test(
+  'confirm trả structured error khi preview không tồn tại',
+  async (context) => {
+    const { actor } = await createImportContext()
+    const app = createApp()
+    context.after(() => app.close())
+    const cookie = await createAdminCookie(app, actor)
+
+    const response = await app.inject({
+      method: 'POST',
+      url:
+        '/api/v1/admin/students/imports/00000000-0000-4000-8000-000000000000/confirm',
+      headers: { cookie },
+      payload: {
+        duplicateStrategy: 'SKIP',
+      },
+    })
+
+    assert.equal(response.statusCode, 404)
+    const errorBody = response.json<{
+      message: string
+      error: {
+        code: string
+        requestId: string
+      }
+    }>()
+    assert.equal(
+      errorBody.error.code,
+      'IMPORT_PREVIEW_NOT_FOUND',
+    )
+    assert.ok(errorBody.error.requestId)
+  },
+)
+
+test(
+  'duplicate bị FAIL chặn nhưng preview vẫn dùng lại được với SKIP',
+  async (context) => {
+    const { actor } = await createImportContext()
+    const app = createApp()
+    context.after(() => app.close())
+    const cookie = await createAdminCookie(app, actor)
+    const upload = multipartCsv([
+      'studentCode,fullName,email,classCode',
+      'SV401,Sinh viên Một,shared@example.edu.vn,K15A',
+      'SV402,Sinh viên Hai,shared@example.edu.vn,K15A',
+    ].join('\n'))
+
+    const previewResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/students/imports/preview',
+      headers: {
+        cookie,
+        'content-type': upload.contentType,
+      },
+      payload: upload.payload,
+    })
+    assert.equal(previewResponse.statusCode, 200)
+    const { previewId } = previewResponse.json<{
+      previewId: string
+    }>()
+
+    const blockedResponse = await app.inject({
+      method: 'POST',
+      url:
+        `/api/v1/admin/students/imports/${previewId}/confirm`,
+      headers: { cookie },
+      payload: { duplicateStrategy: 'FAIL' },
+    })
+
+    assert.equal(blockedResponse.statusCode, 409)
+    const errorBody = blockedResponse.json<{
+      error: {
+        code: string
+        requestId: string
+      }
+    }>()
+    assert.equal(
+      errorBody.error.code,
+      'IMPORT_DUPLICATE_BLOCKED',
+    )
+    assert.ok(errorBody.error.requestId)
+
+    const retryResponse = await app.inject({
+      method: 'POST',
+      url:
+        `/api/v1/admin/students/imports/${previewId}/confirm`,
+      headers: { cookie },
+      payload: { duplicateStrategy: 'SKIP' },
+    })
+
+    assert.equal(retryResponse.statusCode, 200)
+    assert.deepEqual(retryResponse.json(), {
+      imported: 1,
+      updated: 0,
+      skipped: 1,
+    })
+  },
+)
+
+test(
+  'duplicate mơ hồ chặn OVERWRITE nhưng preview vẫn dùng lại được với SKIP',
+  async (context) => {
+    const { actor } = await createImportContext()
+    const app = createApp()
+    context.after(() => app.close())
+    const cookie = await createAdminCookie(app, actor)
+    const upload = multipartCsv([
+      'studentCode,fullName,email,classCode',
+      'SV501,Sinh viên Một,sv501@example.edu.vn,K15A',
+      'SV502,Sinh viên Hai,sv502@example.edu.vn,K15A',
+      'SV501,Sinh viên Ba,sv502@example.edu.vn,K15A',
+    ].join('\n'))
+
+    const previewResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/students/imports/preview',
+      headers: {
+        cookie,
+        'content-type': upload.contentType,
+      },
+      payload: upload.payload,
+    })
+    assert.equal(previewResponse.statusCode, 200)
+    const { previewId } = previewResponse.json<{
+      previewId: string
+    }>()
+
+    const blockedResponse = await app.inject({
+      method: 'POST',
+      url:
+        `/api/v1/admin/students/imports/${previewId}/confirm`,
+      headers: { cookie },
+      payload: { duplicateStrategy: 'OVERWRITE' },
+    })
+
+    assert.equal(blockedResponse.statusCode, 409)
+    const errorBody = blockedResponse.json<{
+      error: {
+        code: string
+        requestId: string
+      }
+    }>()
+    assert.equal(
+      errorBody.error.code,
+      'IMPORT_AMBIGUOUS_DUPLICATE',
+    )
+    assert.ok(errorBody.error.requestId)
+
+    const retryResponse = await app.inject({
+      method: 'POST',
+      url:
+        `/api/v1/admin/students/imports/${previewId}/confirm`,
+      headers: { cookie },
+      payload: { duplicateStrategy: 'SKIP' },
+    })
+
+    assert.equal(retryResponse.statusCode, 200)
+    assert.deepEqual(retryResponse.json(), {
+      imported: 2,
+      updated: 0,
+      skipped: 1,
+    })
   },
 )
 
