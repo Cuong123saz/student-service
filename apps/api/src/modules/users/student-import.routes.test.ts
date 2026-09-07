@@ -1,0 +1,509 @@
+import assert from 'node:assert/strict'
+import {
+  eq,
+  inArray,
+  sql,
+} from 'drizzle-orm'
+import {
+  after,
+  beforeEach,
+  test,
+} from 'node:test'
+import type { FastifyInstance } from 'fastify'
+
+import { buildApp } from '../../app.js'
+import {
+  databaseClient,
+  db,
+} from '../../db/client.js'
+import { auditLogs } from '../audit/audit.schema.js'
+import {
+  ADMIN_JWT_AUDIENCE,
+  ADMIN_SESSION_COOKIE_NAME,
+  ADMIN_SESSION_TTL_SECONDS,
+  JWT_ISSUER,
+} from '../auth/auth.constants.js'
+import {
+  roles,
+  userRoles,
+  users,
+} from '../auth/auth.schema.js'
+import {
+  authorizationScopes,
+  permissions,
+  rolePermissions,
+  userRoleScopes,
+} from '../auth/authorization.schema.js'
+import {
+  academicAdvisorAssignments,
+  academicClasses,
+  faculties,
+  studentProfiles,
+} from '../organizations/organization.schema.js'
+import {
+  DrizzleStudentImportRepository,
+} from './student-import.repository.js'
+import {
+  InMemoryStudentImportPreviewStore,
+  StudentImportService,
+} from './student-import.service.js'
+import {
+  invitationDeliveryJobs,
+} from './invitation-delivery-job.schema.js'
+
+const databaseUrl = process.env.DATABASE_URL
+
+if (
+  !databaseUrl
+  || new URL(databaseUrl).pathname
+    !== '/student_service_test'
+) {
+  throw new Error(
+    'Integration tests must use the student_service_test database',
+  )
+}
+
+async function cleanDatabase() {
+  await db.execute(sql`TRUNCATE TABLE ${auditLogs}`)
+  await db.delete(userRoleScopes)
+  await db.delete(authorizationScopes)
+  await db.delete(rolePermissions)
+  await db.delete(permissions)
+  await db.delete(academicAdvisorAssignments)
+  await db.delete(studentProfiles)
+  await db.delete(academicClasses)
+  await db.delete(faculties)
+  await db.delete(userRoles)
+  await db.delete(users)
+  await db.delete(roles)
+}
+
+beforeEach(cleanDatabase)
+
+after(async () => {
+  await cleanDatabase()
+  await databaseClient.end()
+})
+
+async function createImportContext() {
+  const [faculty] = await db.insert(faculties).values({
+    code: 'QLGD',
+    name: 'Khoa Quản lý giáo dục',
+  }).returning({ id: faculties.id })
+  assert.ok(faculty)
+
+  const [academicClass] = await db
+    .insert(academicClasses)
+    .values({
+      facultyId: faculty.id,
+      code: 'K15A',
+      name: 'Quản lý giáo dục K15A',
+    })
+    .returning({ id: academicClasses.id })
+  assert.ok(academicClass)
+
+  const [actor] = await db.insert(users).values({
+    username: 'import.admin',
+    fullName: 'Import Admin',
+    status: 'ACTIVE',
+    mustChangePassword: false,
+  }).returning({
+    id: users.id,
+    username: users.username,
+  })
+  assert.ok(actor)
+
+  const insertedRoles = await db.insert(roles).values([
+    {
+      code: 'ADMIN',
+      name: 'Quản trị nghiệp vụ',
+      isSystem: true,
+    },
+    {
+      code: 'STUDENT',
+      name: 'Sinh viên',
+      isSystem: true,
+    },
+  ]).returning({
+    id: roles.id,
+    code: roles.code,
+  })
+  const adminRole = insertedRoles.find(
+    (role) => role.code === 'ADMIN',
+  )
+  assert.ok(adminRole)
+
+  const [permission] = await db
+    .insert(permissions)
+    .values({
+      code: 'student.import',
+      name: 'Import sinh viên',
+      isSystem: true,
+    })
+    .returning({ id: permissions.id })
+  assert.ok(permission)
+
+  await db.insert(userRoles).values({
+    userId: actor.id,
+    roleId: adminRole.id,
+  })
+  await db.insert(rolePermissions).values({
+    roleId: adminRole.id,
+    permissionId: permission.id,
+  })
+
+  const [scope] = await db
+    .insert(authorizationScopes)
+    .values({ scopeType: 'GLOBAL' })
+    .returning({ id: authorizationScopes.id })
+  assert.ok(scope)
+
+  await db.insert(userRoleScopes).values({
+    userId: actor.id,
+    roleId: adminRole.id,
+    scopeId: scope.id,
+  })
+
+  return { actor, academicClass }
+}
+
+async function createAdminCookie(
+  app: FastifyInstance,
+  actor: { id: string, username: string },
+) {
+  await app.ready()
+  const token = app.jwt.sign(
+    {
+      sub: actor.id,
+      username: actor.username,
+      roles: ['ADMIN'],
+      mustChangePassword: false,
+      portal: 'admin',
+      aud: ADMIN_JWT_AUDIENCE,
+      iss: JWT_ISSUER,
+    },
+    { expiresIn: ADMIN_SESSION_TTL_SECONDS },
+  )
+
+  return `${ADMIN_SESSION_COOKIE_NAME}=${token}`
+}
+
+function multipartCsv(csv: string) {
+  const boundary =
+    `student-import-${crypto.randomUUID()}`
+  const payload = Buffer.from(
+    `--${boundary}\r\n`
+    + 'Content-Disposition: form-data; name="file"; filename="students.csv"\r\n'
+    + 'Content-Type: text/csv\r\n\r\n'
+    + `${csv}\r\n`
+    + `--${boundary}--\r\n`,
+  )
+
+  return {
+    payload,
+    contentType:
+      `multipart/form-data; boundary=${boundary}`,
+  }
+}
+
+function createApp() {
+  return buildApp({
+    studentImportService:
+      new StudentImportService(
+        new DrizzleStudentImportRepository(),
+        new InMemoryStudentImportPreviewStore(),
+      ),
+  })
+}
+
+test(
+  'preview rồi confirm ghi toàn bộ sinh viên và audit',
+  async (context) => {
+    const { actor } = await createImportContext()
+    const app = createApp()
+    context.after(() => app.close())
+    const cookie = await createAdminCookie(app, actor)
+    const upload = multipartCsv([
+      'studentCode,fullName,email,classCode',
+      'SV001,Nguyễn Văn A,sv001@example.edu.vn,K15A',
+      'SV002,Trần Thị B,sv002@example.edu.vn,K15A',
+    ].join('\n'))
+
+    const previewResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/students/imports/preview',
+      headers: {
+        cookie,
+        'content-type': upload.contentType,
+      },
+      payload: upload.payload,
+    })
+
+    assert.equal(previewResponse.statusCode, 200)
+    const preview = previewResponse.json<{
+      previewId: string
+      summary: {
+        valid: number
+        errors: number
+        duplicates: number
+      }
+    }>()
+    assert.deepEqual(preview.summary, {
+      total: 2,
+      valid: 2,
+      errors: 0,
+      duplicates: 0,
+    })
+    assert.deepEqual(
+      await db.select().from(studentProfiles),
+      [],
+      'preview must not persist student data',
+    )
+
+    const confirmResponse = await app.inject({
+      method: 'POST',
+      url:
+        `/api/v1/admin/students/imports/${preview.previewId}/confirm`,
+      headers: { cookie },
+      payload: { duplicateStrategy: 'FAIL' },
+    })
+
+    assert.equal(confirmResponse.statusCode, 200)
+    assert.deepEqual(confirmResponse.json(), {
+      imported: 2,
+      updated: 0,
+      skipped: 0,
+    })
+
+    const importedProfiles = await db
+      .select({ code: studentProfiles.studentCode })
+      .from(studentProfiles)
+      .where(
+        inArray(
+          studentProfiles.studentCode,
+          ['SV001', 'SV002'],
+        ),
+      )
+    assert.equal(importedProfiles.length, 2)
+
+    const queuedInvitations = await db
+      .select({
+        status: invitationDeliveryJobs.status,
+      })
+      .from(invitationDeliveryJobs)
+    assert.deepEqual(
+      queuedInvitations.map((job) => job.status),
+      ['PENDING', 'PENDING'],
+      'import and invitation enqueue must commit together',
+    )
+
+    const [audit] = await db
+      .select({
+        action: auditLogs.action,
+        actorUserId: auditLogs.actorUserId,
+        after: auditLogs.after,
+      })
+      .from(auditLogs)
+      .where(
+        eq(
+          auditLogs.action,
+          'STUDENT_IMPORT_COMMIT',
+        ),
+      )
+    assert.ok(audit)
+    assert.equal(audit.actorUserId, actor.id)
+    assert.deepEqual(audit.after, {
+      imported: 2,
+      updated: 0,
+      skipped: 0,
+      processed: 2,
+    })
+  },
+)
+
+test(
+  'confirm rollback toàn bộ khi dữ liệu trùng xuất hiện sau preview',
+  async (context) => {
+    const { actor } = await createImportContext()
+    const app = createApp()
+    context.after(() => app.close())
+    const cookie = await createAdminCookie(app, actor)
+    const upload = multipartCsv([
+      'studentCode,fullName,email,classCode',
+      'SV101,Sinh viên Một,sv101@example.edu.vn,K15A',
+      'SV102,Sinh viên Hai,sv102@example.edu.vn,K15A',
+    ].join('\n'))
+
+    const previewResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/students/imports/preview',
+      headers: {
+        cookie,
+        'content-type': upload.contentType,
+      },
+      payload: upload.payload,
+    })
+    assert.equal(previewResponse.statusCode, 200)
+    const { previewId } = previewResponse.json<{
+      previewId: string
+    }>()
+
+    await db.insert(users).values({
+      username: 'race.user',
+      email: 'sv102@example.edu.vn',
+      fullName: 'Dữ liệu tạo đồng thời',
+      status: 'ACTIVE',
+      mustChangePassword: false,
+    })
+
+    const confirmResponse = await app.inject({
+      method: 'POST',
+      url:
+        `/api/v1/admin/students/imports/${previewId}/confirm`,
+      headers: { cookie },
+      payload: { duplicateStrategy: 'FAIL' },
+    })
+
+    assert.equal(confirmResponse.statusCode, 409)
+
+    const rolledBackUsers = await db
+      .select({ username: users.username })
+      .from(users)
+      .where(eq(users.username, 'sv101'))
+    assert.deepEqual(rolledBackUsers, [])
+
+    const importAudits = await db
+      .select({ id: auditLogs.id })
+      .from(auditLogs)
+      .where(
+        eq(
+          auditLogs.action,
+          'STUDENT_IMPORT_COMMIT',
+        ),
+      )
+    assert.deepEqual(importAudits, [])
+  },
+)
+
+test(
+  'OVERWRITE cập nhật sinh viên đã tồn tại thay vì tạo bản ghi mới',
+  async (context) => {
+    const { actor, academicClass } =
+      await createImportContext()
+    const [studentRole] = await db
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.code, 'STUDENT'))
+      .limit(1)
+    assert.ok(studentRole)
+
+    const [existingUser] = await db
+      .insert(users)
+      .values({
+        username: 'sv200',
+        email: 'sv200@example.edu.vn',
+        fullName: 'Tên trước import',
+        status: 'ACTIVE',
+        mustChangePassword: false,
+      })
+      .returning({ id: users.id })
+    assert.ok(existingUser)
+    await db.insert(userRoles).values({
+      userId: existingUser.id,
+      roleId: studentRole.id,
+    })
+    await db.insert(studentProfiles).values({
+      userId: existingUser.id,
+      studentCode: 'SV200',
+      classId: academicClass.id,
+    })
+
+    const app = createApp()
+    context.after(() => app.close())
+    const cookie = await createAdminCookie(app, actor)
+    const upload = multipartCsv([
+      'studentCode,fullName,email,classCode',
+      'SV200,Tên sau import,sv200@example.edu.vn,K15A',
+    ].join('\n'))
+
+    const previewResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/students/imports/preview',
+      headers: {
+        cookie,
+        'content-type': upload.contentType,
+      },
+      payload: upload.payload,
+    })
+    assert.equal(previewResponse.statusCode, 200)
+    const preview = previewResponse.json<{
+      previewId: string
+      summary: { duplicates: number }
+      duplicateRecords: Array<{
+        duplicates: Array<{ source: string }>
+      }>
+    }>()
+    assert.equal(preview.summary.duplicates, 1)
+    assert.equal(
+      preview.duplicateRecords[0]
+        ?.duplicates[0]?.source,
+      'SYSTEM',
+    )
+
+    const confirmResponse = await app.inject({
+      method: 'POST',
+      url:
+        `/api/v1/admin/students/imports/${preview.previewId}/confirm`,
+      headers: { cookie },
+      payload: {
+        duplicateStrategy: 'OVERWRITE',
+      },
+    })
+    assert.equal(confirmResponse.statusCode, 200)
+    assert.deepEqual(confirmResponse.json(), {
+      imported: 0,
+      updated: 1,
+      skipped: 0,
+    })
+
+    const [updatedUser] = await db
+      .select({ fullName: users.fullName })
+      .from(users)
+      .where(eq(users.id, existingUser.id))
+    assert.equal(
+      updatedUser?.fullName,
+      'Tên sau import',
+    )
+  },
+)
+
+test(
+  'preview yêu cầu permission student.import từ database',
+  async (context) => {
+    const { actor } = await createImportContext()
+    await db.delete(rolePermissions)
+    const app = createApp()
+    context.after(() => app.close())
+    const cookie = await createAdminCookie(app, actor)
+    const upload = multipartCsv([
+      'studentCode,fullName,email,classCode',
+      'SV300,Sinh viên,sv300@example.edu.vn,K15A',
+    ].join('\n'))
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/students/imports/preview',
+      headers: {
+        cookie,
+        'content-type': upload.contentType,
+      },
+      payload: upload.payload,
+    })
+
+    assert.equal(response.statusCode, 403)
+    assert.deepEqual(
+      await db.select().from(studentProfiles),
+      [],
+    )
+  },
+)

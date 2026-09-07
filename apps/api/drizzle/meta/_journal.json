@@ -71,6 +71,13 @@
       "when": 1788639933260,
       "tag": "0009_data-scopes",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788697273877,
+      "tag": "0010_invitation-delivery-jobs",
+      "breakpoints": true
     }
   ]
 }

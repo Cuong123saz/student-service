@@ -2,6 +2,7 @@ import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import jwt from '@fastify/jwt'
+import multipart from '@fastify/multipart'
 import rateLimit from '@fastify/rate-limit'
 import Fastify from 'fastify'
 
@@ -113,6 +114,30 @@ import {
   type AdminStudentUseCase,
 } from './modules/users/admin-student.service.js'
 import {
+  DrizzleStudentExportRepository,
+} from './modules/users/student-export.repository.js'
+import {
+  studentExportRoutes,
+} from './modules/users/student-export.routes.js'
+import {
+  StudentExportService,
+  type StudentExportUseCase,
+} from './modules/users/student-export.service.js'
+import {
+  DrizzleStudentImportRepository,
+} from './modules/users/student-import.repository.js'
+import {
+  STUDENT_IMPORT_MAX_FILE_BYTES,
+} from './modules/users/student-import.parser.js'
+import {
+  studentImportRoutes,
+} from './modules/users/student-import.routes.js'
+import {
+  InMemoryStudentImportPreviewStore,
+  StudentImportService,
+  type StudentImportUseCase,
+} from './modules/users/student-import.service.js'
+import {
   SmtpInvitationMailer,
 } from './modules/users/smtp-invitation-mailer.js'
 import {
@@ -153,6 +178,12 @@ export interface BuildAppOptions {
 
   adminStudentService?:
     AdminStudentUseCase
+
+  studentImportService?:
+    StudentImportUseCase
+
+  studentExportService?:
+    StudentExportUseCase
 
   academicCatalogService?:
     AcademicCatalogUseCase
@@ -226,6 +257,20 @@ export function buildApp(
       new DrizzleAdminStudentRepository(),
     )
 
+  const studentImportService =
+    options.studentImportService
+    ?? new StudentImportService(
+      new DrizzleStudentImportRepository(),
+      new InMemoryStudentImportPreviewStore(),
+    )
+
+  const studentExportService =
+    options.studentExportService
+    ?? new StudentExportService(
+      new DrizzleStudentExportRepository(),
+      auditLogService,
+    )
+
   const academicCatalogService =
     options.academicCatalogService
     ?? new AcademicCatalogService(
@@ -269,6 +314,15 @@ export function buildApp(
 
   app.register(helmet)
   app.register(cookie)
+  app.register(multipart, {
+    limits: {
+      files: 1,
+      parts: 1,
+      fileSize:
+        STUDENT_IMPORT_MAX_FILE_BYTES,
+    },
+    throwFileSizeLimit: true,
+  })
 
   app.register(jwt, {
     secret: env.jwtSecret,
@@ -349,6 +403,24 @@ export function buildApp(
       prefix: ADMIN_API_PREFIX,
       studentService:
         adminStudentService,
+      authorizationService,
+    },
+  )
+
+  app.register(
+    studentImportRoutes,
+    {
+      prefix: ADMIN_API_PREFIX,
+      studentImportService,
+      authorizationService,
+    },
+  )
+
+  app.register(
+    studentExportRoutes,
+    {
+      prefix: ADMIN_API_PREFIX,
+      studentExportService,
       authorizationService,
     },
   )
