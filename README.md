@@ -2,7 +2,7 @@
 
 Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, được xây dựng dưới dạng monorepo TypeScript. Hệ thống hướng tới một nơi thống nhất để sinh viên tra cứu dịch vụ, thực hiện thủ tục, quản lý hồ sơ học vụ, điểm rèn luyện, hoạt động ngoại khóa và nghiên cứu khoa học.
 
-> Trạng thái hiện tại: Sprint 1 và Sprint 2 đã hoàn thành trên môi trường local. Dự án chưa triển khai production.
+> Trạng thái hiện tại: Increment Sprint 3 đã hoàn thành kiểm thử trên môi trường local và đang chờ Product Owner demo, ký nghiệm thu. Dự án chưa triển khai production.
 
 ## Trạng thái dự án
 
@@ -30,7 +30,7 @@ Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, đượ
 - Helmet, CORS theo môi trường, rate limit cho route nhạy cảm và global error handler.
 - Giao diện public, đăng nhập, kích hoạt tài khoản, portal sinh viên, hồ sơ cá nhân và trang quản trị cơ bản.
 
-### Sprint 3 — Đang thực hiện
+### Sprint 3 — Sẵn sàng nghiệm thu
 
 - Nền tảng permission và ánh xạ role-permission — đã hoàn thành.
 - Nền tảng scope `GLOBAL`/`FACULTY`/`CLASS`/`ORGANIZATION` — đã hoàn thành.
@@ -41,12 +41,16 @@ Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, đượ
 - API import Excel/CSV theo luồng upload → preview → confirm → transaction, có báo lỗi theo dòng và ba chiến lược xử lý trùng — đã hoàn thành.
 - Export Excel theo quyền và phạm vi dữ liệu — đã hoàn thành.
 - Gửi lời mời hàng loạt qua PostgreSQL job queue — đã hoàn thành.
+- Giao diện import gồm preview, báo lỗi, xử lý trùng và confirm — đã hoàn thành.
 - Giao diện tra cứu audit log theo hành động và phân trang thời gian — đã hoàn thành.
+- Hồi quy API/Web và acceptance test cho Import/Audit — đã hoàn thành.
+- Runbook và script chuẩn bị demo — đã hoàn thành; chờ Product Owner ký biên bản nghiệm thu.
 
 Các module biểu mẫu thủ tục, workflow, sinh tài liệu, chữ ký số và điểm rèn luyện thuộc các sprint sau; không đưa vào Sprint 3.
 
 Ma trận quyền mặc định và các quyết định bảo mật của RBAC được ghi tại [`docs/authorization-matrix.md`](docs/authorization-matrix.md).
 Mô hình phạm vi dữ liệu được ghi tại [`docs/data-scope-model.md`](docs/data-scope-model.md).
+Kịch bản demo và biểu mẫu nghiệm thu được ghi tại [`docs/sprint-3-demo-runbook.md`](docs/sprint-3-demo-runbook.md).
 
 ## Luồng đã chạy được
 

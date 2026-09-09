@@ -67,3 +67,11 @@ Web build thành công nhưng Node.js 24 phát cảnh báo `DEP0155` từ depend
 - [x] Audit log được bao phủ gồm lọc, phân trang và xem metadata.
 - [x] Thiếu quyền được bao phủ ở cả phản hồi API và trạng thái giao diện.
 - [x] Web test được thêm vào CI để duy trì hồi quy sau Sprint 3.
+
+## Bàn giao S3 13
+
+- [x] README phản ánh trạng thái increment đã qua hồi quy và sẵn sàng nghiệm thu.
+- [x] Runbook mô tả đầy đủ thứ tự demo, kết quả mong đợi và biểu mẫu ký nghiệm thu.
+- [x] Script `scripts/sprint-3-demo.ps1` tạo dữ liệu CSV không trùng cho từng lần demo và kiểm tra API/Web local.
+- [x] Script đã được kiểm tra cú pháp và chạy thử thành công với API/Web phản hồi HTTP 200.
+- [ ] Product Owner thực hiện demo trực tiếp, lưu ảnh bằng chứng và ký kết luận Sprint 3.
