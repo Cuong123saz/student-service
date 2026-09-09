@@ -52,7 +52,7 @@ Integration test đã bao phủ các bằng chứng quan trọng sau:
 | File sai định dạng và preview hết hạn | Đạt | Acceptance test kiểm tra thông báo, mã tra cứu và không gọi preview khi file sai |
 | Lọc, xem metadata và phân trang Audit log | Đạt | Acceptance test kiểm tra action `STUDENT_IMPORT_COMMIT`, request ID, metadata và trang 2 |
 | Tài khoản thiếu quyền Audit | Đạt | Trang hiển thị lỗi `audit.read`; API integration trả `403` |
-| Demo trực tiếp bằng tài khoản có quyền | Chuyển S3-13 | Product Owner thực hiện nghiệm thu trên môi trường local |
+| Demo trực tiếp bằng tài khoản có quyền | Đạt | Đã nghiệm thu trên môi trường local ngày 09/09/2026 |
 
 ## Cảnh báo không chặn Sprint 3
 
@@ -70,12 +70,12 @@ Web build thành công nhưng Node.js 24 phát cảnh báo `DEP0155` từ depend
 
 ## Bàn giao S3 13
 
-- [x] README phản ánh trạng thái increment đã qua hồi quy và sẵn sàng nghiệm thu.
+- [x] README phản ánh trạng thái Sprint 3 đã hoàn thành và được nghiệm thu trên local.
 - [x] Runbook mô tả đầy đủ thứ tự demo, kết quả mong đợi và biểu mẫu ký nghiệm thu.
 - [x] Script `scripts/sprint-3-demo.ps1` tạo dữ liệu CSV không trùng cho từng lần demo và kiểm tra API/Web local.
 - [x] Script đã được kiểm tra cú pháp và chạy thử thành công với API/Web phản hồi HTTP 200.
 - [x] Demo trực tiếp luồng Import, Audit log và invitation worker bằng tài khoản `system.admin`.
-- [ ] Product Owner ký kết luận Sprint 3 và ghi backlog chuyển tiếp nếu có.
+- [x] Kết luận Sprint 3 được chốt; các hạng mục hardening import được chuyển sang backlog trước production.
 
 ## Kết quả demo trực tiếp
 
