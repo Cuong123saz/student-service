@@ -9,6 +9,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test": "vitest run",
+    "test:acceptance": "vitest run --project nuxt",
     "test:watch": "vitest"
   },
   "dependencies": {

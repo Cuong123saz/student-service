@@ -54,5 +54,8 @@ jobs:
       - name: Build API
         run: npm run build --workspace @student-service/api
 
+      - name: Test Web
+        run: npm run test --workspace @student-service/web
+
       - name: Build Web
         run: npm run build --workspace @student-service/web

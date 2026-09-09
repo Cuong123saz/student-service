@@ -385,6 +385,14 @@ Script tự chạy migration bằng `drizzle.test.config.ts`. Database test dùn
 npm run test --workspace @student-service/api
 ```
 
+### Web unit và acceptance test
+
+```powershell
+npm run test --workspace @student-service/web
+```
+
+Bộ acceptance test của Web chạy trang Nuxt trong DOM test, bao phủ thao tác chọn file → preview → confirm, lỗi file không hỗ trợ/preview hết hạn, Audit log lọc → xem metadata → phân trang và trạng thái thiếu quyền. Có thể chạy riêng lớp này bằng `npm run test:acceptance --workspace @student-service/web`.
+
 ## Typecheck và build
 
 ```powershell
@@ -395,11 +403,11 @@ npm run build --workspace @student-service/web
 
 Build API được tạo tại `apps/api/dist`. Build Nuxt được tạo trong thư mục do Nuxt quản lý và không được commit.
 
-Kết quả hồi quy và các kịch bản E2E còn chờ xác nhận được ghi tại [`docs/sprint-3-test-report.md`](docs/sprint-3-test-report.md).
+Kết quả hồi quy và acceptance test Sprint 3 được ghi tại [`docs/sprint-3-test-report.md`](docs/sprint-3-test-report.md).
 
 ## Continuous Integration
 
-Workflow `.github/workflows/ci.yml` tự chạy API typecheck, unit/integration test, API build và Web build trên mỗi pull request và mỗi lần push lên `main`. PostgreSQL test được tạo riêng trong runner; CI không dùng database development.
+Workflow `.github/workflows/ci.yml` tự chạy API typecheck, unit/integration test, API build, Web unit/acceptance test và Web build trên mỗi pull request và mỗi lần push lên `main`. PostgreSQL test được tạo riêng trong runner; CI không dùng database development.
 
 ## Migration workflow
 
