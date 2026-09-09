@@ -326,6 +326,7 @@ Sau khi hoàn tất, xóa biến bằng `Remove-Item Env:RECOVER_ADMIN_STATUS`. 
 | `GET` | `/api/v1/admin/academic-catalog` | Khoa/lớp đang hoạt động theo permission và scope |
 | `GET` | `/api/v1/admin/students` | Danh sách sinh viên theo permission và scope |
 | `PATCH` | `/api/v1/admin/students/:userId` | Sửa tên, mã sinh viên dạng số và khoa/lớp trong phạm vi `student.update` |
+| `GET` | `/api/v1/admin/students/import-template.xlsx` | Tải file Excel mẫu theo cấu trúc import, yêu cầu `student.import` |
 | `POST` | `/api/v1/admin/students/imports/preview` | Upload `.xlsx`/`.csv`, kiểm tra và xem trước; không ghi database |
 | `POST` | `/api/v1/admin/students/imports/:previewId/confirm` | Xác nhận import với chiến lược `SKIP`, `OVERWRITE` hoặc `FAIL` |
 | `GET` | `/api/v1/admin/students/export.xlsx` | Export Excel theo bộ lọc, permission `student.export` và scope được giao |

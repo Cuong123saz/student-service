@@ -12,7 +12,7 @@ const XLSX_CONTENT_TYPE =
 
 export { XLSX_CONTENT_TYPE }
 
-const headers = [
+const exportHeaders = [
   'STT',
   'Mã sinh viên',
   'Họ và tên',
@@ -63,7 +63,9 @@ function textCell(
 }
 
 function worksheetXml(
-  records: readonly StudentExportRecord[],
+  headers: readonly string[],
+  rows: readonly (readonly (string | number)[])[],
+  columnsXml: string,
 ): string {
   const headerCells = headers
     .map((header, index) =>
@@ -71,21 +73,9 @@ function worksheetXml(
     )
     .join('')
 
-  const dataRows = records.map(
-    (record, recordIndex) => {
+  const dataRows = rows.map(
+    (values, recordIndex) => {
       const rowNumber = recordIndex + 2
-      const values = [
-        recordIndex + 1,
-        record.studentCode,
-        record.fullName,
-        record.email ?? '',
-        record.username,
-        record.status,
-        record.classCode,
-        record.className,
-        record.facultyCode,
-        record.facultyName,
-      ]
       const cells = values
         .map((value, columnIndex) =>
           textCell(
@@ -101,21 +91,15 @@ function worksheetXml(
     },
   ).join('')
 
-  const lastRow = records.length + 1
+  const lastRow = rows.length + 1
+  const lastColumn = columnName(headers.length - 1)
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
-  <cols>
-    <col min="1" max="1" width="8" customWidth="1"/>
-    <col min="2" max="2" width="18" customWidth="1"/>
-    <col min="3" max="3" width="30" customWidth="1"/>
-    <col min="4" max="5" width="32" customWidth="1"/>
-    <col min="6" max="7" width="16" customWidth="1"/>
-    <col min="8" max="10" width="28" customWidth="1"/>
-  </cols>
+  <cols>${columnsXml}</cols>
   <sheetData><row r="1">${headerCells}</row>${dataRows}</sheetData>
-  <autoFilter ref="A1:J${lastRow}"/>
+  <autoFilter ref="A1:${lastColumn}${lastRow}"/>
 </worksheet>`
 }
 
@@ -133,10 +117,12 @@ const rootRelationshipsXml = `<?xml version="1.0" encoding="UTF-8" standalone="y
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
 </Relationships>`
 
-const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+function workbookXml(sheetName: string): string {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets><sheet name="Danh sách sinh viên" sheetId="1" r:id="rId1"/></sheets>
+  <sheets><sheet name="${escapeXml(sheetName)}" sheetId="1" r:id="rId1"/></sheets>
 </workbook>`
+}
 
 const workbookRelationshipsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -165,25 +151,81 @@ const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`
 
-export function createStudentExportWorkbook(
-  records: readonly StudentExportRecord[],
-): Buffer {
+function createWorkbook(input: {
+  sheetName: string
+  headers: readonly string[]
+  rows: readonly (readonly (string | number)[])[]
+  columnsXml: string
+}): Buffer {
   const archive = zipSync({
     '[Content_Types].xml':
       strToU8(contentTypesXml),
     '_rels/.rels':
       strToU8(rootRelationshipsXml),
     'xl/workbook.xml':
-      strToU8(workbookXml),
+      strToU8(workbookXml(input.sheetName)),
     'xl/_rels/workbook.xml.rels':
       strToU8(workbookRelationshipsXml),
     'xl/styles.xml':
       strToU8(stylesXml),
     'xl/worksheets/sheet1.xml':
-      strToU8(worksheetXml(records)),
+      strToU8(worksheetXml(
+        input.headers,
+        input.rows,
+        input.columnsXml,
+      )),
   }, {
     level: 6,
   })
 
   return Buffer.from(archive)
+}
+
+export function createStudentExportWorkbook(
+  records: readonly StudentExportRecord[],
+): Buffer {
+  return createWorkbook({
+    sheetName: 'Danh sách sinh viên',
+    headers: exportHeaders,
+    rows: records.map((record, index) => [
+      index + 1,
+      record.studentCode,
+      record.fullName,
+      record.email ?? '',
+      record.username,
+      record.status,
+      record.classCode,
+      record.className,
+      record.facultyCode,
+      record.facultyName,
+    ]),
+    columnsXml: `
+    <col min="1" max="1" width="8" customWidth="1"/>
+    <col min="2" max="2" width="18" customWidth="1"/>
+    <col min="3" max="3" width="30" customWidth="1"/>
+    <col min="4" max="5" width="32" customWidth="1"/>
+    <col min="6" max="7" width="16" customWidth="1"/>
+    <col min="8" max="10" width="28" customWidth="1"/>`,
+  })
+}
+
+export function createStudentImportTemplateWorkbook(): Buffer {
+  return createWorkbook({
+    sheetName: 'Mẫu import sinh viên',
+    headers: [
+      'Mã sinh viên',
+      'Họ và tên',
+      'Email',
+      'Mã lớp',
+    ],
+    rows: [
+      ['00123456', 'Nguyễn Văn A', '00123456@example.edu.vn', 'K15A'],
+      ['00123457', 'Trần Thị B', '00123457@example.edu.vn', 'K15A'],
+    ],
+    columnsXml: `
+    <col min="1" max="1" width="18" customWidth="1"/>
+    <col min="2" max="2" width="30" customWidth="1"/>
+    <col min="3" max="3" width="34" customWidth="1"/>
+    <col min="4" max="4" width="18" customWidth="1"/>`,
+  })
 }

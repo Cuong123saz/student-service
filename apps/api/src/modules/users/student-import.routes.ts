@@ -40,6 +40,10 @@ import {
   StudentImportConfigurationError,
   StudentImportForbiddenError,
 } from './student-import.repository.js'
+import {
+  createStudentImportTemplateWorkbook,
+  XLSX_CONTENT_TYPE,
+} from './student-export.xlsx.js'
 
 const studentImportErrorCodeSchema = Type.Union([
   Type.Literal('IMPORT_MULTIPART_REQUIRED'),
@@ -226,6 +230,32 @@ export async function studentImportRoutes(
       'student.import',
     ),
   ]
+
+  app.get(
+    '/students/import-template.xlsx',
+    {
+      preHandler: guards,
+      schema: {
+        response: {
+          401: Type.Object({ message: Type.String() }),
+          403: Type.Object({ message: Type.String() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminSession) {
+        return reply.code(401).send({ message: 'Unauthorized' })
+      }
+
+      return reply
+        .type(XLSX_CONTENT_TYPE)
+        .header(
+          'content-disposition',
+          'attachment; filename="mau-import-sinh-vien.xlsx"',
+        )
+        .send(createStudentImportTemplateWorkbook())
+    },
+  )
 
   app.post(
     '/students/imports/preview',

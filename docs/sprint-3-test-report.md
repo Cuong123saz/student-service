@@ -22,7 +22,7 @@ Luồng E2E có đăng nhập, upload file và confirm import chưa được đ�
 | --- | --- | --- |
 | API typecheck | Đạt | `npm run typecheck --workspace @student-service/api` |
 | API unit test | 75 đạt, 0 lỗi | `npm run test:unit --workspace @student-service/api` |
-| API integration test | 148 đạt, 0 lỗi | `npm run test:integration --workspace @student-service/api` |
+| API integration test | 148 đạt, 0 lỗi toàn bộ; 9/9 test import đạt sau khi thêm Excel mẫu | `npm run test:integration --workspace @student-service/api` và test mục tiêu import |
 | API production build | Đạt | `npm run build --workspace @student-service/api` |
 | Web unit test | 19 đạt, 0 lỗi | `npx --no-install vitest run --reporter=verbose` trong `apps/web` |
 | Web production build | Đạt | `npm run build --workspace @student-service/web` |
@@ -38,6 +38,7 @@ Integration test đã bao phủ các bằng chứng quan trọng sau:
 - Invitation queue, claim job, retry và trạng thái gửi thành công.
 - Data scope `GLOBAL`, `FACULTY`, `CLASS` và `ORGANIZATION`.
 - Sửa tên, mã sinh viên, khoa/lớp theo `student.update`, ghi audit và từ chối mã không phải số.
+- File Excel mẫu tải từ màn danh sách có đúng bốn cột import và được parser đọc lại thành công.
 
 ## Kiểm tra trình duyệt local
 

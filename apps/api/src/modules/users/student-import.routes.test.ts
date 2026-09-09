@@ -50,6 +50,12 @@ import {
 import {
   invitationDeliveryJobs,
 } from './invitation-delivery-job.schema.js'
+import {
+  parseStudentImportFile,
+} from './student-import.parser.js'
+import {
+  XLSX_CONTENT_TYPE,
+} from './student-export.xlsx.js'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -215,6 +221,39 @@ function createApp() {
       ),
   })
 }
+
+test('tải file Excel mẫu đúng cấu trúc import', async (context) => {
+  const { actor } = await createImportContext()
+  const app = createApp()
+  context.after(() => app.close())
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/students/import-template.xlsx',
+    headers: {
+      cookie: await createAdminCookie(app, actor),
+    },
+  })
+
+  assert.equal(response.statusCode, 200)
+  assert.equal(response.headers['content-type'], XLSX_CONTENT_TYPE)
+  assert.equal(
+    response.headers['content-disposition'],
+    'attachment; filename="mau-import-sinh-vien.xlsx"',
+  )
+
+  const parsed = await parseStudentImportFile(
+    'mau-import-sinh-vien.xlsx',
+    response.rawPayload,
+  )
+  assert.equal(parsed.rows.length, 2)
+  assert.deepEqual(parsed.rows[0]?.values, {
+    studentCode: '00123456',
+    fullName: 'Nguyễn Văn A',
+    email: '00123456@example.edu.vn',
+    classCode: 'K15A',
+  })
+})
 
 test(
   'preview rồi confirm ghi toàn bộ sinh viên và audit',

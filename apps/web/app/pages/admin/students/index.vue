@@ -12,6 +12,10 @@ definePageMeta({
 })
 
 const PAGE_SIZE = 20
+const config = useRuntimeConfig()
+const importTemplateUrl = computed(
+  () => `${config.public.apiBase}/api/v1/admin/students/import-template.xlsx`,
+)
 
 const {
   students,
@@ -339,6 +343,15 @@ onMounted(() => {
         >
           Import danh sách
         </NuxtLink>
+
+        <a
+          class="student-directory__template"
+          :href="importTemplateUrl"
+          download="mau-import-sinh-vien.xlsx"
+        >
+          <span aria-hidden="true">⇩</span>
+          Tải Excel mẫu
+        </a>
 
         <NuxtLink class="student-directory__invite" to="/admin/users/invite">
           <span aria-hidden="true">＋</span>
@@ -742,6 +755,8 @@ onMounted(() => {
 .student-directory__header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 9px; }
 .student-directory__header-actions .student-directory__import { display: inline-flex; min-height: 44px; align-items: center; padding: 10px 16px; border: 1px solid var(--color-border); border-radius: 12px; color: var(--color-primary); background: var(--color-surface); font-size: 14px; font-weight: 750; text-decoration: none; transition: border-color 160ms ease, background-color 160ms ease; }
 .student-directory__header-actions .student-directory__import:hover { border-color: #b9d6ff; background: var(--color-primary-soft); }
+.student-directory__template { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; padding: 10px 16px; border: 1px solid #b9d6ff; border-radius: 12px; color: var(--color-primary-dark); background: var(--color-primary-soft); font-size: 14px; font-weight: 750; text-decoration: none; transition: border-color 160ms ease, background-color 160ms ease; }
+.student-directory__template:hover { border-color: var(--color-primary); background: #e2f0ff; }
 .student-directory__invite { display: inline-flex; min-height: 44px; flex: 0 0 auto; align-items: center; gap: 7px; padding: 10px 17px; border-radius: 12px; color: #fff; background: linear-gradient(135deg, var(--color-primary), #205c94); box-shadow: 0 8px 20px rgb(23 76 130 / 20%); font-size: 14px; font-weight: 750; text-decoration: none; transition: transform 160ms ease, box-shadow 160ms ease; }
 .student-directory__invite:hover { transform: translateY(-1px); box-shadow: 0 11px 24px rgb(23 76 130 / 28%); }
 .student-directory__scope-note { display: flex; align-items: center; gap: 13px; padding: 14px 17px; border: 1px solid #cfe2f5; border-radius: 14px; color: var(--color-primary-dark); background: linear-gradient(100deg, #edf6ff, #f8fbff); }
