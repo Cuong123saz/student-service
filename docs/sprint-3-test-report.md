@@ -74,4 +74,19 @@ Web build thành công nhưng Node.js 24 phát cảnh báo `DEP0155` từ depend
 - [x] Runbook mô tả đầy đủ thứ tự demo, kết quả mong đợi và biểu mẫu ký nghiệm thu.
 - [x] Script `scripts/sprint-3-demo.ps1` tạo dữ liệu CSV không trùng cho từng lần demo và kiểm tra API/Web local.
 - [x] Script đã được kiểm tra cú pháp và chạy thử thành công với API/Web phản hồi HTTP 200.
-- [ ] Product Owner thực hiện demo trực tiếp, lưu ảnh bằng chứng và ký kết luận Sprint 3.
+- [x] Demo trực tiếp luồng Import, Audit log và invitation worker bằng tài khoản `system.admin`.
+- [ ] Product Owner ký kết luận Sprint 3 và ghi backlog chuyển tiếp nếu có.
+
+## Kết quả demo trực tiếp
+
+Ngày 09/09/2026, luồng chính được chạy trên Web local bằng tài khoản quản trị đã đăng nhập.
+
+| Kịch bản | Kết quả | Bằng chứng quan sát |
+| --- | --- | --- |
+| File dùng mã lớp không hợp lệ `K15A` | Đạt | Preview báo 2 dòng lỗi, không cho confirm và không ghi sinh viên |
+| File dùng mã lớp `QLGD-K15A` | Đạt | Import thành công 2 sinh viên với strategy `FAIL` |
+| Đồng bộ thông tin học vụ | Đạt | Hai sinh viên hiển thị lớp `QLGD-K15A`, khoa `QLGD`, trạng thái Chờ kích hoạt |
+| Audit Import | Đạt | Sự kiện `STUDENT_IMPORT_COMMIT` thành công, metadata lưu tên file và strategy; kết quả `imported=2`, `processed=2`, `updated=0`, `skipped=0` |
+| Phân trang Audit | Đạt | Chuyển từ trang 1 sang trang 2; trạng thái nút trước/sau cập nhật đúng |
+| Invitation worker | Đạt | Chạy hai lượt worker one-shot và Mailpit nhận đủ 2 email kích hoạt demo |
+| Audit gửi email | Đạt | Có 2 sự kiện `INVITATION_EMAIL_SENT` thành công sau khi worker xử lý |
