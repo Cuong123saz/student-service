@@ -46,3 +46,10 @@ export interface AdminStudentDirectoryQuery {
   classId?: string
   search?: string
 }
+
+export interface UpdateAdminStudentInput {
+  studentCode: string
+  fullName: string
+  facultyId: string
+  classId: string
+}

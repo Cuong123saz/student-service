@@ -247,7 +247,9 @@ function startAnotherImport() {
 
         <p id="student-import-help">
           Hỗ trợ file CSV hoặc XLSX, tối đa 5 MB
-          và không quá 1.000 dòng dữ liệu.
+          và không quá 1.000 dòng dữ liệu. Mã sinh viên chỉ gồm chữ số;
+          nếu có số 0 ở đầu, hãy đặt cột này ở định dạng Text trong Excel.
+          Khoa được xác định và đồng bộ tự động theo mã lớp hành chính.
         </p>
       </div>
 

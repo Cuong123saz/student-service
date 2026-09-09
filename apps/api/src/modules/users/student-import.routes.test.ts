@@ -225,8 +225,8 @@ test(
     const cookie = await createAdminCookie(app, actor)
     const upload = multipartCsv([
       'studentCode,fullName,email,classCode',
-      'SV001,Nguyễn Văn A,sv001@example.edu.vn,K15A',
-      'SV002,Trần Thị B,sv002@example.edu.vn,K15A',
+      '001,Nguyễn Văn A,sv001@example.edu.vn,K15A',
+      '002,Trần Thị B,sv002@example.edu.vn,K15A',
     ].join('\n'))
 
     const previewResponse = await app.inject({
@@ -281,7 +281,7 @@ test(
       .where(
         inArray(
           studentProfiles.studentCode,
-          ['SV001', 'SV002'],
+          ['001', '002'],
         ),
       )
     assert.equal(importedProfiles.length, 2)
@@ -330,7 +330,7 @@ test(
     const cookie = await createAdminCookie(app, actor)
     const upload = multipartCsv([
       'studentCode,fullName,email,classCode',
-      'SVHTTP01,Nguyễn Văn A,email-sai,K15A',
+      '9001,Nguyễn Văn A,email-sai,K15A',
     ].join('\n'))
 
     const response = await app.inject({
@@ -385,7 +385,7 @@ test(
       {
         studentCode: {
           kind: 'TEXT',
-          text: 'SVHTTP01',
+          text: '9001',
         },
         fullName: {
           kind: 'TEXT',
@@ -421,8 +421,8 @@ test(
     const cookie = await createAdminCookie(app, actor)
     const upload = multipartCsv([
       'studentCode,fullName,email,classCode',
-      'SV101,Sinh viên Một,sv101@example.edu.vn,K15A',
-      'SV102,Sinh viên Hai,sv102@example.edu.vn,K15A',
+      '101,Sinh viên Một,sv101@example.edu.vn,K15A',
+      '102,Sinh viên Hai,sv102@example.edu.vn,K15A',
     ].join('\n'))
 
     const previewResponse = await app.inject({
@@ -472,7 +472,7 @@ test(
     const rolledBackUsers = await db
       .select({ username: users.username })
       .from(users)
-      .where(eq(users.username, 'sv101'))
+      .where(eq(users.username, '101'))
     assert.deepEqual(rolledBackUsers, [])
 
     const importAudits = await db
@@ -531,8 +531,8 @@ test(
     const cookie = await createAdminCookie(app, actor)
     const upload = multipartCsv([
       'studentCode,fullName,email,classCode',
-      'SV401,Sinh viên Một,shared@example.edu.vn,K15A',
-      'SV402,Sinh viên Hai,shared@example.edu.vn,K15A',
+      '401,Sinh viên Một,shared@example.edu.vn,K15A',
+      '402,Sinh viên Hai,shared@example.edu.vn,K15A',
     ].join('\n'))
 
     const previewResponse = await app.inject({
@@ -596,9 +596,9 @@ test(
     const cookie = await createAdminCookie(app, actor)
     const upload = multipartCsv([
       'studentCode,fullName,email,classCode',
-      'SV501,Sinh viên Một,sv501@example.edu.vn,K15A',
-      'SV502,Sinh viên Hai,sv502@example.edu.vn,K15A',
-      'SV501,Sinh viên Ba,sv502@example.edu.vn,K15A',
+      '501,Sinh viên Một,sv501@example.edu.vn,K15A',
+      '502,Sinh viên Hai,sv502@example.edu.vn,K15A',
+      '501,Sinh viên Ba,sv502@example.edu.vn,K15A',
     ].join('\n'))
 
     const previewResponse = await app.inject({
@@ -682,7 +682,7 @@ test(
     })
     await db.insert(studentProfiles).values({
       userId: existingUser.id,
-      studentCode: 'SV200',
+      studentCode: '200',
       classId: academicClass.id,
     })
 
@@ -691,7 +691,7 @@ test(
     const cookie = await createAdminCookie(app, actor)
     const upload = multipartCsv([
       'studentCode,fullName,email,classCode',
-      'SV200,Tên sau import,sv200@example.edu.vn,K15A',
+      '200,Tên sau import,sv200@example.edu.vn,K15A',
     ].join('\n'))
 
     const previewResponse = await app.inject({
@@ -755,7 +755,7 @@ test(
     const cookie = await createAdminCookie(app, actor)
     const upload = multipartCsv([
       'studentCode,fullName,email,classCode',
-      'SV300,Sinh viên,sv300@example.edu.vn,K15A',
+      '300,Sinh viên,sv300@example.edu.vn,K15A',
     ].join('\n'))
 
     const response = await app.inject({

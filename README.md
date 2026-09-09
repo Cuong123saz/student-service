@@ -250,6 +250,8 @@ Worker claim job bằng khóa hàng `SKIP LOCKED`, tự retry tối đa 3 lần 
 | Đăng nhập sinh viên | `http://localhost:3001/login` |
 | Đăng nhập quản trị | `http://localhost:3001/admin/login` |
 | Danh sách sinh viên | `http://localhost:3001/admin/students` |
+| Import sinh viên | `http://localhost:3001/admin/students/import` |
+| Audit log | `http://localhost:3001/admin/audit-logs` |
 | Tạo lời mời sinh viên | `http://localhost:3001/admin/users/invite` |
 | API | `http://localhost:3000` |
 
@@ -323,6 +325,7 @@ Sau khi hoàn tất, xóa biến bằng `Remove-Item Env:RECOVER_ADMIN_STATUS`. 
 | `POST` | `/api/v1/admin/users/:userId/invitations/resend` | Gửi lại lời mời |
 | `GET` | `/api/v1/admin/academic-catalog` | Khoa/lớp đang hoạt động theo permission và scope |
 | `GET` | `/api/v1/admin/students` | Danh sách sinh viên theo permission và scope |
+| `PATCH` | `/api/v1/admin/students/:userId` | Sửa tên, mã sinh viên dạng số và khoa/lớp trong phạm vi `student.update` |
 | `POST` | `/api/v1/admin/students/imports/preview` | Upload `.xlsx`/`.csv`, kiểm tra và xem trước; không ghi database |
 | `POST` | `/api/v1/admin/students/imports/:previewId/confirm` | Xác nhận import với chiến lược `SKIP`, `OVERWRITE` hoặc `FAIL` |
 | `GET` | `/api/v1/admin/students/export.xlsx` | Export Excel theo bộ lọc, permission `student.export` và scope được giao |
@@ -390,6 +393,8 @@ npm run build --workspace @student-service/web
 ```
 
 Build API được tạo tại `apps/api/dist`. Build Nuxt được tạo trong thư mục do Nuxt quản lý và không được commit.
+
+Kết quả hồi quy và các kịch bản E2E còn chờ xác nhận được ghi tại [`docs/sprint-3-test-report.md`](docs/sprint-3-test-report.md).
 
 ## Continuous Integration
 

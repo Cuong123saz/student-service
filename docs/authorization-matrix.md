@@ -1,11 +1,12 @@
 # Ma trận phân quyền mặc định
 
-Tài liệu này là nguồn đối chiếu cho catalog RBAC hệ thống. Catalog hiện có 6 role, 14 permission và 31 grant mặc định trên tổng số 84 tổ hợp có thể có.
+Tài liệu này là nguồn đối chiếu cho catalog RBAC hệ thống. Catalog hiện có 6 role, 15 permission và 33 grant mặc định trên tổng số 90 tổ hợp có thể có.
 
 | Permission | SYSTEM_ADMIN | ADMIN | STUDENT | ACADEMIC_ADVISOR | FACULTY_REVIEWER | DOCUMENT_SIGNER |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: |
 | `student.read` | ✓ | ✓ | — | ✓ | ✓ | — |
 | `student.create` | ✓ | ✓ | — | — | — | — |
+| `student.update` | ✓ | ✓ | — | — | — | — |
 | `student.import` | ✓ | ✓ | — | — | — | — |
 | `student.export` | ✓ | ✓ | — | — | — | — |
 | `user.manage` | ✓ | ✓ | — | — | — | — |

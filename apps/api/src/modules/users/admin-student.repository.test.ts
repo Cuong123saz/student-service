@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { eq } from 'drizzle-orm'
 import {
   after,
   beforeEach,
@@ -30,6 +31,7 @@ import {
 import {
   DrizzleAdminStudentRepository,
 } from './admin-student.repository.js'
+import { auditLogs } from '../audit/audit.schema.js'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -44,6 +46,7 @@ if (
 }
 
 beforeEach(async () => {
+  await db.delete(auditLogs)
   await db.delete(userRoleScopes)
   await db.delete(authorizationScopes)
   await db.delete(rolePermissions)
@@ -70,6 +73,7 @@ interface Fixture {
   firstFacultyId: string
   firstClassId: string
   siblingClassId: string
+  firstStudentUserId: string
 }
 
 async function createFixture(): Promise<Fixture> {
@@ -183,24 +187,33 @@ async function createFixture(): Promise<Fixture> {
     .returning({ id: roles.id })
   assert.ok(role)
 
-  const [permission] = await db
+  const permissionRows = await db
     .insert(permissions)
-    .values({
-      code: 'student.read',
-      name: 'Xem sinh viên',
-      isSystem: true,
-    })
+    .values([
+      {
+        code: 'student.read',
+        name: 'Xem sinh viên',
+        isSystem: true,
+      },
+      {
+        code: 'student.update',
+        name: 'Cập nhật sinh viên',
+        isSystem: true,
+      },
+    ])
     .returning({ id: permissions.id })
-  assert.ok(permission)
+  assert.equal(permissionRows.length, 2)
 
   await db.insert(userRoles).values({
     userId: actor.id,
     roleId: role.id,
   })
-  await db.insert(rolePermissions).values({
-    roleId: role.id,
-    permissionId: permission.id,
-  })
+  await db.insert(rolePermissions).values(
+    permissionRows.map(permission => ({
+      roleId: role.id,
+      permissionId: permission.id,
+    })),
+  )
 
   return {
     actorUserId: actor.id,
@@ -208,6 +221,7 @@ async function createFixture(): Promise<Fixture> {
     firstFacultyId: firstFaculty.id,
     firstClassId: firstClass.id,
     siblingClassId: siblingClass.id,
+    firstStudentUserId: firstStudent.id,
   }
 }
 
@@ -357,5 +371,60 @@ test(
       withoutPermission.students,
       [],
     )
+  },
+)
+
+test(
+  'cập nhật tên, mã số và lớp trong một transaction kèm audit',
+  async () => {
+    const fixture = await createFixture()
+    await grantScope(fixture, {
+      scopeType: 'FACULTY',
+      facultyId: fixture.firstFacultyId,
+    })
+    const changedAt = new Date('2026-09-09T01:00:00.000Z')
+
+    await new DrizzleAdminStudentRepository().updateStudent({
+      actorUserId: fixture.actorUserId,
+      actorUsername: 'directory.actor',
+      userId: fixture.firstStudentUserId,
+      studentCode: '001234',
+      fullName: 'Nguyễn An mới',
+      facultyId: fixture.firstFacultyId,
+      classId: fixture.siblingClassId,
+      changedAt,
+      audit: {
+        requestId: 'request-update-student',
+        ipAddress: '127.0.0.1',
+        userAgent: 'node-test',
+      },
+    })
+
+    const [updated] = await db
+      .select({
+        fullName: users.fullName,
+        studentCode: studentProfiles.studentCode,
+        classId: studentProfiles.classId,
+      })
+      .from(users)
+      .innerJoin(studentProfiles, eq(users.id, studentProfiles.userId))
+      .where(eq(users.id, fixture.firstStudentUserId))
+    assert.deepEqual(updated, {
+      fullName: 'Nguyễn An mới',
+      studentCode: '001234',
+      classId: fixture.siblingClassId,
+    })
+
+    const [audit] = await db
+      .select({
+        action: auditLogs.action,
+        before: auditLogs.before,
+        after: auditLogs.after,
+      })
+      .from(auditLogs)
+      .where(eq(auditLogs.resourceId, fixture.firstStudentUserId))
+    assert.equal(audit?.action, 'STUDENT_PROFILE_UPDATE')
+    assert.equal(audit?.before?.['studentCode'], 'SV001')
+    assert.equal(audit?.after?.['studentCode'], '001234')
   },
 )

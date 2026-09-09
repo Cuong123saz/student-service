@@ -30,8 +30,8 @@ const previewResponse: StudentImportPreviewResponse = {
   },
   validRecords: [{
     sourceRow: 2,
-    studentCode: 'SV001',
-    username: 'sv001',
+    studentCode: '001',
+    username: '001',
     fullName: 'Nguyễn Văn A',
     email: 'sv001@example.edu.vn',
     classCode: 'K15A',
@@ -50,7 +50,7 @@ function csvFile(): File {
   return new File(
     [
       'studentCode,fullName,email,classCode\n'
-      + 'SV001,Nguyễn Văn A,sv001@example.edu.vn,K15A',
+      + '001,Nguyễn Văn A,sv001@example.edu.vn,K15A',
     ],
     'students.csv',
     { type: 'text/csv' },

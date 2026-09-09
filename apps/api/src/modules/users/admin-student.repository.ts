@@ -27,11 +27,37 @@ import {
   rolePermissions,
   userRoleScopes,
 } from '../auth/authorization.schema.js'
+import { auditLogs } from '../audit/audit.schema.js'
 import type {
   AdminStudentRepository,
   ListVisibleStudentsInput,
   StudentDirectoryPage,
+  UpdateStudentInput,
 } from './admin-student.service.js'
+
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+type QueryDatabase = typeof db | Transaction
+
+export class AdminStudentNotFoundError extends Error {
+  constructor() {
+    super('Student was not found in actor scope')
+    this.name = 'AdminStudentNotFoundError'
+  }
+}
+
+export class AdminStudentClassForbiddenError extends Error {
+  constructor() {
+    super('Academic class is outside actor scope or faculty does not match')
+    this.name = 'AdminStudentClassForbiddenError'
+  }
+}
+
+export class AdminStudentCodeConflictError extends Error {
+  constructor() {
+    super('Student code already exists')
+    this.name = 'AdminStudentCodeConflictError'
+  }
+}
 
 const actorUsers = alias(
   users,
@@ -67,6 +93,41 @@ function escapeLikePattern(value: string): string {
     .replaceAll('\\', '\\\\')
     .replaceAll('%', '\\%')
     .replaceAll('_', '\\_')
+}
+
+function updateAccessQuery(
+  database: QueryDatabase,
+  actorUserId: string,
+) {
+  return database
+    .select({ value: sql<number>`1` })
+    .from(actorUsers)
+    .innerJoin(actorUserRoles, eq(actorUsers.id, actorUserRoles.userId))
+    .innerJoin(actorRoles, eq(actorUserRoles.roleId, actorRoles.id))
+    .innerJoin(actorRolePermissions, eq(actorRoles.id, actorRolePermissions.roleId))
+    .innerJoin(actorPermissions, eq(actorRolePermissions.permissionId, actorPermissions.id))
+    .innerJoin(actorUserRoleScopes, and(
+      eq(actorUserRoleScopes.userId, actorUserRoles.userId),
+      eq(actorUserRoleScopes.roleId, actorUserRoles.roleId),
+    ))
+    .innerJoin(actorScopes, eq(actorUserRoleScopes.scopeId, actorScopes.id))
+    .where(and(
+      eq(actorUsers.id, actorUserId),
+      eq(actorUsers.status, 'ACTIVE'),
+      eq(actorPermissions.code, 'student.update'),
+      or(
+        eq(actorScopes.scopeType, 'GLOBAL'),
+        and(eq(actorScopes.scopeType, 'FACULTY'), eq(actorScopes.facultyId, academicClasses.facultyId)),
+        and(eq(actorScopes.scopeType, 'CLASS'), eq(actorScopes.classId, academicClasses.id)),
+      ),
+    ))
+}
+
+function getConstraintName(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null) return undefined
+  const record = error as Record<string, unknown>
+  if (typeof record.constraint_name === 'string') return record.constraint_name
+  return getConstraintName(record.cause)
 }
 
 export class DrizzleAdminStudentRepository
@@ -278,6 +339,100 @@ implements AdminStudentRepository {
         hasNextPage && lastRow
           ? lastRow.studentCode
           : null,
+    }
+  }
+
+  async updateStudent(input: UpdateStudentInput): Promise<void> {
+    try {
+      await this.database.transaction(async (transaction) => {
+        const [current] = await transaction
+          .select({
+            userId: users.id,
+            fullName: users.fullName,
+            studentCode: studentProfiles.studentCode,
+            classId: academicClasses.id,
+            classCode: academicClasses.code,
+            facultyId: faculties.id,
+            facultyCode: faculties.code,
+          })
+          .from(studentProfiles)
+          .innerJoin(users, eq(studentProfiles.userId, users.id))
+          .innerJoin(academicClasses, eq(studentProfiles.classId, academicClasses.id))
+          .innerJoin(faculties, eq(academicClasses.facultyId, faculties.id))
+          .where(and(
+            eq(users.id, input.userId),
+            exists(updateAccessQuery(transaction, input.actorUserId)),
+          ))
+          .for('update')
+          .limit(1)
+
+        if (!current) throw new AdminStudentNotFoundError()
+
+        const [destination] = await transaction
+          .select({
+            classId: academicClasses.id,
+            classCode: academicClasses.code,
+            facultyId: faculties.id,
+            facultyCode: faculties.code,
+          })
+          .from(academicClasses)
+          .innerJoin(faculties, eq(academicClasses.facultyId, faculties.id))
+          .where(and(
+            eq(academicClasses.id, input.classId),
+            eq(faculties.id, input.facultyId),
+            eq(academicClasses.status, 'ACTIVE'),
+            eq(faculties.status, 'ACTIVE'),
+            exists(updateAccessQuery(transaction, input.actorUserId)),
+          ))
+          .limit(1)
+
+        if (!destination) throw new AdminStudentClassForbiddenError()
+
+        await transaction.update(users).set({
+          fullName: input.fullName,
+          updatedAt: input.changedAt,
+        }).where(eq(users.id, input.userId))
+
+        await transaction.update(studentProfiles).set({
+          studentCode: input.studentCode,
+          classId: input.classId,
+          updatedAt: input.changedAt,
+        }).where(eq(studentProfiles.userId, input.userId))
+
+        await transaction.insert(auditLogs).values({
+          occurredAt: input.changedAt,
+          actorType: 'USER',
+          actorUserId: input.actorUserId,
+          actorUsername: input.actorUsername,
+          action: 'STUDENT_PROFILE_UPDATE',
+          resourceType: 'STUDENT_PROFILE',
+          resourceId: input.userId,
+          outcome: 'SUCCESS',
+          ...input.audit,
+          metadata: {},
+          before: {
+            studentCode: current.studentCode,
+            fullName: current.fullName,
+            classId: current.classId,
+            classCode: current.classCode,
+            facultyId: current.facultyId,
+            facultyCode: current.facultyCode,
+          },
+          after: {
+            studentCode: input.studentCode,
+            fullName: input.fullName,
+            classId: destination.classId,
+            classCode: destination.classCode,
+            facultyId: destination.facultyId,
+            facultyCode: destination.facultyCode,
+          },
+        })
+      })
+    } catch (error) {
+      if (getConstraintName(error) === 'student_profiles_student_code_unique') {
+        throw new AdminStudentCodeConflictError()
+      }
+      throw error
     }
   }
 }

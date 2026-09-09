@@ -16,6 +16,12 @@ export const SYSTEM_PERMISSIONS = [
       'Tạo tài khoản và hồ sơ sinh viên',
   },
   {
+    code: 'student.update',
+    name: 'Cập nhật sinh viên',
+    description:
+      'Cập nhật thông tin sinh viên trong phạm vi được giao',
+  },
+  {
     code: 'student.import',
     name: 'Import sinh viên',
     description:
@@ -102,6 +108,7 @@ export const SYSTEM_ROLE_PERMISSIONS = {
   ADMIN: [
     'student.read',
     'student.create',
+    'student.update',
     'student.import',
     'student.export',
     'user.manage',

@@ -28,7 +28,7 @@ implements StudentImportRepository {
     existing: [{
       username: 'sv900',
       email: 'existing@example.edu.vn',
-      studentCode: 'SV900',
+      studentCode: '900',
     }],
   }
 
@@ -73,7 +73,7 @@ test(
         {
           sourceRow: 2,
           values: {
-            studentCode: 'sv001',
+            studentCode: '001',
             fullName: 'Nguyễn Văn A',
             email: 'SV001@EXAMPLE.EDU.VN',
             classCode: 'k15a',
@@ -82,7 +82,7 @@ test(
         {
           sourceRow: 3,
           values: {
-            studentCode: 'SV002',
+            studentCode: '002',
             fullName: 'Trần Thị B',
             email: null,
             classCode: 'K15A',
@@ -91,7 +91,7 @@ test(
         {
           sourceRow: 4,
           values: {
-            studentCode: 'SV001',
+            studentCode: '001',
             fullName: 'Bản ghi lặp',
             email: 'other@example.edu.vn',
             classCode: 'K15A',
@@ -100,7 +100,7 @@ test(
         {
           sourceRow: 5,
           values: {
-            studentCode: 'SV003',
+            studentCode: '003',
             fullName: 'Đã tồn tại',
             email: 'existing@example.edu.vn',
             classCode: 'K15A',
@@ -109,7 +109,7 @@ test(
         {
           sourceRow: 6,
           values: {
-            studentCode: 123,
+            studentCode: 12.5,
             fullName: 'Sai kiểu dữ liệu',
             email: 'type@example.edu.vn',
             classCode: 'K15A',
@@ -118,7 +118,7 @@ test(
         {
           sourceRow: 7,
           values: {
-            studentCode: 'SV007',
+            studentCode: '007',
             fullName: 'Sai lớp',
             email: 'sv007@example.edu.vn',
             classCode: 'UNKNOWN',
@@ -142,7 +142,7 @@ test(
     })
     assert.equal(
       preview.validRecords[0]?.studentCode,
-      'SV001',
+      '001',
     )
     assert.deepEqual(
       preview.errorRecords.map((row) => row.sourceRow),
@@ -153,7 +153,7 @@ test(
       {
         studentCode: {
           kind: 'TEXT',
-          text: 'SV002',
+          text: '002',
         },
         fullName: {
           kind: 'TEXT',
@@ -189,7 +189,7 @@ test(
 )
 
 test(
-  'snapshot lỗi giữ nguyên text và không giả lập number hoặc date',
+  'mã số nguyên được nhận và snapshot lỗi giữ nguyên text hoặc date',
   async () => {
     const repository =
       new FakeStudentImportRepository()
@@ -218,7 +218,7 @@ test(
         {
           sourceRow: 4,
           values: {
-            studentCode: 'SV004',
+            studentCode: '004',
             fullName: new Date('2024-05-01T00:00:00.000Z'),
             email: 'date@example.edu.vn',
             classCode: 'K15A',
@@ -242,14 +242,11 @@ test(
       },
     )
     assert.deepEqual(
-      preview.errorRecords[1]?.values.studentCode,
-      {
-        kind: 'NUMBER',
-        text: null,
-      },
+      preview.validRecords[0]?.studentCode,
+      '12',
     )
     assert.deepEqual(
-      preview.errorRecords[2]?.values.fullName,
+      preview.errorRecords[1]?.values.fullName,
       {
         kind: 'DATE',
         text: null,
@@ -269,7 +266,7 @@ test(
       createParser([{
         sourceRow: 2,
         values: {
-          studentCode: 'SV900',
+          studentCode: '900',
           fullName: 'Sinh viên cũ',
           email: 'existing@example.edu.vn',
           classCode: 'K15A',
@@ -314,7 +311,7 @@ test(
         {
           sourceRow: 2,
           values: {
-            studentCode: 'SV001',
+            studentCode: '001',
             fullName: 'Sinh viên mới',
             email: 'new@example.edu.vn',
             classCode: 'K15A',
@@ -323,7 +320,7 @@ test(
         {
           sourceRow: 3,
           values: {
-            studentCode: 'SV900',
+            studentCode: '900',
             fullName: 'Sinh viên cũ',
             email: 'existing@example.edu.vn',
             classCode: 'K15A',
@@ -360,7 +357,7 @@ test(
       repository.committed?.rows.map(
         (row) => row.studentCode,
       ),
-      ['SV001'],
+      ['001'],
     )
   },
 )
@@ -378,7 +375,7 @@ test(
         {
           sourceRow: 2,
           values: {
-            studentCode: 'SV010',
+            studentCode: '010',
             fullName: 'Tên cũ trong file',
             email: 'sv010@example.edu.vn',
             classCode: 'K15A',
@@ -387,7 +384,7 @@ test(
         {
           sourceRow: 3,
           values: {
-            studentCode: 'SV010',
+            studentCode: '010',
             fullName: 'Tên cuối cùng',
             email: 'sv010@example.edu.vn',
             classCode: 'K15A',

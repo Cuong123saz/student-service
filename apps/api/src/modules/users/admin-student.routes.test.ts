@@ -17,6 +17,7 @@ import type {
   AdminStudentUseCase,
   ListVisibleStudentsInput,
   StudentDirectoryPage,
+  UpdateStudentInput,
 } from './admin-student.service.js'
 
 const actorUserId =
@@ -55,12 +56,20 @@ class FakeAdminStudentService
 implements AdminStudentUseCase {
   receivedInput:
     ListVisibleStudentsInput | undefined
+  receivedUpdate:
+    Omit<UpdateStudentInput, 'changedAt'> | undefined
 
   async listVisibleStudents(
     input: ListVisibleStudentsInput,
   ) {
     this.receivedInput = input
     return directoryPage
+  }
+
+  async updateStudent(
+    input: Omit<UpdateStudentInput, 'changedAt'>,
+  ) {
+    this.receivedUpdate = input
   }
 }
 
@@ -241,3 +250,75 @@ test(
     )
   },
 )
+
+test(
+  'PATCH admin student yêu cầu student.update và chuyển dữ liệu chỉnh sửa',
+  async (context) => {
+    const studentService = new FakeAdminStudentService()
+    const authorizationService = new FakeAuthorizationService(
+      new Set([actorUserId]),
+    )
+    const app = buildApp({
+      adminStudentService: studentService,
+      authorizationService,
+    })
+    context.after(() => app.close())
+
+    const cookie = await createAdminCookie(app)
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/students/${directoryPage.students[0]?.userId}`,
+      headers: { cookie },
+      payload: {
+        studentCode: '001234',
+        fullName: 'Nguyễn Văn A mới',
+        facultyId,
+        classId,
+      },
+    })
+
+    assert.equal(response.statusCode, 204)
+    assert.equal(
+      authorizationService.receivedChecks.at(-1)?.permission,
+      'student.update',
+    )
+    assert.deepEqual(studentService.receivedUpdate, {
+      actorUserId,
+      actorUsername: 'system.admin',
+      userId: directoryPage.students[0]?.userId,
+      studentCode: '001234',
+      fullName: 'Nguyễn Văn A mới',
+      facultyId,
+      classId,
+      audit: {
+        requestId: response.headers['x-request-id'] ?? studentService.receivedUpdate?.audit.requestId,
+        ipAddress: '127.0.0.1',
+        userAgent: 'lightMyRequest',
+      },
+    })
+  },
+)
+
+test('PATCH admin student từ chối mã có chữ trước use case', async (context) => {
+  const studentService = new FakeAdminStudentService()
+  const app = buildApp({
+    adminStudentService: studentService,
+    authorizationService: new FakeAuthorizationService(new Set([actorUserId])),
+  })
+  context.after(() => app.close())
+
+  const response = await app.inject({
+    method: 'PATCH',
+    url: `/api/v1/admin/students/${directoryPage.students[0]?.userId}`,
+    headers: { cookie: await createAdminCookie(app) },
+    payload: {
+      studentCode: 'SV001',
+      fullName: 'Nguyễn Văn A',
+      facultyId,
+      classId,
+    },
+  })
+
+  assert.equal(response.statusCode, 400)
+  assert.equal(studentService.receivedUpdate, undefined)
+})

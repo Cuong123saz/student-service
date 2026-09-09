@@ -6,6 +6,7 @@ import type {
   FastifyInstance,
   FastifyPluginOptions,
 } from 'fastify'
+import { getAuditRequestContext } from '../audit/audit-request-context.js'
 
 import {
   requireAdminReadySession,
@@ -20,6 +21,12 @@ import type {
 import type {
   AdminStudentUseCase,
 } from './admin-student.service.js'
+import { InvalidStudentUpdateError } from './admin-student.service.js'
+import {
+  AdminStudentClassForbiddenError,
+  AdminStudentCodeConflictError,
+  AdminStudentNotFoundError,
+} from './admin-student.repository.js'
 
 const listStudentsQuerySchema = Type.Object(
   {
@@ -98,6 +105,27 @@ const errorResponseSchema = Type.Object({
   message: Type.String(),
 })
 
+const updateStudentParamsSchema = Type.Object({
+  userId: Type.String({ format: 'uuid' }),
+})
+
+const updateStudentBodySchema = Type.Object(
+  {
+    studentCode: Type.String({
+      minLength: 1,
+      maxLength: 50,
+      pattern: '^\\d+$',
+    }),
+    fullName: Type.String({ minLength: 2, maxLength: 255 }),
+    facultyId: Type.String({ format: 'uuid' }),
+    classId: Type.String({ format: 'uuid' }),
+  },
+  { additionalProperties: false },
+)
+
+type UpdateStudentParams = Static<typeof updateStudentParamsSchema>
+type UpdateStudentBody = Static<typeof updateStudentBodySchema>
+
 export interface AdminStudentRoutesOptions
 extends FastifyPluginOptions {
   studentService: AdminStudentUseCase
@@ -170,6 +198,67 @@ export async function adminStudentRoutes(
             ? { search: request.query.search }
             : {}),
         })
+    },
+  )
+
+  app.patch<{
+    Params: UpdateStudentParams
+    Body: UpdateStudentBody
+  }>(
+    '/students/:userId',
+    {
+      preHandler: [
+        requireAdminSession,
+        requireAdminReadySession,
+        requireAdminPermission(
+          options.authorizationService,
+          'student.update',
+        ),
+      ],
+      schema: {
+        params: updateStudentParamsSchema,
+        body: updateStudentBodySchema,
+        response: {
+          204: Type.Null(),
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const session = request.adminSession
+
+      if (!session) {
+        return reply.code(401).send({ message: 'Unauthorized' })
+      }
+
+      try {
+        await options.studentService.updateStudent({
+          actorUserId: session.sub,
+          actorUsername: session.username,
+          userId: request.params.userId,
+          ...request.body,
+          audit: getAuditRequestContext(request),
+        })
+        return reply.code(204).send()
+      } catch (error: unknown) {
+        if (error instanceof InvalidStudentUpdateError) {
+          return reply.code(400).send({ message: error.message })
+        }
+        if (error instanceof AdminStudentNotFoundError) {
+          return reply.code(404).send({ message: 'Không tìm thấy sinh viên trong phạm vi quản lý.' })
+        }
+        if (error instanceof AdminStudentClassForbiddenError) {
+          return reply.code(403).send({ message: 'Khoa hoặc lớp không hợp lệ trong phạm vi quản lý.' })
+        }
+        if (error instanceof AdminStudentCodeConflictError) {
+          return reply.code(409).send({ message: 'Mã sinh viên đã tồn tại.' })
+        }
+        throw error
+      }
     },
   )
 }

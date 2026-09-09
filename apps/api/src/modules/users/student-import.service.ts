@@ -365,6 +365,41 @@ function requiredString(
 
   return value.trim()
 }
+
+function requiredStudentCode(
+  row: StudentImportSourceRow,
+  issues: StudentImportRowIssue[],
+): string | undefined {
+  const value = row.values.studentCode
+
+  if (value === null || value === '') {
+    issues.push({
+      field: 'studentCode',
+      code: 'REQUIRED',
+      message: 'studentCode is required',
+    })
+    return undefined
+  }
+
+  if (typeof value === 'string') {
+    return value.trim()
+  }
+
+  if (
+    typeof value === 'number'
+    && Number.isSafeInteger(value)
+    && value >= 0
+  ) {
+    return String(value)
+  }
+
+  issues.push({
+    field: 'studentCode',
+    code: 'INVALID_TYPE',
+    message: 'studentCode must be text or a whole number',
+  })
+  return undefined
+}
 function createErrorCell(
   value: StudentImportSourceCellValue | null,
 ): StudentImportErrorCell {
@@ -424,11 +459,7 @@ function validateRow(
   error?: StudentImportErrorRecord
 } {
   const issues: StudentImportRowIssue[] = []
-  const studentCode = requiredString(
-    row,
-    'studentCode',
-    issues,
-  )?.toUpperCase()
+  const studentCode = requiredStudentCode(row, issues)
   const fullName = requiredString(
     row,
     'fullName',
@@ -449,14 +480,14 @@ function validateRow(
     studentCode
     && (
       studentCode.length > 50
-      || !/^[A-Z0-9._-]+$/.test(studentCode)
+      || !/^\d+$/.test(studentCode)
     )
   ) {
     issues.push({
       field: 'studentCode',
       code: 'INVALID_FORMAT',
       message:
-        'studentCode may only contain letters, numbers, dot, underscore and hyphen',
+        'studentCode may only contain digits',
     })
   }
 

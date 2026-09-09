@@ -3,6 +3,7 @@ import {
   studentAccountStatusLabels,
   studentAccountStatuses,
   type StudentAccountStatus,
+  type AdminStudentDirectoryItem,
 } from '~/types/admin-student'
 
 definePageMeta({
@@ -18,7 +19,10 @@ const {
   isLoading,
   hasLoaded,
   errorMessage,
+  isUpdating,
+  updateErrorMessage,
   load,
+  updateStudent,
 } = useAdminStudents()
 const {
   faculties,
@@ -51,6 +55,15 @@ const cursorHistory = ref<Array<string | undefined>>([])
 const pendingResendUserId = ref('')
 const resendingUserId = ref('')
 const resendFeedback = ref<ResendFeedback | null>(null)
+const editingStudent = ref<AdminStudentDirectoryItem | null>(null)
+const editForm = reactive({
+  studentCode: '',
+  fullName: '',
+  facultyId: '',
+  classId: '',
+})
+const editValidationMessage = ref('')
+const editSuccessMessage = ref('')
 
 const pageNumber = computed(
   () => cursorHistory.value.length + 1,
@@ -74,6 +87,56 @@ const availableClasses = computed(() => {
     faculty => faculty.id === facultyInput.value,
   )?.classes ?? []
 })
+const availableEditClasses = computed(() =>
+  faculties.value.find(
+    faculty => faculty.id === editForm.facultyId,
+  )?.classes ?? [],
+)
+
+function beginEdit(student: AdminStudentDirectoryItem) {
+  editingStudent.value = student
+  editForm.studentCode = student.studentCode
+  editForm.fullName = student.fullName
+  editForm.facultyId = student.faculty.id
+  editForm.classId = student.academicClass.id
+  editValidationMessage.value = ''
+  editSuccessMessage.value = ''
+}
+
+function cancelEdit() {
+  if (isUpdating.value) return
+  editingStudent.value = null
+  editValidationMessage.value = ''
+}
+
+async function saveStudent() {
+  const student = editingStudent.value
+  if (!student || isUpdating.value) return
+
+  const studentCode = editForm.studentCode.trim()
+  const fullName = editForm.fullName.trim().replace(/\s+/g, ' ')
+  if (!/^\d{1,50}$/.test(studentCode)) {
+    editValidationMessage.value = 'Mã sinh viên chỉ được chứa chữ số (tối đa 50 số).'
+    return
+  }
+  if (fullName.length < 2 || !editForm.facultyId || !editForm.classId) {
+    editValidationMessage.value = 'Vui lòng nhập tên và chọn đầy đủ khoa, lớp hành chính.'
+    return
+  }
+
+  editValidationMessage.value = ''
+  const saved = await updateStudent(student.userId, {
+    studentCode,
+    fullName,
+    facultyId: editForm.facultyId,
+    classId: editForm.classId,
+  })
+  if (!saved) return
+
+  editingStudent.value = null
+  editSuccessMessage.value = `Đã cập nhật hồ sơ ${fullName}.`
+  await loadPage()
+}
 
 function initials(fullName: string): string {
   return fullName
@@ -243,6 +306,12 @@ async function goToPreviousPage() {
 
 watch(facultyInput, () => {
   classInput.value = ''
+})
+
+watch(() => editForm.facultyId, (facultyId, previousFacultyId) => {
+  if (previousFacultyId && facultyId !== previousFacultyId) {
+    editForm.classId = ''
+  }
 })
 
 onMounted(() => {
@@ -419,6 +488,14 @@ onMounted(() => {
         </NuxtLink>
       </BaseAlert>
 
+      <BaseAlert
+        v-if="editSuccessMessage"
+        variant="success"
+        title="Đã lưu thông tin sinh viên"
+      >
+        {{ editSuccessMessage }}
+      </BaseAlert>
+
       <div v-if="isLoading" class="student-directory__loading" role="status">
         <img src="/images/naem-logo.jpg" alt="">
         <div>
@@ -504,6 +581,15 @@ onMounted(() => {
                   </span>
                 </td>
                 <td class="student-directory__action-cell">
+                  <button
+                    type="button"
+                    class="student-directory__edit-button"
+                    :disabled="Boolean(resendingUserId)"
+                    :aria-label="`Sửa thông tin ${student.fullName}`"
+                    @click="beginEdit(student)"
+                  >
+                    Sửa thông tin
+                  </button>
                   <template v-if="student.status === 'INVITED'">
                     <div
                       v-if="pendingResendUserId === student.userId"
@@ -541,7 +627,6 @@ onMounted(() => {
                       {{ resendingUserId === student.userId ? 'Đang gửi…' : 'Gửi lại lời mời' }}
                     </button>
                   </template>
-                  <span v-else class="student-directory__no-action" aria-label="Không có thao tác">—</span>
                 </td>
               </tr>
             </tbody>
@@ -567,6 +652,86 @@ onMounted(() => {
         </nav>
       </template>
     </section>
+
+    <div
+      v-if="editingStudent"
+      class="student-directory__modal-backdrop"
+      role="presentation"
+      @click.self="cancelEdit"
+    >
+      <form
+        class="student-directory__edit-modal surface-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="student-edit-title"
+        @submit.prevent="saveStudent"
+      >
+        <header>
+          <div>
+            <p class="page-eyebrow">Hồ sơ sinh viên</p>
+            <h2 id="student-edit-title">Sửa thông tin cá nhân</h2>
+          </div>
+          <button type="button" aria-label="Đóng" :disabled="isUpdating" @click="cancelEdit">×</button>
+        </header>
+
+        <label>
+          <span>Mã sinh viên</span>
+          <input
+            v-model="editForm.studentCode"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]+"
+            maxlength="50"
+            autocomplete="off"
+            required
+          >
+          <small>Chỉ nhập chữ số. Số 0 ở đầu vẫn được giữ nguyên.</small>
+        </label>
+
+        <label>
+          <span>Tên sinh viên</span>
+          <input v-model="editForm.fullName" type="text" minlength="2" maxlength="255" required>
+        </label>
+
+        <label>
+          <span>Khoa</span>
+          <select v-model="editForm.facultyId" required>
+            <option value="" disabled>Chọn khoa</option>
+            <option v-for="faculty in faculties" :key="faculty.id" :value="faculty.id">
+              {{ faculty.code }} · {{ faculty.name }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          <span>Lớp hành chính</span>
+          <select v-model="editForm.classId" :disabled="!editForm.facultyId" required>
+            <option value="" disabled>Chọn lớp hành chính</option>
+            <option v-for="academicClass in availableEditClasses" :key="academicClass.id" :value="academicClass.id">
+              {{ academicClass.code }} · {{ academicClass.name }}
+            </option>
+          </select>
+          <small>Khoa được đồng bộ tự động theo lớp đã chọn.</small>
+        </label>
+
+        <BaseAlert
+          v-if="editValidationMessage || updateErrorMessage"
+          variant="error"
+          title="Chưa thể lưu"
+        >
+          {{ editValidationMessage || updateErrorMessage }}
+        </BaseAlert>
+
+        <footer>
+          <BaseButton type="button" variant="secondary" :disabled="isUpdating" @click="cancelEdit">
+            Hủy
+          </BaseButton>
+          <BaseButton type="submit" :loading="isUpdating">
+            Lưu thay đổi
+          </BaseButton>
+        </footer>
+      </form>
+    </div>
   </section>
 </template>
 
@@ -636,6 +801,18 @@ onMounted(() => {
 .student-directory__action-heading,
 .student-directory__action-cell { width: 180px; text-align: right !important; }
 .student-directory__resend-button { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; border: 1px solid #b9d6ff; border-radius: 9px; color: var(--color-primary-dark); background: var(--color-primary-soft); cursor: pointer; font-size: 12px; font-weight: 780; white-space: nowrap; transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease; }
+.student-directory__edit-button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; margin-bottom: 6px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 9px; color: var(--color-primary); background: #fff; cursor: pointer; font-size: 12px; font-weight: 780; white-space: nowrap; }
+.student-directory__edit-button:hover:not(:disabled) { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.student-directory__modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; overflow-y: auto; place-items: center; padding: 24px; background: rgb(8 24 43 / 58%); }
+.student-directory__edit-modal { display: grid; width: min(560px, 100%); gap: 18px; padding: 24px; border-radius: 18px; box-shadow: 0 24px 70px rgb(0 0 0 / 25%); }
+.student-directory__edit-modal header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.student-directory__edit-modal h2 { margin: 2px 0 0; }
+.student-directory__edit-modal header > button { width: 36px; height: 36px; border: 0; border-radius: 9px; color: var(--color-muted); background: #f2f5f8; cursor: pointer; font-size: 24px; }
+.student-directory__edit-modal label { display: grid; gap: 7px; color: var(--color-text); font-size: 13px; font-weight: 750; }
+.student-directory__edit-modal input,
+.student-directory__edit-modal select { min-height: 45px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px; background: #fff; }
+.student-directory__edit-modal small { color: var(--color-muted); font-weight: 500; }
+.student-directory__edit-modal footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 4px; }
 .student-directory__resend-button:hover:not(:disabled) { border-color: var(--color-primary); background: #e2f0ff; transform: translateY(-1px); }
 .student-directory__resend-button:disabled { cursor: wait; opacity: .6; }
 .student-directory__confirmation { display: grid; justify-items: end; gap: 6px; }

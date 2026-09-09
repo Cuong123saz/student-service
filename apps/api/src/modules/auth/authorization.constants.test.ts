@@ -84,7 +84,7 @@ test(
 )
 
 test(
-  'catalog mặc định có đúng 31 role-permission grants',
+  'catalog mặc định có đúng 33 role-permission grants',
   () => {
     const grantCount = Object.values(
       SYSTEM_ROLE_PERMISSIONS,
@@ -94,6 +94,6 @@ test(
       0,
     )
 
-    assert.equal(grantCount, 31)
+    assert.equal(grantCount, 33)
   },
 )

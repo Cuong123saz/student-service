@@ -38,6 +38,7 @@ Scope không thay thế permission và permission không thay thế scope. Khi t
 - Route tạo lời mời sinh viên yêu cầu permission `student.create`; tài khoản không phải sinh viên yêu cầu `user.manage`.
 - Với sinh viên, lớp đích phải đang hoạt động và được bao phủ bởi scope `GLOBAL`, `FACULTY` hoặc `CLASS` gắn với chính role có `student.create`.
 - Repository kiểm tra lại permission và scope trong cùng transaction tạo user, role, hồ sơ, token và audit. Frontend chỉ hỗ trợ chọn đúng lớp, không phải ranh giới bảo mật.
+- Cập nhật hồ sơ yêu cầu `student.update`. Actor phải có quyền trên cả lớp hiện tại và lớp đích; lớp đích phải thuộc đúng khoa được gửi lên. Tên, mã sinh viên và lớp được cập nhật trong cùng transaction, còn khoa luôn được suy ra từ lớp để không tạo dữ liệu mâu thuẫn.
 - Lớp không tồn tại hoặc ngừng hoạt động trả lỗi dữ liệu `422`; lớp tồn tại nhưng ngoài scope trả `403` chung để không lộ chi tiết phạm vi.
 - Khi gửi lại lời mời, tài khoản sinh viên tiếp tục yêu cầu `student.create` và scope bao phủ lớp hiện tại; tài khoản không phải sinh viên yêu cầu `user.manage`. Việc revoke token cũ, tạo token mới và ghi audit chỉ diễn ra sau kiểm tra này trong cùng transaction.
 
