@@ -90,6 +90,27 @@ const duplicateReasonSchema = Type.Object({
   code: Type.String(),
   message: Type.String(),
 })
+const importErrorCellSchema = Type.Object({
+  kind: Type.Union([
+    Type.Literal('EMPTY'),
+    Type.Literal('TEXT'),
+    Type.Literal('NUMBER'),
+    Type.Literal('BOOLEAN'),
+    Type.Literal('DATE'),
+  ]),
+
+  text: Type.Union([
+    Type.String(),
+    Type.Null(),
+  ]),
+})
+
+const importErrorValuesSchema = Type.Object({
+  studentCode: importErrorCellSchema,
+  fullName: importErrorCellSchema,
+  email: importErrorCellSchema,
+  classCode: importErrorCellSchema,
+})
 
 const previewResponseSchema = Type.Object({
   previewId: Type.String({ format: 'uuid' }),
@@ -111,6 +132,7 @@ const previewResponseSchema = Type.Object({
   errorRecords: Type.Array(
     Type.Object({
       sourceRow: Type.Integer(),
+      values: importErrorValuesSchema,
       issues: Type.Array(issueSchema),
     }),
   ),

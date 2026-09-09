@@ -30,12 +30,30 @@ export interface StudentImportRowIssue {
   message: string
 }
 
+export type StudentImportCellKind =
+  | 'EMPTY'
+  | 'TEXT'
+  | 'NUMBER'
+  | 'BOOLEAN'
+  | 'DATE'
+
+export interface StudentImportErrorCell {
+  kind: StudentImportCellKind
+  text: string | null
+}
+
+export type StudentImportErrorValues = Record<
+  StudentImportColumn,
+  StudentImportErrorCell
+>
+
 /**
  * Một dòng bị lỗi có thể chứa nhiều issue,
  * ví dụ vừa thiếu email vừa sai classCode.
  */
 export interface StudentImportErrorRecord {
   sourceRow: number
+  values: StudentImportErrorValues
   issues: StudentImportRowIssue[]
 }
 

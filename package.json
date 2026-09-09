@@ -8,7 +8,7 @@
   "scripts": {
   "dev": "concurrently --kill-others-on-fail --names api,web --prefix-colors blue,green \"npm run dev:api\" \"npm run dev:web\"",
   "dev:api": "npm run dev --workspace @student-service/api",
-  "dev:web": "npm run dev --workspace @student-service/web -- --port 3001"
+  "dev:web": "npm run dev --workspace @student-service/web"
 },
   "devDependencies": {
     "concurrently": "^10.0.5"

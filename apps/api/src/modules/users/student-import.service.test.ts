@@ -148,6 +148,27 @@ test(
       preview.errorRecords.map((row) => row.sourceRow),
       [3, 6, 7],
     )
+    assert.deepEqual(
+      preview.errorRecords[0]?.values,
+      {
+        studentCode: {
+          kind: 'TEXT',
+          text: 'SV002',
+        },
+        fullName: {
+          kind: 'TEXT',
+          text: 'Trần Thị B',
+        },
+        email: {
+          kind: 'EMPTY',
+          text: null,
+        },
+        classCode: {
+          kind: 'TEXT',
+          text: 'K15A',
+        },
+      },
+    )
     assert.equal(
       preview.errorRecords[1]?.issues[0]?.code,
       'INVALID_TYPE',
@@ -163,6 +184,76 @@ test(
         { sourceRow: 4, sources: ['FILE'] },
         { sourceRow: 5, sources: ['SYSTEM'] },
       ],
+    )
+  },
+)
+
+test(
+  'snapshot lỗi giữ nguyên text và không giả lập number hoặc date',
+  async () => {
+    const repository =
+      new FakeStudentImportRepository()
+    const service = new StudentImportService(
+      repository,
+      new InMemoryStudentImportPreviewStore(),
+      createParser([
+        {
+          sourceRow: 2,
+          values: {
+            studentCode: '0012',
+            fullName: 'A',
+            email: 'text@example.edu.vn',
+            classCode: 'K15A',
+          },
+        },
+        {
+          sourceRow: 3,
+          values: {
+            studentCode: 12,
+            fullName: 'Kiểu số',
+            email: 'number@example.edu.vn',
+            classCode: 'K15A',
+          },
+        },
+        {
+          sourceRow: 4,
+          values: {
+            studentCode: 'SV004',
+            fullName: new Date('2024-05-01T00:00:00.000Z'),
+            email: 'date@example.edu.vn',
+            classCode: 'K15A',
+          },
+        },
+      ]),
+      () => fixedNow,
+    )
+
+    const preview = await service.previewImport({
+      actorUserId: 'actor-1',
+      fileName: 'students.xlsx',
+      fileBuffer: Buffer.from('ignored'),
+    })
+
+    assert.deepEqual(
+      preview.errorRecords[0]?.values.studentCode,
+      {
+        kind: 'TEXT',
+        text: '0012',
+      },
+    )
+    assert.deepEqual(
+      preview.errorRecords[1]?.values.studentCode,
+      {
+        kind: 'NUMBER',
+        text: null,
+      },
+    )
+    assert.deepEqual(
+      preview.errorRecords[2]?.values.fullName,
+      {
+        kind: 'DATE',
+        text: null,
+      },
     )
   },
 )

@@ -41,7 +41,7 @@ Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, đượ
 - API import Excel/CSV theo luồng upload → preview → confirm → transaction, có báo lỗi theo dòng và ba chiến lược xử lý trùng — đã hoàn thành.
 - Export Excel theo quyền và phạm vi dữ liệu — đã hoàn thành.
 - Gửi lời mời hàng loạt qua PostgreSQL job queue — đã hoàn thành.
-- Giao diện tra cứu audit log.
+- Giao diện tra cứu audit log theo hành động và phân trang thời gian — đã hoàn thành.
 
 Các module biểu mẫu thủ tục, workflow, sinh tài liệu, chữ ký số và điểm rèn luyện thuộc các sprint sau; không đưa vào Sprint 3.
 
@@ -434,11 +434,12 @@ Các mục dưới đây không làm mất giá trị increment Sprint 2 nhưng 
 - Một số repository vẫn import database client trực tiếp; chưa có Fastify database plugin dùng chung.
 - Chưa có refresh session và cơ chế thu hồi session theo từng thiết bị.
 - JWT tiếp tục chứa role; permission và scope được kiểm tra lại từ database để thay đổi quyền hoặc khóa tài khoản có hiệu lực ngay.
-- Chưa có UI import sinh viên; hiện tại mới hoàn thành API và logic nghiệp vụ.
 - Preview import đang lưu trong bộ nhớ của một API process. Khi triển khai nhiều instance cần chuyển sang kho dùng chung có TTL (ví dụ Redis) để confirm không phụ thuộc instance nhận request.
 - XLSX hiện chỉ đọc worksheet đầu tiên; chưa hỗ trợ chọn sheet hoặc ánh xạ cột tùy biến.
 - Tài khoản mới từ import được tạo ở trạng thái `INVITED` và enqueue lời mời trong cùng transaction. Worker email đang chạy như process riêng; chưa có dashboard theo dõi/retry thủ công các job `FAILED` trên giao diện admin.
 - Web build trên Node.js 24 hiện phát cảnh báo `DEP0155` khi template lỗi của dependency gián tiếp `@nuxt/nitro-server@4.5.2` phân giải dependency gián tiếp `@vue/shared@3.5.41`. Hai package này đi vào qua dependency trực tiếp `nuxt` của workspace `apps/web`, không thuộc `apps/api` hay tooling riêng của monorepo. Build vẫn thành công; theo dõi bản nâng cấp Nuxt/Vue tương thích thay vì sửa trực tiếp `node_modules`.
+- API audit log hiện chỉ hỗ trợ lọc theo `action` và cursor thời gian `before`; chưa hỗ trợ lọc theo người thực hiện, đối tượng hoặc khoảng ngày. Danh sách action trên giao diện đang là catalog tĩnh và phải cập nhật khi backend bổ sung action mới.
+- Quyền `audit.read` hiện cho phép đọc audit log toàn hệ thống, chưa giới hạn theo khoa, lớp hoặc đơn vị. Product Owner và backend phải chốt chính sách scope trước khi cấp quyền này rộng rãi ở môi trường dùng chung/production.
 - Thu thập log ngoài máy local chưa cần triển khai khi dự án chưa lên môi trường dùng chung.
 
 ## Quy ước đóng góp

@@ -13,6 +13,7 @@ const navigation = [
   { label: 'Vai trò và phạm vi', to: '/admin/access-control' },
   { label: 'Ma trận quyền', to: '/admin/role-permissions' },
   { label: 'Mời người dùng', to: '/admin/users/invite' },
+  { label: 'Audit log', to: '/admin/audit-logs' },
 ]
 
 const primaryRole = computed(() => {

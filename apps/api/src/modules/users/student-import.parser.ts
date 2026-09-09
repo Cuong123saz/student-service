@@ -18,11 +18,17 @@ export type StudentImportColumn =
   | 'email'
   | 'classCode'
 
+// read-excel-file returns Date instances at runtime, but
+// its published CellValue type currently declares typeof Date.
+export type StudentImportSourceCellValue =
+  | CellValue
+  | Date
+
 export interface StudentImportSourceRow {
   sourceRow: number
   values: Record<
     StudentImportColumn,
-    CellValue | null
+    StudentImportSourceCellValue | null
   >
 }
 
@@ -101,7 +107,9 @@ function normalizeHeader(value: unknown): string {
 }
 
 function isEmptyRow(
-  row: readonly (CellValue | null)[],
+  row: readonly (
+    StudentImportSourceCellValue | null
+  )[],
 ): boolean {
   return row.every(
     (value) =>
@@ -112,7 +120,11 @@ function isEmptyRow(
 
 function mapRows(
   tabularRows:
-    readonly (readonly (CellValue | null)[])[],
+    readonly (
+      readonly (
+        StudentImportSourceCellValue | null
+      )[]
+    )[],
   sourceRows?: readonly number[],
 ): StudentImportSourceRow[] {
   const header = tabularRows[0]

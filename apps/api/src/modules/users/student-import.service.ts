@@ -1,14 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
-import type {
-  CellValue,
-} from 'read-excel-file/node'
-
 import {
   parseStudentImportFile,
   type ParsedStudentImportFile,
   type StudentImportColumn,
   type StudentImportFormat,
+  type StudentImportSourceCellValue,
   type StudentImportSourceRow,
 } from './student-import.parser.js'
 
@@ -35,8 +32,27 @@ export interface StudentImportRowIssue {
   message: string
 }
 
+export type StudentImportCellKind =
+  | 'EMPTY'
+  | 'TEXT'
+  | 'NUMBER'
+  | 'BOOLEAN'
+  | 'DATE'
+
+export interface StudentImportErrorCell {
+  kind: StudentImportCellKind
+  text: string | null
+}
+
+export type StudentImportErrorValues =
+  Record<
+    StudentImportColumn,
+    StudentImportErrorCell
+  >
+
 export interface StudentImportErrorRecord {
   sourceRow: number
+  values: StudentImportErrorValues
   issues: StudentImportRowIssue[]
 }
 
@@ -319,7 +335,8 @@ function requiredString(
   field: StudentImportColumn,
   issues: StudentImportRowIssue[],
 ): string | undefined {
-  const value: CellValue | null =
+  const value:
+    StudentImportSourceCellValue | null =
     row.values[field]
 
   if (
@@ -347,6 +364,57 @@ function requiredString(
   }
 
   return value.trim()
+}
+function createErrorCell(
+  value: StudentImportSourceCellValue | null,
+): StudentImportErrorCell {
+  if (value === null) {
+    return {
+      kind: 'EMPTY',
+      text: null,
+    }
+  }
+
+  if (typeof value === 'string') {
+    return {
+      kind: 'TEXT',
+      text: value,
+    }
+  }
+
+  if (typeof value === 'number') {
+    return {
+      kind: 'NUMBER',
+      text: null,
+    }
+  }
+
+  if (typeof value === 'boolean') {
+    return {
+      kind: 'BOOLEAN',
+      text: null,
+    }
+  }
+
+  return {
+    kind: 'DATE',
+    text: null,
+  }
+}
+
+function createErrorValues(
+  row: StudentImportSourceRow,
+): StudentImportErrorValues {
+  return {
+    studentCode:
+      createErrorCell(row.values.studentCode),
+    fullName:
+      createErrorCell(row.values.fullName),
+    email:
+      createErrorCell(row.values.email),
+    classCode:
+      createErrorCell(row.values.classCode),
+  }
 }
 
 function validateRow(
@@ -446,6 +514,7 @@ function validateRow(
     return {
       error: {
         sourceRow: row.sourceRow,
+        values: createErrorValues(row),
         issues,
       },
     }
@@ -645,6 +714,16 @@ implements StudentImportUseCase {
       if (!academicClass) {
         errorRecords.push({
           sourceRow: record.sourceRow,
+          values: {
+            studentCode:
+              createErrorCell(record.studentCode),
+            fullName:
+              createErrorCell(record.fullName),
+            email:
+              createErrorCell(record.email),
+            classCode:
+              createErrorCell(record.classCode),
+          },
           issues: [{
             field: 'classCode',
             code:

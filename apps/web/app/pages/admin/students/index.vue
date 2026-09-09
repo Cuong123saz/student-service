@@ -263,10 +263,19 @@ onMounted(() => {
           Tra cứu tài khoản và thông tin học vụ trong phạm vi bạn được phân quyền.
         </p>
       </div>
-      <NuxtLink class="student-directory__invite" to="/admin/users/invite">
-        <span aria-hidden="true">＋</span>
-        Mời sinh viên mới
-      </NuxtLink>
+      <div class="student-directory__header-actions">
+        <NuxtLink
+          class="student-directory__import"
+          to="/admin/students/import"
+        >
+          Import danh sách
+        </NuxtLink>
+
+        <NuxtLink class="student-directory__invite" to="/admin/users/invite">
+          <span aria-hidden="true">＋</span>
+          Mời sinh viên mới
+        </NuxtLink>
+      </div>
     </header>
 
     <div class="student-directory__scope-note" role="note">
@@ -565,6 +574,9 @@ onMounted(() => {
 .student-directory { display: grid; gap: 24px; }
 .student-directory__header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .student-directory__header > div { max-width: 720px; }
+.student-directory__header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 9px; }
+.student-directory__header-actions .student-directory__import { display: inline-flex; min-height: 44px; align-items: center; padding: 10px 16px; border: 1px solid var(--color-border); border-radius: 12px; color: var(--color-primary); background: var(--color-surface); font-size: 14px; font-weight: 750; text-decoration: none; transition: border-color 160ms ease, background-color 160ms ease; }
+.student-directory__header-actions .student-directory__import:hover { border-color: #b9d6ff; background: var(--color-primary-soft); }
 .student-directory__invite { display: inline-flex; min-height: 44px; flex: 0 0 auto; align-items: center; gap: 7px; padding: 10px 17px; border-radius: 12px; color: #fff; background: linear-gradient(135deg, var(--color-primary), #205c94); box-shadow: 0 8px 20px rgb(23 76 130 / 20%); font-size: 14px; font-weight: 750; text-decoration: none; transition: transform 160ms ease, box-shadow 160ms ease; }
 .student-directory__invite:hover { transform: translateY(-1px); box-shadow: 0 11px 24px rgb(23 76 130 / 28%); }
 .student-directory__scope-note { display: flex; align-items: center; gap: 13px; padding: 14px 17px; border: 1px solid #cfe2f5; border-radius: 14px; color: var(--color-primary-dark); background: linear-gradient(100deg, #edf6ff, #f8fbff); }
@@ -652,6 +664,8 @@ onMounted(() => {
 }
 @media (max-width: 640px) {
   .student-directory__header { align-items: stretch; flex-direction: column; }
+  .student-directory__header-actions { align-items: stretch; flex-direction: column; }
+  .student-directory__header-actions > a { justify-content: center; }
   .student-directory__invite { align-self: flex-start; }
   .student-directory__filters { grid-template-columns: 1fr; padding: 17px; }
   .student-directory__filter-actions { grid-column: auto; flex-wrap: wrap; }

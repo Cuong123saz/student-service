@@ -322,6 +322,97 @@ test(
 )
 
 test(
+  'preview giữ lại giá trị dòng lỗi sau khi serialize HTTP',
+  async (context) => {
+    const { actor } = await createImportContext()
+    const app = createApp()
+    context.after(() => app.close())
+    const cookie = await createAdminCookie(app, actor)
+    const upload = multipartCsv([
+      'studentCode,fullName,email,classCode',
+      'SVHTTP01,Nguyễn Văn A,email-sai,K15A',
+    ].join('\n'))
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/students/imports/preview',
+      headers: {
+        cookie,
+        'content-type': upload.contentType,
+      },
+      payload: upload.payload,
+    })
+
+    assert.equal(response.statusCode, 200)
+
+    const body = response.json<{
+      summary: {
+        errors: number
+      }
+      errorRecords: Array<{
+        sourceRow: number
+        values: {
+          studentCode: {
+            kind: string
+            text: string | null
+          }
+          fullName: {
+            kind: string
+            text: string | null
+          }
+          email: {
+            kind: string
+            text: string | null
+          }
+          classCode: {
+            kind: string
+            text: string | null
+          }
+        }
+        issues: Array<{
+          field: string
+          code: string
+          message: string
+        }>
+      }>
+    }>()
+
+    assert.equal(body.summary.errors, 1)
+    assert.equal(body.errorRecords.length, 1)
+    assert.equal(body.errorRecords[0]?.sourceRow, 2)
+    assert.deepEqual(
+      body.errorRecords[0]?.values,
+      {
+        studentCode: {
+          kind: 'TEXT',
+          text: 'SVHTTP01',
+        },
+        fullName: {
+          kind: 'TEXT',
+          text: 'Nguyễn Văn A',
+        },
+        email: {
+          kind: 'TEXT',
+          text: 'email-sai',
+        },
+        classCode: {
+          kind: 'TEXT',
+          text: 'K15A',
+        },
+      },
+    )
+    assert.deepEqual(
+      body.errorRecords[0]?.issues,
+      [{
+        field: 'email',
+        code: 'INVALID_FORMAT',
+        message: 'email has an invalid format',
+      }],
+    )
+  },
+)
+
+test(
   'confirm rollback toàn bộ khi dữ liệu trùng xuất hiện sau preview',
   async (context) => {
     const { actor } = await createImportContext()
