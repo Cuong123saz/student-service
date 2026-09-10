@@ -1,19 +1,10 @@
 // Định nghĩa các kiểu dữ liệu liên quan đến import sinh viên.
 
-export type StudentImportFormat =
-  | 'CSV'
-  | 'XLSX'
+export type StudentImportFormat = 'CSV' | 'XLSX'
 
-export type StudentImportColumn =
-  | 'studentCode'
-  | 'fullName'
-  | 'email'
-  | 'classCode'
+export type StudentImportColumn = 'studentCode' | 'fullName' | 'email' | 'classCode'
 
-export type StudentImportDuplicateStrategy =
-  | 'SKIP'
-  | 'OVERWRITE'
-  | 'FAIL'
+export type StudentImportDuplicateStrategy = 'SKIP' | 'OVERWRITE' | 'FAIL'
 
 export interface StudentImportRecord {
   sourceRow: number
@@ -30,22 +21,14 @@ export interface StudentImportRowIssue {
   message: string
 }
 
-export type StudentImportCellKind =
-  | 'EMPTY'
-  | 'TEXT'
-  | 'NUMBER'
-  | 'BOOLEAN'
-  | 'DATE'
+export type StudentImportCellKind = 'EMPTY' | 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'DATE'
 
 export interface StudentImportErrorCell {
   kind: StudentImportCellKind
   text: string | null
 }
 
-export type StudentImportErrorValues = Record<
-  StudentImportColumn,
-  StudentImportErrorCell
->
+export type StudentImportErrorValues = Record<StudentImportColumn, StudentImportErrorCell>
 
 /**
  * Một dòng bị lỗi có thể chứa nhiều issue,
@@ -114,4 +97,16 @@ export interface StudentImportApiErrorResponse {
     code: StudentImportApiErrorCode
     requestId: string
   }
+}
+
+export interface StudentImportJobCreatedResponse {
+  jobId: string
+  status: 'PENDING'
+}
+
+export interface StudentImportJobStatusResponse {
+  jobId: string
+  status: 'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED'
+  errorCode: string | null
+  preview: StudentImportPreviewResponse | null
 }

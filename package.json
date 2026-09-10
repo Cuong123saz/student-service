@@ -6,11 +6,14 @@
     "apps/*"
   ],
   "scripts": {
-  "dev": "concurrently --kill-others-on-fail --names api,web --prefix-colors blue,green \"npm run dev:api\" \"npm run dev:web\"",
-  "dev:api": "npm run dev --workspace @student-service/api",
-  "dev:web": "npm run dev --workspace @student-service/web"
-},
+    "dev": "concurrently --kill-others-on-fail --names api,web,imports --prefix-colors blue,green,magenta \"npm run dev:api\" \"npm run dev:web\" \"npm run dev:imports-worker\"",
+    "dev:api": "npm run dev --workspace @student-service/api",
+    "dev:web": "npm run dev --workspace @student-service/web",
+    "dev:imports-worker": "npm run imports:worker --workspace @student-service/api",
+    "format": "prettier --write \"apps/**/*.{ts,vue}\" \"*.json\""
+  },
   "devDependencies": {
-    "concurrently": "^10.0.5"
+    "concurrently": "^10.0.5",
+    "prettier": "^3.9.6"
   }
 }

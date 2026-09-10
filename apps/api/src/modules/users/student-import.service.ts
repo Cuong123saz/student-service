@@ -9,13 +9,9 @@ import {
   type StudentImportSourceRow,
 } from './student-import.parser.js'
 
-export const STUDENT_IMPORT_PREVIEW_TTL_MS =
-  15 * 60 * 1_000
+export const STUDENT_IMPORT_PREVIEW_TTL_MS = 15 * 60 * 1_000
 
-export type StudentImportDuplicateStrategy =
-  | 'SKIP'
-  | 'OVERWRITE'
-  | 'FAIL'
+export type StudentImportDuplicateStrategy = 'SKIP' | 'OVERWRITE' | 'FAIL'
 
 export interface StudentImportRecord {
   sourceRow: number
@@ -32,23 +28,14 @@ export interface StudentImportRowIssue {
   message: string
 }
 
-export type StudentImportCellKind =
-  | 'EMPTY'
-  | 'TEXT'
-  | 'NUMBER'
-  | 'BOOLEAN'
-  | 'DATE'
+export type StudentImportCellKind = 'EMPTY' | 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'DATE'
 
 export interface StudentImportErrorCell {
   kind: StudentImportCellKind
   text: string | null
 }
 
-export type StudentImportErrorValues =
-  Record<
-    StudentImportColumn,
-    StudentImportErrorCell
-  >
+export type StudentImportErrorValues = Record<StudentImportColumn, StudentImportErrorCell>
 
 export interface StudentImportErrorRecord {
   sourceRow: number
@@ -84,8 +71,7 @@ export interface StudentImportPreviewResult {
   }
   validRecords: StudentImportRecord[]
   errorRecords: StudentImportErrorRecord[]
-  duplicateRecords:
-    StudentImportDuplicateRecord[]
+  duplicateRecords: StudentImportDuplicateRecord[]
 }
 
 export interface StudentImportCommitResult {
@@ -124,8 +110,7 @@ export interface InspectStudentImportResult {
   existing: ExistingStudentImportIdentity[]
 }
 
-export interface PersistStudentImportRow
-extends StudentImportRecord {
+export interface PersistStudentImportRow extends StudentImportRecord {
   classId: string
 }
 
@@ -133,9 +118,9 @@ export interface CommitStudentImportInput {
   actorUserId: string
   actorUsername: string
   previewId: string
+  acquisitionId: string
   fileName: string
-  duplicateStrategy:
-    StudentImportDuplicateStrategy
+  duplicateStrategy: StudentImportDuplicateStrategy
   rows: readonly PersistStudentImportRow[]
   previewTotalRows: number
   preSkipped: number
@@ -144,21 +129,16 @@ export interface CommitStudentImportInput {
 }
 
 export interface StudentImportRepository {
-  inspect(
-    input: InspectStudentImportInput,
-  ): Promise<InspectStudentImportResult>
+  inspect(input: InspectStudentImportInput): Promise<InspectStudentImportResult>
 
-  commit(
-    input: CommitStudentImportInput,
-  ): Promise<StudentImportCommitResult>
+  commit(input: CommitStudentImportInput): Promise<StudentImportCommitResult>
 }
 
-interface StoredStudentImportRow
-extends PersistStudentImportRow {
+export interface StoredStudentImportRow extends PersistStudentImportRow {
   duplicates: StudentImportDuplicateReason[]
 }
 
-interface StoredStudentImportPreview {
+export interface StoredStudentImportPreview {
   id: string
   actorUserId: string
   fileName: string
@@ -166,28 +146,28 @@ interface StoredStudentImportPreview {
   rows: StoredStudentImportRow[]
   totalRows: number
   hasValidationErrors: boolean
+  result: Omit<StudentImportPreviewResult, 'previewId' | 'expiresAt'>
 }
 
-interface AcquiredStudentImportPreview {
+export interface AcquiredStudentImportPreview {
   preview: StoredStudentImportPreview
-  release(): void
-  complete(): void
+  acquisitionId: string
+  release(): Promise<void>
+  complete(): Promise<void>
 }
 
 export interface StudentImportPreviewStore {
   create(
-    input: Omit<
-      StoredStudentImportPreview,
-      'id' | 'expiresAt'
-    >,
+    input: Omit<StoredStudentImportPreview, 'id' | 'expiresAt'>,
     now: Date,
-  ): StoredStudentImportPreview
+    sourceJobId?: string,
+  ): Promise<StoredStudentImportPreview>
 
   acquire(
     previewId: string,
     actorUserId: string,
     now: Date,
-  ): AcquiredStudentImportPreview | undefined
+  ): Promise<AcquiredStudentImportPreview | undefined>
 }
 
 interface PreviewEntry {
@@ -195,33 +175,23 @@ interface PreviewEntry {
   processing: boolean
 }
 
-export class InMemoryStudentImportPreviewStore
-implements StudentImportPreviewStore {
-  private readonly entries =
-    new Map<string, PreviewEntry>()
+export class InMemoryStudentImportPreviewStore implements StudentImportPreviewStore {
+  private readonly entries = new Map<string, PreviewEntry>()
 
   constructor(
-    private readonly ttlMs =
-      STUDENT_IMPORT_PREVIEW_TTL_MS,
+    private readonly ttlMs = STUDENT_IMPORT_PREVIEW_TTL_MS,
     private readonly maximumEntries = 100,
   ) {}
 
-  create(
-    input: Omit<
-      StoredStudentImportPreview,
-      'id' | 'expiresAt'
-    >,
+  async create(
+    input: Omit<StoredStudentImportPreview, 'id' | 'expiresAt'>,
     now: Date,
-  ): StoredStudentImportPreview {
+    _sourceJobId?: string,
+  ): Promise<StoredStudentImportPreview> {
     this.removeExpired(now)
 
-    while (
-      this.entries.size
-      >= this.maximumEntries
-    ) {
-      const oldestId =
-        this.entries.keys().next()
-          .value as string | undefined
+    while (this.entries.size >= this.maximumEntries) {
+      const oldestId = this.entries.keys().next().value as string | undefined
 
       if (!oldestId) {
         break
@@ -232,9 +202,7 @@ implements StudentImportPreviewStore {
     const preview: StoredStudentImportPreview = {
       ...input,
       id: randomUUID(),
-      expiresAt: new Date(
-        now.getTime() + this.ttlMs,
-      ),
+      expiresAt: new Date(now.getTime() + this.ttlMs),
     }
 
     this.entries.set(preview.id, {
@@ -245,35 +213,32 @@ implements StudentImportPreviewStore {
     return preview
   }
 
-  acquire(
+  async acquire(
     previewId: string,
     actorUserId: string,
     now: Date,
-  ): AcquiredStudentImportPreview | undefined {
+  ): Promise<AcquiredStudentImportPreview | undefined> {
     this.removeExpired(now)
     const entry = this.entries.get(previewId)
 
-    if (
-      !entry
-      || entry.processing
-      || entry.preview.actorUserId
-        !== actorUserId
-    ) {
+    if (!entry || entry.processing || entry.preview.actorUserId !== actorUserId) {
       return undefined
     }
 
     entry.processing = true
+    const acquisitionId = randomUUID()
     let settled = false
 
     return {
       preview: entry.preview,
-      release: () => {
+      acquisitionId,
+      release: async () => {
         if (!settled) {
           entry.processing = false
           settled = true
         }
       },
-      complete: () => {
+      complete: async () => {
         if (!settled) {
           this.entries.delete(previewId)
           settled = true
@@ -291,42 +256,35 @@ implements StudentImportPreviewStore {
   }
 }
 
-export class StudentImportPreviewNotFoundError
-extends Error {
+export class StudentImportPreviewNotFoundError extends Error {
   constructor() {
     super('Import preview not found, expired or already in use')
     this.name = 'StudentImportPreviewNotFoundError'
   }
 }
 
-export class StudentImportValidationBlockedError
-extends Error {
+export class StudentImportValidationBlockedError extends Error {
   constructor() {
     super('Import preview contains validation errors')
     this.name = 'StudentImportValidationBlockedError'
   }
 }
 
-export class StudentImportDuplicateBlockedError
-extends Error {
+export class StudentImportDuplicateBlockedError extends Error {
   constructor() {
     super('Duplicate records prevent this import')
     this.name = 'StudentImportDuplicateBlockedError'
   }
 }
 
-export class StudentImportAmbiguousDuplicateError
-extends Error {
+export class StudentImportAmbiguousDuplicateError extends Error {
   constructor() {
     super('Duplicate rows cannot be merged safely')
     this.name = 'StudentImportAmbiguousDuplicateError'
   }
 }
 
-type StudentImportParser = (
-  filename: string,
-  buffer: Buffer,
-) => Promise<ParsedStudentImportFile>
+type StudentImportParser = (filename: string, buffer: Buffer) => Promise<ParsedStudentImportFile>
 
 type Clock = () => Date
 
@@ -335,17 +293,9 @@ function requiredString(
   field: StudentImportColumn,
   issues: StudentImportRowIssue[],
 ): string | undefined {
-  const value:
-    StudentImportSourceCellValue | null =
-    row.values[field]
+  const value: StudentImportSourceCellValue | null = row.values[field]
 
-  if (
-    value === null
-    || (
-      typeof value === 'string'
-      && value.trim() === ''
-    )
-  ) {
+  if (value === null || (typeof value === 'string' && value.trim() === '')) {
     issues.push({
       field,
       code: 'REQUIRED',
@@ -385,11 +335,7 @@ function requiredStudentCode(
     return value.trim()
   }
 
-  if (
-    typeof value === 'number'
-    && Number.isSafeInteger(value)
-    && value >= 0
-  ) {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
     return String(value)
   }
 
@@ -400,9 +346,7 @@ function requiredStudentCode(
   })
   return undefined
 }
-function createErrorCell(
-  value: StudentImportSourceCellValue | null,
-): StudentImportErrorCell {
+function createErrorCell(value: StudentImportSourceCellValue | null): StudentImportErrorCell {
   if (value === null) {
     return {
       kind: 'EMPTY',
@@ -437,82 +381,42 @@ function createErrorCell(
   }
 }
 
-function createErrorValues(
-  row: StudentImportSourceRow,
-): StudentImportErrorValues {
+function createErrorValues(row: StudentImportSourceRow): StudentImportErrorValues {
   return {
-    studentCode:
-      createErrorCell(row.values.studentCode),
-    fullName:
-      createErrorCell(row.values.fullName),
-    email:
-      createErrorCell(row.values.email),
-    classCode:
-      createErrorCell(row.values.classCode),
+    studentCode: createErrorCell(row.values.studentCode),
+    fullName: createErrorCell(row.values.fullName),
+    email: createErrorCell(row.values.email),
+    classCode: createErrorCell(row.values.classCode),
   }
 }
 
-function validateRow(
-  row: StudentImportSourceRow,
-): {
+function validateRow(row: StudentImportSourceRow): {
   record?: StudentImportRecord
   error?: StudentImportErrorRecord
 } {
   const issues: StudentImportRowIssue[] = []
   const studentCode = requiredStudentCode(row, issues)
-  const fullName = requiredString(
-    row,
-    'fullName',
-    issues,
-  )
-  const email = requiredString(
-    row,
-    'email',
-    issues,
-  )?.toLowerCase()
-  const classCode = requiredString(
-    row,
-    'classCode',
-    issues,
-  )?.toUpperCase()
+  const fullName = requiredString(row, 'fullName', issues)
+  const email = requiredString(row, 'email', issues)?.toLowerCase()
+  const classCode = requiredString(row, 'classCode', issues)?.toUpperCase()
 
-  if (
-    studentCode
-    && (
-      studentCode.length > 50
-      || !/^\d+$/.test(studentCode)
-    )
-  ) {
+  if (studentCode && (studentCode.length > 50 || !/^\d+$/.test(studentCode))) {
     issues.push({
       field: 'studentCode',
       code: 'INVALID_FORMAT',
-      message:
-        'studentCode may only contain digits',
+      message: 'studentCode may only contain digits',
     })
   }
 
-  if (
-    fullName
-    && (
-      fullName.length < 2
-      || fullName.length > 255
-    )
-  ) {
+  if (fullName && (fullName.length < 2 || fullName.length > 255)) {
     issues.push({
       field: 'fullName',
       code: 'INVALID_LENGTH',
-      message:
-        'fullName must contain 2 to 255 characters',
+      message: 'fullName must contain 2 to 255 characters',
     })
   }
 
-  if (
-    email
-    && (
-      email.length > 255
-      || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    )
-  ) {
+  if (email && (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
     issues.push({
       field: 'email',
       code: 'INVALID_FORMAT',
@@ -520,28 +424,15 @@ function validateRow(
     })
   }
 
-  if (
-    classCode
-    && (
-      classCode.length > 50
-      || !/^[A-Z0-9._-]+$/.test(classCode)
-    )
-  ) {
+  if (classCode && (classCode.length > 50 || !/^[A-Z0-9._-]+$/.test(classCode))) {
     issues.push({
       field: 'classCode',
       code: 'INVALID_FORMAT',
-      message:
-        'classCode may only contain letters, numbers, dot, underscore and hyphen',
+      message: 'classCode may only contain letters, numbers, dot, underscore and hyphen',
     })
   }
 
-  if (
-    issues.length > 0
-    || !studentCode
-    || !fullName
-    || !email
-    || !classCode
-  ) {
+  if (issues.length > 0 || !studentCode || !fullName || !email || !classCode) {
     return {
       error: {
         sourceRow: row.sourceRow,
@@ -563,18 +454,14 @@ function validateRow(
   }
 }
 
-function rowsForOverwrite(
-  rows: readonly StoredStudentImportRow[],
-): PersistStudentImportRow[] {
-  const selected:
-    (PersistStudentImportRow | undefined)[] = []
+function rowsForOverwrite(rows: readonly StoredStudentImportRow[]): PersistStudentImportRow[] {
+  const selected: (PersistStudentImportRow | undefined)[] = []
   const byStudentCode = new Map<string, number>()
   const byEmail = new Map<string, number>()
 
   for (const row of rows) {
     const matchingIndexes = new Set<number>()
-    const studentCodeIndex =
-      byStudentCode.get(row.studentCode)
+    const studentCodeIndex = byStudentCode.get(row.studentCode)
     const emailIndex = byEmail.get(row.email)
 
     if (studentCodeIndex !== undefined) {
@@ -588,8 +475,7 @@ function rowsForOverwrite(
       throw new StudentImportAmbiguousDuplicateError()
     }
 
-    const index = matchingIndexes
-      .values().next().value as number | undefined
+    const index = matchingIndexes.values().next().value as number | undefined
 
     if (index === undefined) {
       const nextIndex = selected.length
@@ -609,61 +495,41 @@ function rowsForOverwrite(
     byEmail.set(row.email, index)
   }
 
-  return selected.filter(
-    (row): row is PersistStudentImportRow =>
-      row !== undefined,
-  )
+  return selected.filter((row): row is PersistStudentImportRow => row !== undefined)
 }
 
 export interface PreviewStudentImportInput {
   actorUserId: string
   fileName: string
   fileBuffer: Buffer
+  sourceJobId?: string
 }
 
 export interface ConfirmStudentImportInput {
   actorUserId: string
   actorUsername: string
   previewId: string
-  duplicateStrategy:
-    StudentImportDuplicateStrategy
+  duplicateStrategy: StudentImportDuplicateStrategy
   audit: StudentImportAuditContext
 }
 
 export interface StudentImportUseCase {
-  previewImport(
-    input: PreviewStudentImportInput,
-  ): Promise<StudentImportPreviewResult>
+  previewImport(input: PreviewStudentImportInput): Promise<StudentImportPreviewResult>
 
-  confirmImport(
-    input: ConfirmStudentImportInput,
-  ): Promise<StudentImportCommitResult>
+  confirmImport(input: ConfirmStudentImportInput): Promise<StudentImportCommitResult>
 }
 
-export class StudentImportService
-implements StudentImportUseCase {
+export class StudentImportService implements StudentImportUseCase {
   constructor(
-    private readonly repository:
-      StudentImportRepository,
-    private readonly previewStore:
-      StudentImportPreviewStore =
-        new InMemoryStudentImportPreviewStore(),
-    private readonly parser:
-      StudentImportParser =
-        parseStudentImportFile,
-    private readonly clock:
-      Clock = () => new Date(),
+    private readonly repository: StudentImportRepository,
+    private readonly previewStore: StudentImportPreviewStore = new InMemoryStudentImportPreviewStore(),
+    private readonly parser: StudentImportParser = parseStudentImportFile,
+    private readonly clock: Clock = () => new Date(),
   ) {}
 
-  async previewImport(
-    input: PreviewStudentImportInput,
-  ): Promise<StudentImportPreviewResult> {
-    const parsed = await this.parser(
-      input.fileName,
-      input.fileBuffer,
-    )
-    const errorRecords:
-      StudentImportErrorRecord[] = []
+  async previewImport(input: PreviewStudentImportInput): Promise<StudentImportPreviewResult> {
+    const parsed = await this.parser(input.fileName, input.fileBuffer)
+    const errorRecords: StudentImportErrorRecord[] = []
     const locallyValid: StudentImportRecord[] = []
 
     for (const row of parsed.rows) {
@@ -677,113 +543,68 @@ implements StudentImportUseCase {
 
     const inspection = await this.repository.inspect({
       actorUserId: input.actorUserId,
-      classCodes: [
-        ...new Set(
-          locallyValid.map((row) => row.classCode),
-        ),
-      ],
+      classCodes: [...new Set(locallyValid.map((row) => row.classCode))],
       usernames: locallyValid.map((row) => row.username),
       emails: locallyValid.map((row) => row.email),
-      studentCodes: locallyValid.map(
-        (row) => row.studentCode,
-      ),
+      studentCodes: locallyValid.map((row) => row.studentCode),
     })
 
     const classesByCode = new Map(
-      inspection.classes.map(
-        (academicClass) => [
-          academicClass.code.toUpperCase(),
-          academicClass,
-        ],
-      ),
+      inspection.classes.map((academicClass) => [academicClass.code.toUpperCase(), academicClass]),
     )
     const existingStudentCodes = new Set(
       inspection.existing
-        .map(
-          (identity) =>
-            identity.studentCode
-              ?.trim().toUpperCase()
-            ?? null,
-        )
-        .filter(
-          (value): value is string =>
-            value !== null,
-        ),
+        .map((identity) => identity.studentCode?.trim().toUpperCase() ?? null)
+        .filter((value): value is string => value !== null),
     )
     const existingEmails = new Set(
       inspection.existing
-        .map(
-          (identity) =>
-            identity.email
-              ?.trim().toLowerCase()
-            ?? null,
-        )
-        .filter(
-          (value): value is string =>
-            value !== null,
-        ),
+        .map((identity) => identity.email?.trim().toLowerCase() ?? null)
+        .filter((value): value is string => value !== null),
     )
     const existingUsernames = new Set(
-      inspection.existing.map(
-        (identity) =>
-          identity.username
-            .trim().toLowerCase(),
-      ),
+      inspection.existing.map((identity) => identity.username.trim().toLowerCase()),
     )
-    const firstStudentCodeRow =
-      new Map<string, number>()
+    const firstStudentCodeRow = new Map<string, number>()
     const firstEmailRow = new Map<string, number>()
     const storedRows: StoredStudentImportRow[] = []
     const validRecords: StudentImportRecord[] = []
-    const duplicateRecords:
-      StudentImportDuplicateRecord[] = []
+    const duplicateRecords: StudentImportDuplicateRecord[] = []
 
     for (const record of locallyValid) {
-      const academicClass =
-        classesByCode.get(record.classCode)
+      const academicClass = classesByCode.get(record.classCode)
 
       if (!academicClass) {
         errorRecords.push({
           sourceRow: record.sourceRow,
           values: {
-            studentCode:
-              createErrorCell(record.studentCode),
-            fullName:
-              createErrorCell(record.fullName),
-            email:
-              createErrorCell(record.email),
-            classCode:
-              createErrorCell(record.classCode),
+            studentCode: createErrorCell(record.studentCode),
+            fullName: createErrorCell(record.fullName),
+            email: createErrorCell(record.email),
+            classCode: createErrorCell(record.classCode),
           },
-          issues: [{
-            field: 'classCode',
-            code:
-              'CLASS_NOT_FOUND_OR_OUTSIDE_SCOPE',
-            message:
-              'classCode is inactive, unknown or outside actor scope',
-          }],
+          issues: [
+            {
+              field: 'classCode',
+              code: 'CLASS_NOT_FOUND_OR_OUTSIDE_SCOPE',
+              message: 'classCode is inactive, unknown or outside actor scope',
+            },
+          ],
         })
         continue
       }
 
-      const duplicates:
-        StudentImportDuplicateReason[] = []
-      const matchingStudentCodeRow =
-        firstStudentCodeRow.get(
-          record.studentCode,
-        )
-      const matchingEmailRow =
-        firstEmailRow.get(record.email)
+      const duplicates: StudentImportDuplicateReason[] = []
+      const matchingStudentCodeRow = firstStudentCodeRow.get(record.studentCode)
+      const matchingEmailRow = firstEmailRow.get(record.email)
 
       if (matchingStudentCodeRow !== undefined) {
         duplicates.push({
           source: 'FILE',
           field: 'studentCode',
-          matchedSourceRow:
-            matchingStudentCodeRow,
+          matchedSourceRow: matchingStudentCodeRow,
           code: 'DUPLICATE_IN_FILE',
-          message:
-            'studentCode duplicates an earlier file row',
+          message: 'studentCode duplicates an earlier file row',
         })
       }
       if (matchingEmailRow !== undefined) {
@@ -792,8 +613,7 @@ implements StudentImportUseCase {
           field: 'email',
           matchedSourceRow: matchingEmailRow,
           code: 'DUPLICATE_IN_FILE',
-          message:
-            'email duplicates an earlier file row',
+          message: 'email duplicates an earlier file row',
         })
       }
       if (existingStudentCodes.has(record.studentCode)) {
@@ -801,8 +621,7 @@ implements StudentImportUseCase {
           source: 'SYSTEM',
           field: 'studentCode',
           code: 'DUPLICATE_IN_SYSTEM',
-          message:
-            'studentCode already exists in the system',
+          message: 'studentCode already exists in the system',
         })
       }
       if (existingEmails.has(record.email)) {
@@ -810,34 +629,23 @@ implements StudentImportUseCase {
           source: 'SYSTEM',
           field: 'email',
           code: 'DUPLICATE_IN_SYSTEM',
-          message:
-            'email already exists in the system',
+          message: 'email already exists in the system',
         })
       }
-      if (
-        existingUsernames.has(record.username)
-        && !existingStudentCodes.has(record.studentCode)
-      ) {
+      if (existingUsernames.has(record.username) && !existingStudentCodes.has(record.studentCode)) {
         duplicates.push({
           source: 'SYSTEM',
           field: 'studentCode',
           code: 'DERIVED_USERNAME_CONFLICT',
-          message:
-            'studentCode produces a username that already exists',
+          message: 'studentCode produces a username that already exists',
         })
       }
 
       if (!firstStudentCodeRow.has(record.studentCode)) {
-        firstStudentCodeRow.set(
-          record.studentCode,
-          record.sourceRow,
-        )
+        firstStudentCodeRow.set(record.studentCode, record.sourceRow)
       }
       if (!firstEmailRow.has(record.email)) {
-        firstEmailRow.set(
-          record.email,
-          record.sourceRow,
-        )
+        firstEmailRow.set(record.email, record.sourceRow)
       }
 
       storedRows.push({
@@ -857,21 +665,7 @@ implements StudentImportUseCase {
     }
 
     const now = this.clock()
-    const stored = this.previewStore.create(
-      {
-        actorUserId: input.actorUserId,
-        fileName: input.fileName,
-        rows: storedRows,
-        totalRows: parsed.rows.length,
-        hasValidationErrors:
-          errorRecords.length > 0,
-      },
-      now,
-    )
-
-    return {
-      previewId: stored.id,
-      expiresAt: stored.expiresAt.toISOString(),
+    const result = {
       file: {
         name: input.fileName,
         format: parsed.format,
@@ -886,12 +680,28 @@ implements StudentImportUseCase {
       errorRecords,
       duplicateRecords,
     }
+    const stored = await this.previewStore.create(
+      {
+        actorUserId: input.actorUserId,
+        fileName: input.fileName,
+        rows: storedRows,
+        totalRows: parsed.rows.length,
+        hasValidationErrors: errorRecords.length > 0,
+        result,
+      },
+      now,
+      input.sourceJobId,
+    )
+
+    return {
+      previewId: stored.id,
+      expiresAt: stored.expiresAt.toISOString(),
+      ...result,
+    }
   }
 
-  async confirmImport(
-    input: ConfirmStudentImportInput,
-  ): Promise<StudentImportCommitResult> {
-    const acquired = this.previewStore.acquire(
+  async confirmImport(input: ConfirmStudentImportInput): Promise<StudentImportCommitResult> {
+    const acquired = await this.previewStore.acquire(
       input.previewId,
       input.actorUserId,
       this.clock(),
@@ -908,36 +718,27 @@ implements StudentImportUseCase {
         throw new StudentImportValidationBlockedError()
       }
 
-      const containsDuplicates = preview.rows.some(
-        (row) => row.duplicates.length > 0,
-      )
+      const containsDuplicates = preview.rows.some((row) => row.duplicates.length > 0)
 
-      if (
-        input.duplicateStrategy === 'FAIL'
-        && containsDuplicates
-      ) {
+      if (input.duplicateStrategy === 'FAIL' && containsDuplicates) {
         throw new StudentImportDuplicateBlockedError()
       }
 
-      const rows = input.duplicateStrategy === 'SKIP'
-        ? preview.rows.filter(
-            (row) => row.duplicates.length === 0,
-          )
-        : input.duplicateStrategy === 'OVERWRITE'
-          ? rowsForOverwrite(preview.rows)
-          : preview.rows
-      const preSkipped =
+      const rows =
         input.duplicateStrategy === 'SKIP'
-          ? preview.rows.length - rows.length
-          : 0
+          ? preview.rows.filter((row) => row.duplicates.length === 0)
+          : input.duplicateStrategy === 'OVERWRITE'
+            ? rowsForOverwrite(preview.rows)
+            : preview.rows
+      const preSkipped = input.duplicateStrategy === 'SKIP' ? preview.rows.length - rows.length : 0
 
       const result = await this.repository.commit({
         actorUserId: input.actorUserId,
         actorUsername: input.actorUsername,
         previewId: preview.id,
+        acquisitionId: acquired.acquisitionId,
         fileName: preview.fileName,
-        duplicateStrategy:
-          input.duplicateStrategy,
+        duplicateStrategy: input.duplicateStrategy,
         rows,
         previewTotalRows: preview.totalRows,
         preSkipped,
@@ -945,10 +746,10 @@ implements StudentImportUseCase {
         audit: input.audit,
       })
 
-      acquired.complete()
+      await acquired.complete()
       return result
     } catch (error) {
-      acquired.release()
+      await acquired.release()
       throw error
     }
   }

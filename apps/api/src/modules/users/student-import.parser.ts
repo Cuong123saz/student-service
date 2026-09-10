@@ -1,35 +1,24 @@
-import {
-  readSheet,
-  type CellValue,
-} from 'read-excel-file/node'
+import { readSheet, type CellValue } from 'read-excel-file/node'
+import { parse as parseCsvRecords } from 'csv-parse/sync'
 
-export const STUDENT_IMPORT_MAX_FILE_BYTES =
-  5 * 1024 * 1024
+export const STUDENT_IMPORT_MAX_FILE_BYTES = 5 * 1024 * 1024
 
 export const STUDENT_IMPORT_MAX_ROWS = 1_000
+export const STUDENT_IMPORT_MAX_ARCHIVE_ENTRIES = 256
+export const STUDENT_IMPORT_MAX_UNCOMPRESSED_BYTES = 50 * 1024 * 1024
+export const STUDENT_IMPORT_MAX_ARCHIVE_RATIO = 100
 
-export type StudentImportFormat =
-  | 'CSV'
-  | 'XLSX'
+export type StudentImportFormat = 'CSV' | 'XLSX'
 
-export type StudentImportColumn =
-  | 'studentCode'
-  | 'fullName'
-  | 'email'
-  | 'classCode'
+export type StudentImportColumn = 'studentCode' | 'fullName' | 'email' | 'classCode'
 
 // read-excel-file returns Date instances at runtime, but
 // its published CellValue type currently declares typeof Date.
-export type StudentImportSourceCellValue =
-  | CellValue
-  | Date
+export type StudentImportSourceCellValue = CellValue | Date
 
 export interface StudentImportSourceRow {
   sourceRow: number
-  values: Record<
-    StudentImportColumn,
-    StudentImportSourceCellValue | null
-  >
+  values: Record<StudentImportColumn, StudentImportSourceCellValue | null>
 }
 
 export interface ParsedStudentImportFile {
@@ -37,66 +26,60 @@ export interface ParsedStudentImportFile {
   rows: StudentImportSourceRow[]
 }
 
-export class UnsupportedStudentImportFileError
-extends Error {
+export class UnsupportedStudentImportFileError extends Error {
   constructor() {
     super('Only .xlsx and .csv files are supported')
     this.name = 'UnsupportedStudentImportFileError'
   }
 }
 
-export class StudentImportFileParseError
-extends Error {
+export class StudentImportFileParseError extends Error {
   constructor(message = 'Unable to parse import file') {
     super(message)
     this.name = 'StudentImportFileParseError'
   }
 }
 
-export class StudentImportMissingColumnsError
-extends Error {
-  constructor(
-    readonly columns:
-      readonly StudentImportColumn[],
-  ) {
-    super(
-      `Missing required columns: ${columns.join(', ')}`,
-    )
+export class StudentImportMissingColumnsError extends Error {
+  constructor(readonly columns: readonly StudentImportColumn[]) {
+    super(`Missing required columns: ${columns.join(', ')}`)
     this.name = 'StudentImportMissingColumnsError'
   }
 }
 
-export class StudentImportRowLimitError
-extends Error {
+export class StudentImportRowLimitError extends Error {
   constructor(readonly maximumRows: number) {
-    super(
-      `Import file exceeds ${maximumRows} data rows`,
-    )
+    super(`Import file exceeds ${maximumRows} data rows`)
     this.name = 'StudentImportRowLimitError'
   }
 }
 
-const REQUIRED_COLUMNS:
-  readonly StudentImportColumn[] = [
-    'studentCode',
-    'fullName',
-    'email',
-    'classCode',
-  ]
-
-const HEADER_ALIASES:
-  Record<string, StudentImportColumn> = {
-    studentcode: 'studentCode',
-    masinhvien: 'studentCode',
-    masv: 'studentCode',
-    fullname: 'fullName',
-    hovaten: 'fullName',
-    hoten: 'fullName',
-    email: 'email',
-    classcode: 'classCode',
-    malop: 'classCode',
-    lop: 'classCode',
+export class StudentImportArchiveLimitError extends StudentImportFileParseError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'StudentImportArchiveLimitError'
   }
+}
+
+const REQUIRED_COLUMNS: readonly StudentImportColumn[] = [
+  'studentCode',
+  'fullName',
+  'email',
+  'classCode',
+]
+
+const HEADER_ALIASES: Record<string, StudentImportColumn> = {
+  studentcode: 'studentCode',
+  masinhvien: 'studentCode',
+  masv: 'studentCode',
+  fullname: 'fullName',
+  hovaten: 'fullName',
+  hoten: 'fullName',
+  email: 'email',
+  classcode: 'classCode',
+  malop: 'classCode',
+  lop: 'classCode',
+}
 
 function normalizeHeader(value: unknown): string {
   return String(value ?? '')
@@ -106,103 +89,57 @@ function normalizeHeader(value: unknown): string {
     .replace(/[^a-z0-9]/g, '')
 }
 
-function isEmptyRow(
-  row: readonly (
-    StudentImportSourceCellValue | null
-  )[],
-): boolean {
-  return row.every(
-    (value) =>
-      value === null
-      || String(value).trim() === '',
-  )
+function isEmptyRow(row: readonly (StudentImportSourceCellValue | null)[]): boolean {
+  return row.every((value) => value === null || String(value).trim() === '')
 }
 
 function mapRows(
-  tabularRows:
-    readonly (
-      readonly (
-        StudentImportSourceCellValue | null
-      )[]
-    )[],
+  tabularRows: readonly (readonly (StudentImportSourceCellValue | null)[])[],
   sourceRows?: readonly number[],
 ): StudentImportSourceRow[] {
   const header = tabularRows[0]
 
   if (!header) {
-    throw new StudentImportFileParseError(
-      'Import file is empty',
-    )
+    throw new StudentImportFileParseError('Import file is empty')
   }
 
-  const columnIndexes = new Map<
-    StudentImportColumn,
-    number
-  >()
+  const columnIndexes = new Map<StudentImportColumn, number>()
 
   header.forEach((value, index) => {
-    const column =
-      HEADER_ALIASES[normalizeHeader(value)]
+    const column = HEADER_ALIASES[normalizeHeader(value)]
 
-    if (
-      column
-      && !columnIndexes.has(column)
-    ) {
+    if (column && !columnIndexes.has(column)) {
       columnIndexes.set(column, index)
     }
   })
 
-  const missingColumns = REQUIRED_COLUMNS
-    .filter(
-      (column) =>
-        !columnIndexes.has(column),
-    )
+  const missingColumns = REQUIRED_COLUMNS.filter((column) => !columnIndexes.has(column))
 
   if (missingColumns.length > 0) {
-    throw new StudentImportMissingColumnsError(
-      missingColumns,
-    )
+    throw new StudentImportMissingColumnsError(missingColumns)
   }
 
   const dataRows = tabularRows
     .slice(1)
     .map((row, index) => ({
       row,
-      sourceRow:
-        sourceRows?.[index + 1]
-        ?? index + 2,
+      sourceRow: sourceRows?.[index + 1] ?? index + 2,
     }))
     .filter(({ row }) => !isEmptyRow(row))
 
   if (dataRows.length > STUDENT_IMPORT_MAX_ROWS) {
-    throw new StudentImportRowLimitError(
-      STUDENT_IMPORT_MAX_ROWS,
-    )
+    throw new StudentImportRowLimitError(STUDENT_IMPORT_MAX_ROWS)
   }
 
-  return dataRows.map(
-    ({ row, sourceRow }) => ({
-      sourceRow,
-      values: {
-        studentCode:
-          row[
-            columnIndexes.get('studentCode')!
-          ] ?? null,
-        fullName:
-          row[
-            columnIndexes.get('fullName')!
-          ] ?? null,
-        email:
-          row[
-            columnIndexes.get('email')!
-          ] ?? null,
-        classCode:
-          row[
-            columnIndexes.get('classCode')!
-          ] ?? null,
-      },
-    }),
-  )
+  return dataRows.map(({ row, sourceRow }) => ({
+    sourceRow,
+    values: {
+      studentCode: row[columnIndexes.get('studentCode')!] ?? null,
+      fullName: row[columnIndexes.get('fullName')!] ?? null,
+      email: row[columnIndexes.get('email')!] ?? null,
+      classCode: row[columnIndexes.get('classCode')!] ?? null,
+    },
+  }))
 }
 
 interface CsvRow {
@@ -210,128 +147,150 @@ interface CsvRow {
   cells: string[]
 }
 
-function countDelimiter(
-  line: string,
-  delimiter: ',' | ';',
-): number {
-  let count = 0
-  let quoted = false
+function parseCsv(text: string): CsvRow[] {
+  type ParsedRecord = {
+    record: string[]
+    info: { lines: number }
+  }
 
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index]
-
-    if (character === '"') {
-      if (quoted && line[index + 1] === '"') {
-        index += 1
-      } else {
-        quoted = !quoted
+  const parseWith = (delimiter: ',' | ';') => {
+    const parsed = parseCsvRecords(text, {
+      bom: true,
+      delimiter,
+      info: true,
+      relax_column_count: true,
+      skip_empty_lines: false,
+    }) as unknown as ParsedRecord[]
+    let previousEndLine = 0
+    return parsed.map(({ record, info }) => {
+      const row = {
+        sourceRow: previousEndLine + 1,
+        cells: record,
       }
-    } else if (!quoted && character === delimiter) {
-      count += 1
+      previousEndLine = info.lines
+      return row
+    })
+  }
+
+  const hasRequiredHeader = (rows: CsvRow[]) => {
+    const header = rows[0]?.cells ?? []
+    const columns = new Set(header.map((value) => HEADER_ALIASES[normalizeHeader(value)]))
+    return REQUIRED_COLUMNS.every((column) => columns.has(column))
+  }
+
+  const candidates: CsvRow[][] = []
+  for (const delimiter of [',', ';'] as const) {
+    try {
+      const rows = parseWith(delimiter)
+      if (hasRequiredHeader(rows)) {
+        return rows
+      }
+      candidates.push(rows)
+    } catch {
+      // The other supported delimiter may still parse the
+      // file correctly, so defer the error until both fail.
     }
   }
 
-  return count
+  if (candidates[0]) return candidates[0]
+  throw new StudentImportFileParseError('CSV contains invalid quoting or delimiters')
 }
 
-function parseCsv(text: string): CsvRow[] {
-  const firstLine = text
-    .replace(/^\uFEFF/, '')
-    .split(/\r?\n/, 1)[0] ?? ''
-  const delimiter: ',' | ';' =
-    countDelimiter(firstLine, ';')
-      > countDelimiter(firstLine, ',')
-      ? ';'
-      : ','
+function findZipEndOfCentralDirectory(buffer: Buffer): number {
+  const minimumOffset = Math.max(0, buffer.length - 65_557)
+  for (let offset = buffer.length - 22; offset >= minimumOffset; offset -= 1) {
+    if (buffer.readUInt32LE(offset) === 0x06054b50) {
+      return offset
+    }
+  }
+  return -1
+}
 
-  const rows: CsvRow[] = []
-  let cells: string[] = []
-  let cell = ''
-  let quoted = false
-  let rowStart = 1
-  let physicalLine = 1
-  const normalized = text.replace(/^\uFEFF/, '')
-
-  const finishRow = () => {
-    cells.push(cell)
-    rows.push({
-      sourceRow: rowStart,
-      cells,
-    })
-    cells = []
-    cell = ''
+export function preflightStudentImportXlsx(buffer: Buffer): void {
+  if (buffer.length < 22) {
+    throw new StudentImportFileParseError()
   }
 
-  for (
-    let index = 0;
-    index < normalized.length;
-    index += 1
-  ) {
-    const character = normalized[index]
-
-    if (character === '"') {
-      if (quoted && normalized[index + 1] === '"') {
-        cell += '"'
-        index += 1
-      } else if (quoted || cell.length === 0) {
-        quoted = !quoted
-      } else {
-        throw new StudentImportFileParseError(
-          `Invalid quote at line ${physicalLine}`,
-        )
-      }
-      continue
-    }
-
-    if (!quoted && character === delimiter) {
-      cells.push(cell)
-      cell = ''
-      continue
-    }
-
-    if (character === '\r' || character === '\n') {
-      const isCrLf =
-        character === '\r'
-        && normalized[index + 1] === '\n'
-
-      if (quoted) {
-        cell += '\n'
-      } else {
-        finishRow()
-        rowStart = physicalLine + 1
-      }
-
-      if (isCrLf) {
-        index += 1
-      }
-      physicalLine += 1
-      continue
-    }
-
-    cell += character
+  const endOffset = findZipEndOfCentralDirectory(buffer)
+  if (endOffset < 0) {
+    throw new StudentImportFileParseError()
   }
 
-  if (quoted) {
-    throw new StudentImportFileParseError(
-      'CSV contains an unterminated quoted value',
-    )
-  }
+  const diskNumber = buffer.readUInt16LE(endOffset + 4)
+  const centralDisk = buffer.readUInt16LE(endOffset + 6)
+  const entriesOnDisk = buffer.readUInt16LE(endOffset + 8)
+  const entryCount = buffer.readUInt16LE(endOffset + 10)
+  const centralSize = buffer.readUInt32LE(endOffset + 12)
+  const centralOffset = buffer.readUInt32LE(endOffset + 16)
+  const commentLength = buffer.readUInt16LE(endOffset + 20)
 
   if (
-    cell.length > 0
-    || cells.length > 0
+    diskNumber !== 0 ||
+    centralDisk !== 0 ||
+    entriesOnDisk !== entryCount ||
+    entryCount === 0xffff ||
+    centralSize === 0xffffffff ||
+    centralOffset === 0xffffffff ||
+    endOffset + 22 + commentLength !== buffer.length
   ) {
-    finishRow()
+    throw new StudentImportArchiveLimitError('XLSX must be a single-disk non-ZIP64 archive')
   }
 
-  return rows
+  if (entryCount > STUDENT_IMPORT_MAX_ARCHIVE_ENTRIES) {
+    throw new StudentImportArchiveLimitError('XLSX contains too many archive entries')
+  }
+
+  const centralEnd = centralOffset + centralSize
+  if (centralOffset > endOffset || centralEnd > endOffset) {
+    throw new StudentImportFileParseError()
+  }
+
+  let offset = centralOffset
+  let totalUncompressedBytes = 0
+
+  for (let index = 0; index < entryCount; index += 1) {
+    if (offset + 46 > centralEnd || buffer.readUInt32LE(offset) !== 0x02014b50) {
+      throw new StudentImportFileParseError()
+    }
+
+    const flags = buffer.readUInt16LE(offset + 8)
+    const compressedBytes = buffer.readUInt32LE(offset + 20)
+    const uncompressedBytes = buffer.readUInt32LE(offset + 24)
+    const fileNameLength = buffer.readUInt16LE(offset + 28)
+    const extraLength = buffer.readUInt16LE(offset + 30)
+    const entryCommentLength = buffer.readUInt16LE(offset + 32)
+
+    if ((flags & 0x1) !== 0) {
+      throw new StudentImportArchiveLimitError('Encrypted XLSX archives are not supported')
+    }
+    if (compressedBytes === 0xffffffff || uncompressedBytes === 0xffffffff) {
+      throw new StudentImportArchiveLimitError('ZIP64 XLSX entries are not supported')
+    }
+
+    totalUncompressedBytes += uncompressedBytes
+    if (totalUncompressedBytes > STUDENT_IMPORT_MAX_UNCOMPRESSED_BYTES) {
+      throw new StudentImportArchiveLimitError('XLSX expands beyond the allowed size')
+    }
+
+    const ratio = uncompressedBytes / Math.max(1, compressedBytes)
+    if (ratio > STUDENT_IMPORT_MAX_ARCHIVE_RATIO) {
+      throw new StudentImportArchiveLimitError('XLSX compression ratio exceeds the allowed limit')
+    }
+
+    offset += 46 + fileNameLength + extraLength + entryCommentLength
+    if (offset > centralEnd) {
+      throw new StudentImportFileParseError()
+    }
+  }
+
+  if (offset !== centralEnd) {
+    throw new StudentImportFileParseError()
+  }
 }
 
 function getExtension(filename: string): string {
   const lastDot = filename.lastIndexOf('.')
-  return lastDot < 0
-    ? ''
-    : filename.slice(lastDot).toLowerCase()
+  return lastDot < 0 ? '' : filename.slice(lastDot).toLowerCase()
 }
 
 export async function parseStudentImportFile(
@@ -344,14 +303,9 @@ export async function parseStudentImportFile(
     let text: string
 
     try {
-      text = new TextDecoder(
-        'utf-8',
-        { fatal: true },
-      ).decode(buffer)
+      text = new TextDecoder('utf-8', { fatal: true }).decode(buffer)
     } catch {
-      throw new StudentImportFileParseError(
-        'CSV must use UTF-8 encoding',
-      )
+      throw new StudentImportFileParseError('CSV must use UTF-8 encoding')
     }
 
     const csvRows = parseCsv(text)
@@ -367,6 +321,7 @@ export async function parseStudentImportFile(
 
   if (extension === '.xlsx') {
     try {
+      preflightStudentImportXlsx(buffer)
       const sheet = await readSheet(buffer)
       return {
         format: 'XLSX',
@@ -374,9 +329,9 @@ export async function parseStudentImportFile(
       }
     } catch (error) {
       if (
-        error instanceof StudentImportMissingColumnsError
-        || error instanceof StudentImportRowLimitError
-        || error instanceof StudentImportFileParseError
+        error instanceof StudentImportMissingColumnsError ||
+        error instanceof StudentImportRowLimitError ||
+        error instanceof StudentImportFileParseError
       ) {
         throw error
       }

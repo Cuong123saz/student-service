@@ -85,6 +85,13 @@
       "when": 1788948000000,
       "tag": "0011_student-update-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789010510348,
+      "tag": "0012_awesome_earthquake",
+      "breakpoints": true
     }
   ]
 }

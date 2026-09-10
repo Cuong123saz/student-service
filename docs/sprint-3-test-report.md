@@ -2,13 +2,13 @@
 
 ## Phạm vi và kết luận hiện tại
 
-Biên bản này ghi lại bằng chứng hồi quy cho increment Sprint 3 trên môi trường local sau các commit chức năng `c38d802`, `7928102` và `a419725`. API typecheck, unit test, integration test, Web unit/acceptance test và production build đều đạt.
+Biên bản này ghi lại bằng chứng hồi quy cuối cùng cho increment Sprint 3 trên môi trường local, bao gồm đợt hardening P0 của luồng import ngày 10/09/2026. API typecheck, unit test, integration test, Web unit/acceptance test và production build đều đạt.
 
 S3-12 được kiểm chứng bằng hai lớp bổ trợ nhau: integration test gọi API thật với database test và acceptance test gắn các trang Nuxt trong DOM rồi thao tác như người dùng. Cách này kiểm tra đủ upload → preview → confirm, lọc → xem metadata → phân trang và trạng thái thiếu quyền mà không thay đổi mật khẩu `system.admin`. Demo trực tiếp trên trình duyệt bằng tài khoản local thuộc bước nghiệm thu S3-13; bộ test hiện tại không được mô tả là Playwright full-stack.
 
 ## Môi trường kiểm thử
 
-- Ngày kiểm tra: 09/09/2026.
+- Ngày kiểm tra: 10/09/2026.
 - Nhánh: `main`.
 - Commit chức năng: `c38d802`.
 - API: Node.js, Fastify và PostgreSQL 17.
@@ -21,10 +21,10 @@ S3-12 được kiểm chứng bằng hai lớp bổ trợ nhau: integration test
 | Hạng mục | Kết quả | Bằng chứng |
 | --- | --- | --- |
 | API typecheck | Đạt | `npm run typecheck --workspace @student-service/api` |
-| API unit test | 75 đạt, 0 lỗi | `npm run test:unit --workspace @student-service/api` |
-| API integration test | 149 đạt, 0 lỗi | `npm run test:integration --workspace @student-service/api` |
+| API unit test | 80 đạt, 0 lỗi | `npm run test:unit --workspace @student-service/api` |
+| API integration test | 152 đạt, 0 lỗi | `npm run test:integration --workspace @student-service/api` |
 | API production build | Đạt | `npm run build --workspace @student-service/api` |
-| Web unit test | 19 đạt, 0 lỗi | `npm run test --workspace @student-service/web` |
+| Web unit test | 24 đạt, 0 lỗi | `npm run test --workspace @student-service/web` |
 | Web acceptance test | 5 đạt, 0 lỗi | `npm run test:acceptance --workspace @student-service/web` |
 | Web production build | Đạt | `npm run build --workspace @student-service/web` |
 
@@ -40,6 +40,21 @@ Integration test đã bao phủ các bằng chứng quan trọng sau:
 - Data scope `GLOBAL`, `FACULTY`, `CLASS` và `ORGANIZATION`.
 - Sửa tên, mã sinh viên, khoa/lớp theo `student.update`, ghi audit và từ chối mã không phải số.
 - File Excel mẫu tải từ màn danh sách có đúng bốn cột import và được parser đọc lại thành công.
+- Hai request confirm đồng thời trên cùng `previewId` chỉ commit một lần trên PostgreSQL thật.
+- Preview lock hết hạn được lazy-reclaim; holder cũ không thể giải phóng lease mới.
+- Worker từ chối XLSX có tỷ lệ nén bất thường trước bước giải nén và parse XML.
+- CSV dùng parser battle-tested, bao phủ quote lồng, nhiều dòng, mixed line ending và trường trống cuối dòng.
+
+## Hardening P0 của luồng import
+
+| Mã | Kết quả triển khai | Trạng thái |
+| --- | --- | --- |
+| P0.2 | API chỉ lưu file và trả `jobId`; worker process riêng thực hiện parse CSV/XLSX, frontend poll trạng thái. | Đạt |
+| P0.3 | Không còn dùng `file.toBuffer()`; stream upload bị chặn ở 5 MB, giới hạn hai upload đọc đồng thời và file `bytea` có TTL. | Đạt |
+| P0.4 | Preflight ZIP giới hạn số entry, tổng byte giải nén, compression ratio, ZIP64, multi-disk và archive mã hóa. | Đạt |
+| P0.5 | File, job và preview dùng PostgreSQL; confirm có atomic acquire, lease 5 phút, lazy reclaim và consume cùng transaction import. | Đạt |
+
+File gốc được lưu ở bảng riêng trong PostgreSQL thay vì thêm S3/MinIO ở quy mô hiện tại. Dữ liệu file và preview hết hạn được dọn lười khi enqueue hoặc worker claim công việc mới. `InMemoryStudentImportPreviewStore` chỉ còn là implementation phục vụ unit test/local injection, không còn là mặc định production của API.
 
 ## Kiểm tra giao diện và acceptance
 
@@ -75,7 +90,8 @@ Web build thành công nhưng Node.js 24 phát cảnh báo `DEP0155` từ depend
 - [x] Script `scripts/sprint-3-demo.ps1` tạo dữ liệu CSV không trùng cho từng lần demo và kiểm tra API/Web local.
 - [x] Script đã được kiểm tra cú pháp và chạy thử thành công với API/Web phản hồi HTTP 200.
 - [x] Demo trực tiếp luồng Import, Audit log và invitation worker bằng tài khoản `system.admin`.
-- [x] Kết luận Sprint 3 được chốt; các hạng mục hardening import được chuyển sang backlog trước production.
+- [x] Hardening import P0.2 đến P0.5 đã triển khai và nghiệm thu trên PostgreSQL thật.
+- [x] Kết luận Sprint 3 được chốt lại sau khi hoàn thành hardening import.
 
 ## Kết quả demo trực tiếp
 

@@ -2,7 +2,7 @@
 
 Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, được xây dựng dưới dạng monorepo TypeScript. Hệ thống hướng tới một nơi thống nhất để sinh viên tra cứu dịch vụ, thực hiện thủ tục, quản lý hồ sơ học vụ, điểm rèn luyện, hoạt động ngoại khóa và nghiên cứu khoa học.
 
-> Trạng thái hiện tại: Sprint 3 đã hoàn thành và được nghiệm thu trên môi trường local ngày 09/09/2026. Dự án chưa triển khai production; các hạng mục hardening import còn lại được theo dõi trong backlog trước production.
+> Trạng thái hiện tại: Sprint 3 đã hoàn thành và được nghiệm thu lại trên môi trường local ngày 10/09/2026. Các hạng mục hardening P0 của luồng import đã hoàn tất; dự án vẫn chưa triển khai production và cần một đợt production-readiness riêng cho backup, monitoring và hạ tầng vận hành.
 
 ## Trạng thái dự án
 
