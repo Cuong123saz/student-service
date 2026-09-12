@@ -2,15 +2,15 @@
 
 ## Phạm vi và kết luận hiện tại
 
-Biên bản này ghi lại bằng chứng hồi quy cuối cùng cho increment Sprint 3 trên môi trường local, bao gồm đợt hardening P0 của luồng import ngày 10/09/2026. API typecheck, unit test, integration test, Web unit/acceptance test và production build đều đạt.
+Biên bản này ghi lại baseline kỹ thuật được tái kiểm chứng ngày 13/09/2026 cho commit `ffa38f5`. P0.1–P0.5 của luồng import đạt ở cấp triển khai và kiểm thử local; Import API chưa production-ready/deployed. Đây không thay thế demo thủ công hoặc chữ ký của người có thẩm quyền.
 
 S3-12 được kiểm chứng bằng hai lớp bổ trợ nhau: integration test gọi API thật với database test và acceptance test gắn các trang Nuxt trong DOM rồi thao tác như người dùng. Cách này kiểm tra đủ upload → preview → confirm, lọc → xem metadata → phân trang và trạng thái thiếu quyền mà không thay đổi mật khẩu `system.admin`. Demo trực tiếp trên trình duyệt bằng tài khoản local thuộc bước nghiệm thu S3-13; bộ test hiện tại không được mô tả là Playwright full-stack.
 
 ## Môi trường kiểm thử
 
-- Ngày kiểm tra: 10/09/2026.
+- Ngày tái kiểm chứng: 13/09/2026.
 - Nhánh: `main`.
-- Commit chức năng: `c38d802`.
+- Commit chức năng được tách và kiểm chứng: `ffa38f5c9dc57c27c3883d7684d894e6d73b4df0` (`feat: harden student imports for production`).
 - API: Node.js, Fastify và PostgreSQL 17.
 - Web: Nuxt 4.5.2, Vue 3.5.41 và Vite 8.2.2.
 - PostgreSQL test: container `student-service-postgres-test`, database dùng `tmpfs`.
@@ -47,14 +47,15 @@ Integration test đã bao phủ các bằng chứng quan trọng sau:
 
 ## Hardening P0 của luồng import
 
-| Mã | Kết quả triển khai | Trạng thái |
+| Mã | Bằng chứng tại `ffa38f5` | Trạng thái local |
 | --- | --- | --- |
-| P0.2 | API chỉ lưu file và trả `jobId`; worker process riêng thực hiện parse CSV/XLSX, frontend poll trạng thái. | Đạt |
-| P0.3 | Không còn dùng `file.toBuffer()`; stream upload bị chặn ở 5 MB, giới hạn hai upload đọc đồng thời và file `bytea` có TTL. | Đạt |
+| P0.1 | Commit import dùng transaction và unique constraint; race confirm được kiểm thử trên PostgreSQL. | Đạt |
+| P0.2 | API lưu file/trả `jobId`; worker process riêng parse CSV/XLSX; frontend poll trạng thái. | Đạt |
+| P0.3 | Upload bị chặn ở 5 MB, có giới hạn hai lượt đọc đồng thời; file `bytea` có TTL. Request vẫn kết khối dữ liệu đã giới hạn trước khi ghi PostgreSQL, nên capacity production phải được kiểm định riêng. | Đạt local |
 | P0.4 | Preflight ZIP giới hạn số entry, tổng byte giải nén, compression ratio, ZIP64, multi-disk và archive mã hóa. | Đạt |
-| P0.5 | File, job và preview dùng PostgreSQL; confirm có atomic acquire, lease 5 phút, lazy reclaim và consume cùng transaction import. | Đạt |
+| P0.5 | File, job và preview dùng PostgreSQL; confirm có atomic acquire, lease 5 phút, lazy reclaim và consume cùng transaction import. | Đạt local |
 
-File gốc được lưu ở bảng riêng trong PostgreSQL thay vì thêm S3/MinIO ở quy mô hiện tại. Dữ liệu file và preview hết hạn được dọn lười khi enqueue hoặc worker claim công việc mới. `InMemoryStudentImportPreviewStore` chỉ còn là implementation phục vụ unit test/local injection, không còn là mặc định production của API.
+File gốc được lưu ở bảng riêng trong PostgreSQL thay vì S3/MinIO. Dữ liệu file và preview hết hạn được dọn lười khi enqueue hoặc worker claim công việc mới. `InMemoryStudentImportPreviewStore` chỉ còn là implementation phục vụ unit test/local injection, không phải mặc định của API. Kết quả này xác nhận kiến trúc ở local, không xác nhận capacity, backup/restore, monitoring hoặc vận hành worker trên production.
 
 ## Kiểm tra giao diện và acceptance
 
@@ -67,7 +68,7 @@ File gốc được lưu ở bảng riêng trong PostgreSQL thay vì thêm S3/Mi
 | File sai định dạng và preview hết hạn | Đạt | Acceptance test kiểm tra thông báo, mã tra cứu và không gọi preview khi file sai |
 | Lọc, xem metadata và phân trang Audit log | Đạt | Acceptance test kiểm tra action `STUDENT_IMPORT_COMMIT`, request ID, metadata và trang 2 |
 | Tài khoản thiếu quyền Audit | Đạt | Trang hiển thị lỗi `audit.read`; API integration trả `403` |
-| Demo trực tiếp bằng tài khoản có quyền | Đạt | Đã nghiệm thu trên môi trường local ngày 09/09/2026 |
+| Demo trực tiếp bằng tài khoản có quyền | Chờ tái ký | Bằng chứng ngày 09/09/2026 có trước commit hardening `ffa38f5` ngày 10/09/2026 nên không được dùng để ký thay cho baseline mới |
 
 ## Cảnh báo không chặn Sprint 3
 
@@ -85,17 +86,17 @@ Web build thành công nhưng Node.js 24 phát cảnh báo `DEP0155` từ depend
 
 ## Bàn giao S3 13
 
-- [x] README phản ánh trạng thái Sprint 3 đã hoàn thành và được nghiệm thu trên local.
+- [x] README phản ánh baseline kỹ thuật local, trạng thái chưa production-ready/deployed và nghiệm thu có điều kiện.
 - [x] Runbook mô tả đầy đủ thứ tự demo, kết quả mong đợi và biểu mẫu ký nghiệm thu.
 - [x] Script `scripts/sprint-3-demo.ps1` tạo dữ liệu CSV không trùng cho từng lần demo và kiểm tra API/Web local.
-- [x] Script đã được kiểm tra cú pháp và chạy thử thành công với API/Web phản hồi HTTP 200.
-- [x] Demo trực tiếp luồng Import, Audit log và invitation worker bằng tài khoản `system.admin`.
-- [x] Hardening import P0.2 đến P0.5 đã triển khai và nghiệm thu trên PostgreSQL thật.
-- [x] Kết luận Sprint 3 được chốt lại sau khi hoàn thành hardening import.
+- [ ] Chạy lại script/demo trực tiếp trên đúng baseline chứa `ffa38f5` và lưu bằng chứng đã che dữ liệu nhạy cảm.
+- [ ] Người có thẩm quyền ký biên bản nghiệm thu Sprint 3.
+- [x] Hardening import P0.1–P0.5 đã triển khai và được tái kiểm chứng tự động trên PostgreSQL thật.
+- [ ] Chốt nghiệm thu chính thức sau demo; hiện chỉ chấp nhận kỹ thuật có điều kiện.
 
-## Kết quả demo trực tiếp
+## Bằng chứng demo lịch sử cần tái xác nhận
 
-Ngày 09/09/2026, luồng chính được chạy trên Web local bằng tài khoản quản trị đã đăng nhập.
+Ngày 09/09/2026, luồng chính được ghi nhận đã chạy trên Web local. Vì bằng chứng này có trước `ffa38f5` ngày 10/09/2026, các dòng dưới đây là bằng chứng lịch sử và chưa đủ để ký baseline mới.
 
 | Kịch bản | Kết quả | Bằng chứng quan sát |
 | --- | --- | --- |
@@ -106,3 +107,15 @@ Ngày 09/09/2026, luồng chính được chạy trên Web local bằng tài kho
 | Phân trang Audit | Đạt | Chuyển từ trang 1 sang trang 2; trạng thái nút trước/sau cập nhật đúng |
 | Invitation worker | Đạt | Chạy hai lượt worker one-shot và Mailpit nhận đủ 2 email kích hoạt demo |
 | Audit gửi email | Đạt | Có 2 sự kiện `INVITATION_EMAIL_SENT` thành công sau khi worker xử lý |
+
+## Kết luận tái kiểm chứng ngày 13/09/2026
+
+- API typecheck và production build trên tree tách riêng của `ffa38f5`: đạt.
+- API unit test: 80 đạt, 0 lỗi.
+- API integration test trên PostgreSQL 17 sạch: 152 đạt, 0 lỗi.
+- Web unit test: 24 đạt, 0 lỗi.
+- Web acceptance test: 5 đạt, 0 lỗi.
+- Web production build: đạt.
+- Trạng thái P0 import: P0.1–P0.5 đạt local.
+- Trạng thái phát hành: Import API chưa production-ready/deployed.
+- Trạng thái Sprint 3: chấp nhận kỹ thuật có điều kiện; chờ demo trực tiếp trên baseline mới và chữ ký người có thẩm quyền.

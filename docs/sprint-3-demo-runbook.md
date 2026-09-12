@@ -90,19 +90,25 @@ Không đặt lại mật khẩu `system.admin` chỉ để demo. Không dùng d
 
 ## Biên bản nghiệm thu
 
-| Nội dung | Kết quả | Ghi chú |
+| Nội dung | Kết quả tái kiểm chứng | Ghi chú |
 | --- | --- | --- |
-| RBAC và scope | ☐ Đạt ☐ Không đạt | |
-| Sửa thông tin sinh viên | ☐ Đạt ☐ Không đạt | |
-| Excel mẫu và Import | ☐ Đạt ☐ Không đạt | |
-| Export và invitation queue | ☐ Đạt ☐ Không đạt | |
-| Audit log | ☐ Đạt ☐ Không đạt | |
-| Regression và production build | ☐ Đạt ☐ Không đạt | |
+| RBAC và scope | ☑ Đạt kỹ thuật | Integration test thuộc baseline đạt |
+| Sửa thông tin sinh viên | ☑ Đạt kỹ thuật | Integration test thuộc baseline đạt |
+| Excel mẫu và Import | ☑ Đạt kỹ thuật có điều kiện | P0.1–P0.5 đạt local; chưa production-ready/deployed; chờ demo trực tiếp |
+| Export và invitation queue | ☑ Đạt kỹ thuật có điều kiện | Test đạt; chờ demo trực tiếp/Mailpit |
+| Audit log | ☑ Đạt kỹ thuật có điều kiện | Test đạt; chờ demo trực tiếp và kiểm tra dữ liệu nhạy cảm |
+| Regression và production build | ☑ Đạt kỹ thuật | API/Web test và build đạt ngày 13/09/2026 |
 
-**Kết luận:** ☐ Chấp nhận Sprint 3  ☐ Chấp nhận có điều kiện  ☐ Chưa chấp nhận
+**Kết luận kỹ thuật:** ☑ Chấp nhận có điều kiện Sprint 3.
 
-**Người nghiệm thu:** ____________________
+**Người tái kiểm chứng kỹ thuật:** Codex — kiểm chứng tự động, không thay chữ ký nghiệp vụ.
 
-**Ngày nghiệm thu:** ____________________
+**Ngày tái kiểm chứng:** 13/09/2026.
 
-**Ghi chú hoặc backlog chuyển tiếp:** ________________________________________________
+**Điều kiện còn lại:** demo trực tiếp trên baseline chứa `ffa38f5`, lưu bằng chứng, và người có thẩm quyền ký nghiệm thu chính thức.
+
+**Người nghiệm thu chính thức:** ____________________
+
+**Ngày nghiệm thu chính thức:** ____________________
+
+**Backlog chuyển tiếp:** production readiness cho import (capacity, retention/cleanup, backup/restore, worker operations, monitoring/alerting và rollback). ADR Sprint 4 chưa bắt đầu cho tới khi điều kiện nghiệm thu trên được đóng.

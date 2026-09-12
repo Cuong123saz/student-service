@@ -2,7 +2,7 @@
 
 Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, được xây dựng dưới dạng monorepo TypeScript. Hệ thống hướng tới một nơi thống nhất để sinh viên tra cứu dịch vụ, thực hiện thủ tục, quản lý hồ sơ học vụ, điểm rèn luyện, hoạt động ngoại khóa và nghiên cứu khoa học.
 
-> Trạng thái hiện tại: Sprint 3 đã hoàn thành và được nghiệm thu lại trên môi trường local ngày 10/09/2026. Các hạng mục hardening P0 của luồng import đã hoàn tất; dự án vẫn chưa triển khai production và cần một đợt production-readiness riêng cho backup, monitoring và hạ tầng vận hành.
+> Baseline chính thức tại `ffa38f5`: P0.1–P0.5 của luồng import đã được triển khai và kiểm chứng tự động trên môi trường local. Import API đạt local nhưng chưa production-ready/deployed; nghiệm thu Sprint 3 hiện là nghiệm thu kỹ thuật có điều kiện, còn chờ người có thẩm quyền hoàn tất demo và ký biên bản.
 
 ## Trạng thái dự án
 
@@ -38,13 +38,13 @@ Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, đượ
 - Chỉnh catalog role-permission với bảo vệ SYSTEM_ADMIN và audit transaction — đã hoàn thành.
 - Quản lý khoa, lớp và phân công cố vấn trên giao diện admin — đã hoàn thành.
 - Quản lý đơn vị hành chính và scope tương ứng trên giao diện admin — đã hoàn thành.
-- API import Excel/CSV theo luồng upload → preview → confirm → transaction, có báo lỗi theo dòng và ba chiến lược xử lý trùng — đã hoàn thành.
+- API import Excel/CSV theo luồng upload → PostgreSQL file/job → worker → PostgreSQL preview → poll → confirm → transaction, có báo lỗi theo dòng và ba chiến lược xử lý trùng — đạt local, chưa production-ready/deployed.
 - Export Excel theo quyền và phạm vi dữ liệu — đã hoàn thành.
 - Gửi lời mời hàng loạt qua PostgreSQL job queue — đã hoàn thành.
 - Giao diện import gồm preview, báo lỗi, xử lý trùng và confirm — đã hoàn thành.
 - Giao diện tra cứu audit log theo hành động và phân trang thời gian — đã hoàn thành.
 - Hồi quy API/Web và acceptance test cho Import/Audit — đã hoàn thành.
-- Runbook, script demo, kiểm thử trực tiếp và biên bản nghiệm thu — đã hoàn thành.
+- Runbook và bằng chứng kiểm thử tự động — đã cập nhật; demo trực tiếp và chữ ký nghiệm thu chính thức còn chờ người có thẩm quyền.
 
 Các module biểu mẫu thủ tục, workflow, sinh tài liệu, chữ ký số và điểm rèn luyện thuộc các sprint sau; không đưa vào Sprint 3.
 
@@ -452,7 +452,7 @@ Các mục dưới đây không làm mất giá trị increment Sprint 2 nhưng 
 - Một số repository vẫn import database client trực tiếp; chưa có Fastify database plugin dùng chung.
 - Chưa có refresh session và cơ chế thu hồi session theo từng thiết bị.
 - JWT tiếp tục chứa role; permission và scope được kiểm tra lại từ database để thay đổi quyền hoặc khóa tài khoản có hiệu lực ngay.
-- Preview import đang lưu trong bộ nhớ của một API process. Khi triển khai nhiều instance cần chuyển sang kho dùng chung có TTL (ví dụ Redis) để confirm không phụ thuộc instance nhận request.
+- File, processing job và preview import hiện dùng PostgreSQL dùng chung có TTL/lease; `InMemoryStudentImportPreviewStore` chỉ còn dùng khi unit test hoặc inject tường minh. Trước production vẫn phải chốt retention, cleanup định kỳ, backup, capacity và phương án object storage nếu quy mô file vượt giả định hiện tại.
 - XLSX hiện chỉ đọc worksheet đầu tiên; chưa hỗ trợ chọn sheet hoặc ánh xạ cột tùy biến.
 - Tài khoản mới từ import được tạo ở trạng thái `INVITED` và enqueue lời mời trong cùng transaction. Worker email đang chạy như process riêng; chưa có dashboard theo dõi/retry thủ công các job `FAILED` trên giao diện admin.
 - Web build trên Node.js 24 hiện phát cảnh báo `DEP0155` khi template lỗi của dependency gián tiếp `@nuxt/nitro-server@4.5.2` phân giải dependency gián tiếp `@vue/shared@3.5.41`. Hai package này đi vào qua dependency trực tiếp `nuxt` của workspace `apps/web`, không thuộc `apps/api` hay tooling riêng của monorepo. Build vẫn thành công; theo dõi bản nâng cấp Nuxt/Vue tương thích thay vì sửa trực tiếp `node_modules`.
@@ -472,4 +472,4 @@ Các mục dưới đây không làm mất giá trị increment Sprint 2 nhưng 
 
 ## Phạm vi triển khai
 
-Agile không bắt buộc deploy production sau mỗi sprint. Definition of Done hiện tại yêu cầu build, migration, test và demo thành công trên local. Production deployment, backup, monitoring và hardening toàn diện sẽ được thực hiện khi dự án bước vào giai đoạn phù hợp.
+Agile không bắt buộc deploy production sau mỗi sprint. Baseline `ffa38f5` mới chứng minh hardening P0.1–P0.5 ở cấp ứng dụng trên local; nó không phải tuyên bố hệ thống đã production-ready. Production readiness còn yêu cầu môi trường chuẩn, vận hành worker, capacity, cleanup/retention, backup/restore, monitoring, alerting, secrets và diễn tập rollback.
