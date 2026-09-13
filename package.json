@@ -15,6 +15,7 @@
     "dev:imports-worker": "npm run imports:worker --workspace @student-service/api",
     "check": "npm run check:api",
     "check:api": "npm run typecheck --workspace @student-service/api",
+    "check:sprint4-adr": "node scripts/check-sprint4-adr-gate.mjs",
     "format": "prettier --write \"apps/api/src/**/*.ts\" \"apps/api/*.ts\" \"apps/web/app/**/*.{ts,vue}\" \"apps/web/test/**/*.ts\" \"apps/web/*.ts\" \"*.json\"",
     "test": "npm run test:api && npm run test:web",
     "test:api": "npm run test --workspace @student-service/api",

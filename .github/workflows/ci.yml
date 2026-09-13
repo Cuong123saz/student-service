@@ -32,12 +32,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 22.18.0
           cache: npm
+
+      - name: Enforce Sprint 4 ADR gate
+        env:
+          ADR_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ADR_HEAD_SHA: ${{ github.sha }}
+        run: node scripts/check-sprint4-adr-gate.mjs "$ADR_BASE_SHA" "$ADR_HEAD_SHA"
 
       - name: Install dependencies
         run: npm ci
