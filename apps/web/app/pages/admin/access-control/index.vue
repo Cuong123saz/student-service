@@ -20,6 +20,7 @@ const {
   load,
   replaceAssignments,
 } = useUserAccess()
+const { logout } = useAdminAuth()
 
 const search = ref('')
 const appliedSearch = ref('')
@@ -29,6 +30,7 @@ const scopeDrafts = reactive<Partial<Record<SystemRoleCode, string[]>>>({})
 const isSaving = ref(false)
 const editorError = ref('')
 const feedback = ref('')
+const isRedirectingToLogin = ref(false)
 
 const users = computed(() => data.value?.users ?? [])
 const roles = computed(() => data.value?.roles ?? [])
@@ -41,6 +43,27 @@ const assignedCount = computed(() =>
     assignment => assignment.scopeIds.length > 0,
   )).length,
 )
+const sessionExpired = computed(() =>
+  errorMessage.value.includes('hết hạn')
+  || editorError.value.includes('hết hạn'),
+)
+
+watch(sessionExpired, async (expired) => {
+  if (!expired) return
+  await nextTick()
+  document.getElementById('session-expired-login')?.focus()
+})
+
+async function goToAdminLogin() {
+  if (isRedirectingToLogin.value) return
+  isRedirectingToLogin.value = true
+  try {
+    await logout()
+  } catch {
+    // The server session may already be gone; local auth state is cleared in logout().
+  }
+  await navigateTo('/admin/login', { replace: true })
+}
 
 function scopeLabel(scopeId: string) {
   return scopes.value.find(scope => scope.id === scopeId)?.label
@@ -173,7 +196,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="access-page">
+  <section
+    class="access-page"
+    :inert="sessionExpired"
+    :aria-hidden="sessionExpired ? 'true' : undefined"
+  >
     <header class="access-page__header">
       <div>
         <p class="page-eyebrow">Kiểm soát truy cập</p>
@@ -219,11 +246,10 @@ onMounted(() => {
       <div><strong>Đang tải dữ liệu phân quyền</strong><span>Hệ thống đang đối chiếu permission và scope…</span></div>
     </div>
 
-    <BaseAlert v-else-if="errorMessage" variant="error" title="Không thể tải phân quyền">
+    <BaseAlert v-else-if="errorMessage && !sessionExpired" variant="error" title="Không thể tải phân quyền">
       {{ errorMessage }}
       <div class="access-page__error-actions">
         <BaseButton type="button" variant="secondary" @click="load(appliedSearch)">Thử lại</BaseButton>
-        <NuxtLink v-if="errorMessage.includes('hết hạn')" to="/admin/login">Đăng nhập lại</NuxtLink>
       </div>
     </BaseAlert>
 
@@ -332,6 +358,34 @@ onMounted(() => {
       </aside>
     </div>
   </section>
+
+  <Teleport to="body">
+    <div v-if="sessionExpired" class="session-expired-modal">
+      <div
+        class="session-expired-modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="session-expired-title"
+        aria-describedby="session-expired-description"
+      >
+        <span class="session-expired-modal__icon" aria-hidden="true">!</span>
+        <p class="session-expired-modal__eyebrow">Phiên quản trị đã kết thúc</p>
+        <h2 id="session-expired-title">Vui lòng đăng nhập lại</h2>
+        <p id="session-expired-description">
+          Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại bằng tài khoản quản trị để tiếp tục quản lý phân quyền.
+        </p>
+        <BaseButton
+          id="session-expired-login"
+          type="button"
+          block
+          :loading="isRedirectingToLogin"
+          @click="goToAdminLogin"
+        >
+          Đăng nhập lại
+        </BaseButton>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -354,7 +408,12 @@ onMounted(() => {
 .access-page__loading div { display: grid; gap: 4px; }
 .access-page__loading span { color: var(--color-muted); font-size: 13px; }
 .access-page__error-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
-.access-page__error-actions a { color: var(--color-primary); font-weight: 800; }
+.session-expired-modal { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(7 16 30 / 68%); backdrop-filter: blur(4px); }
+.session-expired-modal__dialog { display: grid; width: min(100%, 440px); justify-items: center; padding: 34px; border: 1px solid rgb(255 255 255 / 55%); border-radius: 22px; background: var(--color-surface); box-shadow: 0 24px 80px rgb(7 16 30 / 32%); text-align: center; }
+.session-expired-modal__icon { display: grid; width: 52px; height: 52px; place-items: center; margin-bottom: 18px; border-radius: 16px; color: #fff; background: var(--color-primary); font-size: 26px; font-weight: 850; }
+.session-expired-modal__eyebrow { margin: 0 0 6px; color: var(--color-primary); font-size: 11px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.session-expired-modal__dialog h2 { margin: 0; color: var(--color-primary-dark); font-size: 25px; }
+.session-expired-modal__dialog > p:not(.session-expired-modal__eyebrow) { max-width: 360px; margin: 12px 0 22px; color: var(--color-muted); line-height: 1.65; }
 .access-page__empty { display: grid; min-height: 280px; place-items: center; align-content: center; gap: 8px; text-align: center; }
 .access-page__empty > span { color: var(--color-primary); font-size: 38px; }
 .access-page__empty h2, .access-page__empty p { margin: 0; }
