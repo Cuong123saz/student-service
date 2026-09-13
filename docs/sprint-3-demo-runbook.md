@@ -93,7 +93,7 @@ Không đặt lại mật khẩu `system.admin` chỉ để demo. Không dùng d
 | Nội dung | Kết quả tái kiểm chứng | Ghi chú |
 | --- | --- | --- |
 | RBAC và scope | ☑ Đạt | Demo trực tiếp và integration test thuộc baseline đạt |
-| Sửa thông tin sinh viên | ☑ Đạt kỹ thuật | Integration/acceptance test đạt; không lặp lại thao tác sửa trong phiên demo ngày 13/09 |
+| Sửa thông tin sinh viên | ☑ Đạt | Đã demo trực tiếp trên UI ngày 13/09; đồng bộ khoa theo lớp mới được xác nhận đúng |
 | Excel mẫu và Import | ☑ Đạt | File mẫu giữ số 0 đầu; import sạch và nhánh trùng/FAIL đã demo; P0.1–P0.5 đạt local |
 | Export và invitation queue | ☑ Đạt | Export lọc lớp trả đúng 4 dòng trong scope; Mailpit nhận đủ 2 email demo |
 | Audit log | ☑ Đạt | Import/email audit và phân trang đã xem trực tiếp; metadata không lộ token/mật khẩu |
@@ -109,7 +109,9 @@ Không đặt lại mật khẩu `system.admin` chỉ để demo. Không dùng d
 
 **Giới hạn sau nghiệm thu:** Import API đạt local, chưa production-ready/deployed. Các hạng mục production readiness tiếp tục nằm trong backlog bên dưới.
 
-**Người nghiệm thu chính thức:** Phan Phương Cường — Intern (người được ủy quyền).
+**Người nghiệm thu chính thức:** Phan Phương Cường.
+
+**Ghi chú:** Đây là dự án cá nhân, tự thực hiện và tự chịu trách nhiệm. Không có quy trình ủy quyền hay phê duyệt độc lập tách biệt với người thực hiện. Chữ ký này là tự xác nhận, không phải phê duyệt của bên thứ ba.
 
 **Ngày nghiệm thu chính thức:** 13/09/2026.
 

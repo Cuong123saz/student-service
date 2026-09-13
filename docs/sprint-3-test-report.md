@@ -2,7 +2,7 @@
 
 ## Phạm vi và kết luận hiện tại
 
-Biên bản này ghi lại baseline kỹ thuật được tái kiểm chứng ngày 13/09/2026 cho commit `ffa38f5`, cùng demo trực tiếp trên `ba80759` (có chứa `ffa38f5`) và kiểm tra hồi quy trên `777c3f9`. P0.1–P0.5 của luồng import đạt ở cấp triển khai và kiểm thử local; Import API chưa production-ready/deployed. Phan Phương Cường (Intern, người được ủy quyền) đã nghiệm thu Sprint 3 ngày 13/09/2026.
+Biên bản này ghi lại baseline kỹ thuật được tái kiểm chứng ngày 13/09/2026 cho commit `ffa38f5`, cùng demo trực tiếp trên `ba80759` (có chứa `ffa38f5`) và kiểm tra hồi quy trên `777c3f9`. P0.1–P0.5 của luồng import đạt ở cấp triển khai và kiểm thử local; Import API chưa production-ready/deployed. Phan Phương Cường đã tự xác nhận hoàn tất Sprint 3 ngày 13/09/2026 trong phạm vi dự án cá nhân; đây không phải phê duyệt độc lập của bên thứ ba.
 
 S3-12 được kiểm chứng bằng hai lớp bổ trợ nhau: integration test gọi API thật với database test và acceptance test gắn các trang Nuxt trong DOM rồi thao tác như người dùng. Cách này kiểm tra đủ upload → preview → confirm, lọc → xem metadata → phân trang và trạng thái thiếu quyền mà không thay đổi mật khẩu `system.admin`. Demo trực tiếp trên trình duyệt bằng tài khoản local thuộc bước nghiệm thu S3-13; bộ test hiện tại không được mô tả là Playwright full-stack.
 
@@ -112,7 +112,7 @@ Luồng chính được chạy trên Web local bằng `system.admin`. File demo 
 | Excel mẫu | Đạt | Workbook có đúng bốn cột import; các mã mẫu `00123456` và `00123457` là chuỗi với định dạng Text nên giữ số 0 đầu |
 | RBAC/scope | Đạt | Trang phân quyền hiển thị `system.admin` ở scope `GLOBAL` và các tài khoản demo theo scope; danh sách sinh viên chỉ hiển thị dữ liệu trong scope |
 
-Trong demo, lazy cleanup preview hết hạn làm lộ một lỗi ràng buộc giữa job `SUCCEEDED` và `preview_id`. Lỗi được sửa tại `777c3f9` bằng migration `0013_allow-expired-import-preview.sql`, kèm integration test hồi quy. Sau sửa, toàn bộ test/build bên dưới đều đạt. Kiểm tra thủ công thao tác sửa sinh viên và cửa sổ ẩn danh không lặp lại trong phiên này; các nhánh đó vẫn có integration/acceptance test tương ứng.
+Trong demo, lazy cleanup preview hết hạn làm lộ một lỗi ràng buộc giữa job `SUCCEEDED` và `preview_id`. Lỗi được sửa tại `777c3f9` bằng migration `0013_allow-expired-import-preview.sql`, kèm integration test hồi quy. Sau sửa, toàn bộ test/build bên dưới đều đạt. Thao tác sửa sinh viên đã được demo trực tiếp trên UI, gồm xác nhận khoa đồng bộ theo lớp mới. Kiểm tra cửa sổ ẩn danh không lặp lại trong phiên này; nhánh đó vẫn có acceptance test tương ứng.
 
 ## Kết luận tái kiểm chứng ngày 13/09/2026
 
@@ -124,5 +124,5 @@ Trong demo, lazy cleanup preview hết hạn làm lộ một lỗi ràng buộc 
 - Web production build: đạt.
 - Trạng thái P0 import: P0.1–P0.5 đạt local.
 - Trạng thái phát hành: Import API chưa production-ready/deployed.
-- Trạng thái Sprint 3: đã nghiệm thu chính thức ngày 13/09/2026 bởi Phan Phương Cường — Intern (người được ủy quyền).
+- Trạng thái Sprint 3: Phan Phương Cường tự xác nhận hoàn tất ngày 13/09/2026 trong phạm vi dự án cá nhân; không có phê duyệt độc lập của bên thứ ba.
 - Giới hạn nghiệm thu: Import API đạt local, chưa production-ready/deployed; backlog vận hành production không được coi là đã hoàn tất.

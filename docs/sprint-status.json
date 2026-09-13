@@ -3,8 +3,8 @@
   "status": "CLOSED",
   "signedBy": {
     "name": "Phan Phương Cường",
-    "role": "Intern",
-    "authorityConfirmed": true
+    "capacity": "PROJECT_OWNER_SELF_ATTESTATION",
+    "independentApproval": false
   },
   "signedAt": "2026-09-13",
   "commit": "ffa38f5c9dc57c27c3883d7684d894e6d73b4df0",
