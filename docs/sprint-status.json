@@ -1,0 +1,14 @@
+{
+  "sprint": "2+3",
+  "status": "CLOSED",
+  "signedBy": {
+    "name": "Phan Phương Cường",
+    "role": "Intern",
+    "authorityConfirmed": true
+  },
+  "signedAt": "2026-09-13",
+  "commit": "ffa38f5c9dc57c27c3883d7684d894e6d73b4df0",
+  "regressionFixCommit": "777c3f9a54c38ff0b8da5d964d377956ac3e35f6",
+  "acceptanceEvidenceCommit": "9e9c164f51aa438db7729d2dc3f72b4cf4360341",
+  "importProductionReadiness": "NOT_READY"
+}

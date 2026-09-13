@@ -115,4 +115,6 @@ Không đặt lại mật khẩu `system.admin` chỉ để demo. Không dùng d
 
 **Hình thức xác nhận:** xác nhận điện tử trong task Codex hiện tại.
 
+**Artefact trạng thái máy đọc được:** [`docs/sprint-status.json`](sprint-status.json).
+
 **Backlog chuyển tiếp:** production readiness cho import (capacity, retention/cleanup, backup/restore, worker operations, monitoring/alerting và rollback). ADR Sprint 4 chưa được khởi tạo trong quá trình đóng Sprint 3.
