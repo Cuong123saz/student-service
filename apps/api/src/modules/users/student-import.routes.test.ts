@@ -818,6 +818,63 @@ test('lazy reclaim không cho holder cũ giải phóng lease mới', async (cont
   await second.release()
 })
 
+test('cleanup preview hết hạn giữ job ở trạng thái có thể báo hết hạn', async (context) => {
+  const { actor } = await createImportContext()
+  const { app, jobService } = createApp()
+  context.after(() => app.close())
+  const cookie = await createAdminCookie(app, actor)
+  const upload = multipartCsv(
+    [
+      'studentCode,fullName,email,classCode',
+      '703,Sinh viên Expired,sv703@example.edu.vn,K15A',
+    ].join('\n'),
+  )
+  const preview = (await uploadAndProcessPreview(app, jobService, cookie, upload)) as {
+    previewId: string
+  }
+  const [storedPreview] = await db
+    .select({ sourceJobId: studentImportPreviews.sourceJobId })
+    .from(studentImportPreviews)
+    .where(eq(studentImportPreviews.id, preview.previewId))
+  assert.ok(storedPreview)
+
+  const now = new Date()
+  await db
+    .update(studentImportPreviews)
+    .set({ expiresAt: new Date(now.getTime() - 1) })
+    .where(eq(studentImportPreviews.id, preview.previewId))
+
+  const repository = new DrizzleStudentImportProcessingJobRepository()
+  await repository.enqueue({
+    actorUserId: actor.id,
+    fileName: 'next.csv',
+    mediaType: 'text/csv',
+    content: Buffer.from(
+      'studentCode,fullName,email,classCode\n704,Next,sv704@example.edu.vn,K15A',
+    ),
+    now,
+    expiresAt: new Date(now.getTime() + 15 * 60 * 1_000),
+  })
+
+  const [expiredJob] = await db
+    .select({
+      status: studentImportProcessingJobs.status,
+      previewId: studentImportProcessingJobs.previewId,
+    })
+    .from(studentImportProcessingJobs)
+    .where(eq(studentImportProcessingJobs.id, storedPreview.sourceJobId))
+  assert.deepEqual(expiredJob, {
+    status: 'SUCCEEDED',
+    previewId: null,
+  })
+  assert.deepEqual(await repository.getStatus(storedPreview.sourceJobId, actor.id, now), {
+    id: storedPreview.sourceJobId,
+    status: 'FAILED',
+    errorCode: 'IMPORT_PREVIEW_EXPIRED',
+    preview: null,
+  })
+})
+
 test('preview yêu cầu permission student.import từ database', async (context) => {
   const { actor } = await createImportContext()
   await db.delete(rolePermissions)

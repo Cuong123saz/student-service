@@ -5,6 +5,7 @@ import {
   type StudentAccountStatus,
   type AdminStudentDirectoryItem,
 } from '~/types/admin-student'
+import { buildStudentExportUrl } from '~/utils/student-export-url'
 
 definePageMeta({
   layout: 'admin',
@@ -68,6 +69,15 @@ const editForm = reactive({
 })
 const editValidationMessage = ref('')
 const editSuccessMessage = ref('')
+
+const exportUrl = computed(() =>
+  buildStudentExportUrl(config.public.apiBase, {
+    search: appliedSearch.value,
+    status: appliedStatus.value,
+    facultyId: appliedFaculty.value,
+    classId: appliedClass.value,
+  }),
+)
 
 const pageNumber = computed(
   () => cursorHistory.value.length + 1,
@@ -351,6 +361,15 @@ onMounted(() => {
         >
           <span aria-hidden="true">⇩</span>
           Tải Excel mẫu
+        </a>
+
+        <a
+          class="student-directory__export"
+          :href="exportUrl"
+          download="danh-sach-sinh-vien.xlsx"
+        >
+          <span aria-hidden="true">⇩</span>
+          Xuất Excel
         </a>
 
         <NuxtLink class="student-directory__invite" to="/admin/users/invite">
@@ -757,6 +776,8 @@ onMounted(() => {
 .student-directory__header-actions .student-directory__import:hover { border-color: #b9d6ff; background: var(--color-primary-soft); }
 .student-directory__template { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; padding: 10px 16px; border: 1px solid #b9d6ff; border-radius: 12px; color: var(--color-primary-dark); background: var(--color-primary-soft); font-size: 14px; font-weight: 750; text-decoration: none; transition: border-color 160ms ease, background-color 160ms ease; }
 .student-directory__template:hover { border-color: var(--color-primary); background: #e2f0ff; }
+.student-directory__export { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; padding: 10px 16px; border: 1px solid #b9d6ff; border-radius: 12px; color: var(--color-primary-dark); background: var(--color-primary-soft); font-size: 14px; font-weight: 750; text-decoration: none; transition: border-color 160ms ease, background-color 160ms ease; }
+.student-directory__export:hover { border-color: var(--color-primary); background: #e2f0ff; }
 .student-directory__invite { display: inline-flex; min-height: 44px; flex: 0 0 auto; align-items: center; gap: 7px; padding: 10px 17px; border-radius: 12px; color: #fff; background: linear-gradient(135deg, var(--color-primary), #205c94); box-shadow: 0 8px 20px rgb(23 76 130 / 20%); font-size: 14px; font-weight: 750; text-decoration: none; transition: transform 160ms ease, box-shadow 160ms ease; }
 .student-directory__invite:hover { transform: translateY(-1px); box-shadow: 0 11px 24px rgb(23 76 130 / 28%); }
 .student-directory__scope-note { display: flex; align-items: center; gap: 13px; padding: 14px 17px; border: 1px solid #cfe2f5; border-radius: 14px; color: var(--color-primary-dark); background: linear-gradient(100deg, #edf6ff, #f8fbff); }

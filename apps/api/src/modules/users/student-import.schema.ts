@@ -174,7 +174,7 @@ export const studentImportProcessingJobs = pgTable(
     ),
     check(
       'student_import_processing_jobs_result_state_check',
-      sql`(${table.status} = 'SUCCEEDED' AND ${table.previewId} IS NOT NULL AND ${table.lastErrorCode} IS NULL) OR (${table.status} = 'FAILED' AND ${table.previewId} IS NULL AND ${table.lastErrorCode} IS NOT NULL) OR (${table.status} IN ('PENDING', 'PROCESSING') AND ${table.previewId} IS NULL)`,
+      sql`(${table.status} = 'SUCCEEDED' AND ${table.lastErrorCode} IS NULL) OR (${table.status} = 'FAILED' AND ${table.previewId} IS NULL AND ${table.lastErrorCode} IS NOT NULL) OR (${table.status} IN ('PENDING', 'PROCESSING') AND ${table.previewId} IS NULL)`,
     ),
   ],
 )
