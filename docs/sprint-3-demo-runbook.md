@@ -99,7 +99,7 @@ Không đặt lại mật khẩu `system.admin` chỉ để demo. Không dùng d
 | Audit log | ☑ Đạt | Import/email audit và phân trang đã xem trực tiếp; metadata không lộ token/mật khẩu |
 | Regression và production build | ☑ Đạt | API 80 unit + 153 integration; Web 26 unit + 5 acceptance; hai production build đạt |
 
-**Kết luận kỹ thuật:** ☑ Đủ bằng chứng để trình người có thẩm quyền ký nghiệm thu Sprint 3.
+**Kết luận nghiệm thu:** ☑ Sprint 3 được nghiệm thu trên phạm vi và giới hạn ghi trong biên bản này.
 
 **Người tái kiểm chứng kỹ thuật:** Codex — kiểm chứng tự động, không thay chữ ký nghiệp vụ.
 
@@ -107,10 +107,12 @@ Không đặt lại mật khẩu `system.admin` chỉ để demo. Không dùng d
 
 **Baseline demo:** `ba80759` chứa commit chức năng `ffa38f5`; nhánh trùng/FAIL và hồi quy cleanup được kiểm tra trên `777c3f9`.
 
-**Điều kiện còn lại:** người có thẩm quyền xác nhận và ký nghiệm thu chính thức. Import API vẫn chỉ đạt local, chưa production-ready/deployed.
+**Giới hạn sau nghiệm thu:** Import API đạt local, chưa production-ready/deployed. Các hạng mục production readiness tiếp tục nằm trong backlog bên dưới.
 
-**Người nghiệm thu chính thức:** ____________________
+**Người nghiệm thu chính thức:** Phan Phương Cường — Intern (người được ủy quyền).
 
-**Ngày nghiệm thu chính thức:** ____________________
+**Ngày nghiệm thu chính thức:** 13/09/2026.
 
-**Backlog chuyển tiếp:** production readiness cho import (capacity, retention/cleanup, backup/restore, worker operations, monitoring/alerting và rollback). ADR Sprint 4 chưa bắt đầu cho tới khi điều kiện nghiệm thu trên được đóng.
+**Hình thức xác nhận:** xác nhận điện tử trong task Codex hiện tại.
+
+**Backlog chuyển tiếp:** production readiness cho import (capacity, retention/cleanup, backup/restore, worker operations, monitoring/alerting và rollback). ADR Sprint 4 chưa được khởi tạo trong quá trình đóng Sprint 3.

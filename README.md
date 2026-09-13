@@ -2,7 +2,7 @@
 
 Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, được xây dựng dưới dạng monorepo TypeScript. Hệ thống hướng tới một nơi thống nhất để sinh viên tra cứu dịch vụ, thực hiện thủ tục, quản lý hồ sơ học vụ, điểm rèn luyện, hoạt động ngoại khóa và nghiên cứu khoa học.
 
-> Baseline chính thức tại `ffa38f5`: P0.1–P0.5 của luồng import đã được triển khai và kiểm chứng tự động trên môi trường local. Import API đạt local nhưng chưa production-ready/deployed; nghiệm thu Sprint 3 hiện là nghiệm thu kỹ thuật có điều kiện, còn chờ người có thẩm quyền hoàn tất demo và ký biên bản.
+> Baseline chức năng tại `ffa38f5`: P0.1–P0.5 của luồng import đã được triển khai và kiểm chứng trên môi trường local. Demo và sửa lỗi hồi quy được hoàn tất qua `777c3f9`; Sprint 3 được Phan Phương Cường (Intern, người được ủy quyền) nghiệm thu ngày 13/09/2026. Import API đạt local nhưng chưa production-ready/deployed.
 
 ## Trạng thái dự án
 
@@ -44,7 +44,7 @@ Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, đượ
 - Giao diện import gồm preview, báo lỗi, xử lý trùng và confirm — đã hoàn thành.
 - Giao diện tra cứu audit log theo hành động và phân trang thời gian — đã hoàn thành.
 - Hồi quy API/Web và acceptance test cho Import/Audit — đã hoàn thành.
-- Runbook và bằng chứng kiểm thử tự động — đã cập nhật; demo trực tiếp và chữ ký nghiệm thu chính thức còn chờ người có thẩm quyền.
+- Runbook, demo trực tiếp, bằng chứng kiểm thử và chữ ký nghiệm thu chính thức — đã hoàn thành ngày 13/09/2026.
 
 Các module biểu mẫu thủ tục, workflow, sinh tài liệu, chữ ký số và điểm rèn luyện thuộc các sprint sau; không đưa vào Sprint 3.
 

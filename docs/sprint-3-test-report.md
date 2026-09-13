@@ -2,7 +2,7 @@
 
 ## Phạm vi và kết luận hiện tại
 
-Biên bản này ghi lại baseline kỹ thuật được tái kiểm chứng ngày 13/09/2026 cho commit `ffa38f5`, cùng demo trực tiếp trên `ba80759` (có chứa `ffa38f5`) và kiểm tra hồi quy trên `777c3f9`. P0.1–P0.5 của luồng import đạt ở cấp triển khai và kiểm thử local; Import API chưa production-ready/deployed. Demo đã hoàn tất, nhưng biên bản này không thay thế chữ ký của người có thẩm quyền.
+Biên bản này ghi lại baseline kỹ thuật được tái kiểm chứng ngày 13/09/2026 cho commit `ffa38f5`, cùng demo trực tiếp trên `ba80759` (có chứa `ffa38f5`) và kiểm tra hồi quy trên `777c3f9`. P0.1–P0.5 của luồng import đạt ở cấp triển khai và kiểm thử local; Import API chưa production-ready/deployed. Phan Phương Cường (Intern, người được ủy quyền) đã nghiệm thu Sprint 3 ngày 13/09/2026.
 
 S3-12 được kiểm chứng bằng hai lớp bổ trợ nhau: integration test gọi API thật với database test và acceptance test gắn các trang Nuxt trong DOM rồi thao tác như người dùng. Cách này kiểm tra đủ upload → preview → confirm, lọc → xem metadata → phân trang và trạng thái thiếu quyền mà không thay đổi mật khẩu `system.admin`. Demo trực tiếp trên trình duyệt bằng tài khoản local thuộc bước nghiệm thu S3-13; bộ test hiện tại không được mô tả là Playwright full-stack.
 
@@ -87,13 +87,13 @@ Web build thành công nhưng Node.js 24 phát cảnh báo `DEP0155` từ depend
 
 ## Bàn giao S3 13
 
-- [x] README phản ánh baseline kỹ thuật local, trạng thái chưa production-ready/deployed và nghiệm thu có điều kiện.
+- [x] README phản ánh baseline kỹ thuật local, trạng thái chưa production-ready/deployed và nghiệm thu chính thức.
 - [x] Runbook mô tả đầy đủ thứ tự demo, kết quả mong đợi và biểu mẫu ký nghiệm thu.
 - [x] Script `scripts/sprint-3-demo.ps1` tạo dữ liệu CSV không trùng cho từng lần demo và kiểm tra API/Web local.
 - [x] Chạy lại demo trực tiếp trên baseline chứa `ffa38f5`; bằng chứng định danh chỉ dùng dữ liệu giả.
-- [ ] Người có thẩm quyền ký biên bản nghiệm thu Sprint 3.
+- [x] Người có thẩm quyền ký biên bản nghiệm thu Sprint 3.
 - [x] Hardening import P0.1–P0.5 đã triển khai và được tái kiểm chứng tự động trên PostgreSQL thật.
-- [ ] Chốt nghiệm thu chính thức sau chữ ký; hiện đã đủ bằng chứng kỹ thuật và demo.
+- [x] Chốt nghiệm thu chính thức sau chữ ký điện tử trong task Codex.
 
 ## Bằng chứng demo trực tiếp ngày 13/09/2026
 
@@ -124,4 +124,5 @@ Trong demo, lazy cleanup preview hết hạn làm lộ một lỗi ràng buộc 
 - Web production build: đạt.
 - Trạng thái P0 import: P0.1–P0.5 đạt local.
 - Trạng thái phát hành: Import API chưa production-ready/deployed.
-- Trạng thái Sprint 3: demo và bằng chứng kỹ thuật đã hoàn tất; chờ duy nhất chữ ký người có thẩm quyền để nghiệm thu chính thức.
+- Trạng thái Sprint 3: đã nghiệm thu chính thức ngày 13/09/2026 bởi Phan Phương Cường — Intern (người được ủy quyền).
+- Giới hạn nghiệm thu: Import API đạt local, chưa production-ready/deployed; backlog vận hành production không được coi là đã hoàn tất.
