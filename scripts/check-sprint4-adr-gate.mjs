@@ -70,7 +70,10 @@ try {
 
 for (const [adr, migrations] of requirements) {
   try {
-    runGit("cat-file", "-e", `${baseRevision}:${adr}`);
+    const content = runGit("show", `${baseRevision}:${adr}`);
+    if (!/^status:\s*Accepted\s*$/imu.test(content)) {
+      failures.push(`${adr} existed but was not Accepted before: ${migrations.join(", ")}`);
+    }
   } catch {
     failures.push(`${adr} must be committed before: ${migrations.join(", ")}`);
   }
