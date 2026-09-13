@@ -92,20 +92,22 @@ Không đặt lại mật khẩu `system.admin` chỉ để demo. Không dùng d
 
 | Nội dung | Kết quả tái kiểm chứng | Ghi chú |
 | --- | --- | --- |
-| RBAC và scope | ☑ Đạt kỹ thuật | Integration test thuộc baseline đạt |
-| Sửa thông tin sinh viên | ☑ Đạt kỹ thuật | Integration test thuộc baseline đạt |
-| Excel mẫu và Import | ☑ Đạt kỹ thuật có điều kiện | P0.1–P0.5 đạt local; chưa production-ready/deployed; chờ demo trực tiếp |
-| Export và invitation queue | ☑ Đạt kỹ thuật có điều kiện | Test đạt; chờ demo trực tiếp/Mailpit |
-| Audit log | ☑ Đạt kỹ thuật có điều kiện | Test đạt; chờ demo trực tiếp và kiểm tra dữ liệu nhạy cảm |
-| Regression và production build | ☑ Đạt kỹ thuật | API/Web test và build đạt ngày 13/09/2026 |
+| RBAC và scope | ☑ Đạt | Demo trực tiếp và integration test thuộc baseline đạt |
+| Sửa thông tin sinh viên | ☑ Đạt kỹ thuật | Integration/acceptance test đạt; không lặp lại thao tác sửa trong phiên demo ngày 13/09 |
+| Excel mẫu và Import | ☑ Đạt | File mẫu giữ số 0 đầu; import sạch và nhánh trùng/FAIL đã demo; P0.1–P0.5 đạt local |
+| Export và invitation queue | ☑ Đạt | Export lọc lớp trả đúng 4 dòng trong scope; Mailpit nhận đủ 2 email demo |
+| Audit log | ☑ Đạt | Import/email audit và phân trang đã xem trực tiếp; metadata không lộ token/mật khẩu |
+| Regression và production build | ☑ Đạt | API 80 unit + 153 integration; Web 26 unit + 5 acceptance; hai production build đạt |
 
-**Kết luận kỹ thuật:** ☑ Chấp nhận có điều kiện Sprint 3.
+**Kết luận kỹ thuật:** ☑ Đủ bằng chứng để trình người có thẩm quyền ký nghiệm thu Sprint 3.
 
 **Người tái kiểm chứng kỹ thuật:** Codex — kiểm chứng tự động, không thay chữ ký nghiệp vụ.
 
 **Ngày tái kiểm chứng:** 13/09/2026.
 
-**Điều kiện còn lại:** demo trực tiếp trên baseline chứa `ffa38f5`, lưu bằng chứng, và người có thẩm quyền ký nghiệm thu chính thức.
+**Baseline demo:** `ba80759` chứa commit chức năng `ffa38f5`; nhánh trùng/FAIL và hồi quy cleanup được kiểm tra trên `777c3f9`.
+
+**Điều kiện còn lại:** người có thẩm quyền xác nhận và ký nghiệm thu chính thức. Import API vẫn chỉ đạt local, chưa production-ready/deployed.
 
 **Người nghiệm thu chính thức:** ____________________
 
