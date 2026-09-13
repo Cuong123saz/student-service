@@ -16,7 +16,6 @@
     "check": "npm run check:api",
     "check:api": "npm run typecheck --workspace @student-service/api",
     "format": "prettier --write \"apps/api/src/**/*.ts\" \"apps/api/*.ts\" \"apps/web/app/**/*.{ts,vue}\" \"apps/web/test/**/*.ts\" \"apps/web/*.ts\" \"*.json\"",
-    "format:check": "prettier --check \"apps/api/src/**/*.ts\" \"apps/api/*.ts\" \"apps/web/app/**/*.{ts,vue}\" \"apps/web/test/**/*.ts\" \"apps/web/*.ts\" \"*.json\"",
     "test": "npm run test:api && npm run test:web",
     "test:api": "npm run test --workspace @student-service/api",
     "test:web": "npm run test --workspace @student-service/web && npm run test:acceptance --workspace @student-service/web",
