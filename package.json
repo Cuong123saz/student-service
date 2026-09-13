@@ -2,6 +2,9 @@
   "name": "student-service",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.18.0 <23"
+  },
   "workspaces": [
     "apps/*"
   ],
@@ -10,7 +13,16 @@
     "dev:api": "npm run dev --workspace @student-service/api",
     "dev:web": "npm run dev --workspace @student-service/web",
     "dev:imports-worker": "npm run imports:worker --workspace @student-service/api",
-    "format": "prettier --write \"apps/**/*.{ts,vue}\" \"*.json\""
+    "check": "npm run check:api",
+    "check:api": "npm run typecheck --workspace @student-service/api",
+    "format": "prettier --write \"apps/api/src/**/*.ts\" \"apps/api/*.ts\" \"apps/web/app/**/*.{ts,vue}\" \"apps/web/test/**/*.ts\" \"apps/web/*.ts\" \"*.json\"",
+    "format:check": "prettier --check \"apps/api/src/**/*.ts\" \"apps/api/*.ts\" \"apps/web/app/**/*.{ts,vue}\" \"apps/web/test/**/*.ts\" \"apps/web/*.ts\" \"*.json\"",
+    "test": "npm run test:api && npm run test:web",
+    "test:api": "npm run test --workspace @student-service/api",
+    "test:web": "npm run test --workspace @student-service/web && npm run test:acceptance --workspace @student-service/web",
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "npm run build --workspace @student-service/api",
+    "build:web": "npm run build --workspace @student-service/web"
   },
   "devDependencies": {
     "concurrently": "^10.0.5",

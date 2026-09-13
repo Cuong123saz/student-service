@@ -5,3 +5,4 @@ run/
 .env.*
 !.env.example
 !.env.*.example
+/apps*.zip

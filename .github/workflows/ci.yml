@@ -45,17 +45,11 @@ jobs:
       - name: Prepare test environment
         run: cp apps/api/.env.test.example apps/api/.env.test
 
-      - name: Typecheck API
-        run: npm run typecheck --workspace @student-service/api
+      - name: Check repository
+        run: npm run check
 
-      - name: Test API
-        run: npm run test --workspace @student-service/api
+      - name: Test repository
+        run: npm run test
 
-      - name: Build API
-        run: npm run build --workspace @student-service/api
-
-      - name: Test Web
-        run: npm run test --workspace @student-service/web
-
-      - name: Build Web
-        run: npm run build --workspace @student-service/web
+      - name: Build repository
+        run: npm run build
