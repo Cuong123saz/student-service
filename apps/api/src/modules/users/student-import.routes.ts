@@ -202,7 +202,7 @@ async function readImportUpload(
       ? chunk
       : typeof chunk === 'string'
         ? Buffer.from(chunk)
-        : Buffer.from(chunk as Uint8Array)
+        : Buffer.from(chunk)
     total += buffer.byteLength
     if (total > STUDENT_IMPORT_MAX_FILE_BYTES) {
       throw Object.assign(new Error('Import file is too large'), {

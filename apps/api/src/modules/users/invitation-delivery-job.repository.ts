@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm'
+import { and, asc, eq, isNull, lte, sql } from 'drizzle-orm'
 
 import { db } from '../../db/client.js'
 import { auditLogs } from '../audit/audit.schema.js'

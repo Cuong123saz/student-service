@@ -6,7 +6,7 @@ const start = async () => {
   try {
     await app.listen({
       port: env.apiPort,
-host: env.apiHost,
+      host: env.apiHost,
     })
   } catch (error) {
     app.log.error(error)
@@ -14,4 +14,4 @@ host: env.apiHost,
   }
 }
 
-start()
+void start()

@@ -81,7 +81,7 @@ const HEADER_ALIASES: Record<string, StudentImportColumn> = {
   lop: 'classCode',
 }
 
-function normalizeHeader(value: unknown): string {
+function normalizeHeader(value: StudentImportSourceCellValue | null): string {
   return String(value ?? '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

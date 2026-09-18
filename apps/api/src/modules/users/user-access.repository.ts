@@ -411,7 +411,9 @@ export class DrizzleUserAccessRepository implements UserAccessRepository {
 
       const visibleUsers: ManagedAccessUser[] = []
       for (const user of userRows) {
-        const roleMap = assignmentsByUser.get(user.id) ?? new Map()
+        const roleMap =
+          assignmentsByUser.get(user.id) ??
+          new Map<SystemRoleCode, { roleName: string; scopeIds: string[] }>()
         const roleCodes = [...roleMap.keys()]
         const targetScopes = [...roleMap.values()]
           .flatMap((assignment) => assignment.scopeIds)

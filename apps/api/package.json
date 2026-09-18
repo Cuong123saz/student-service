@@ -11,6 +11,7 @@
     "db:migrate:test": "drizzle-kit migrate --config=drizzle.test.config.ts",
     "auth:bootstrap-admin": "tsx src/modules/auth/bootstrap-system-admin.ts",
     "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint src --max-warnings=0",
     "mail:smoke": "tsx src/scripts/send-test-invitation-email.ts",
     "invitations:worker": "tsx src/scripts/run-invitation-worker.ts",
     "invitations:worker:once": "tsx src/scripts/run-invitation-worker.ts --once",
@@ -41,10 +42,14 @@
     "read-excel-file": "^9.3.10"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.2.0",
     "@types/nodemailer": "^8.0.1",
     "drizzle-kit": "^0.31.10",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
     "tsx": "^4.23.12",
-    "typescript": "^7.0.2"
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.0"
   }
 }

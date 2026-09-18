@@ -191,7 +191,7 @@ export class InMemoryStudentImportPreviewStore implements StudentImportPreviewSt
     this.removeExpired(now)
 
     while (this.entries.size >= this.maximumEntries) {
-      const oldestId = this.entries.keys().next().value as string | undefined
+      const oldestId = this.entries.keys().next().value
 
       if (!oldestId) {
         break
@@ -475,7 +475,7 @@ function rowsForOverwrite(rows: readonly StoredStudentImportRow[]): PersistStude
       throw new StudentImportAmbiguousDuplicateError()
     }
 
-    const index = matchingIndexes.values().next().value as number | undefined
+    const index = matchingIndexes.values().next().value
 
     if (index === undefined) {
       const nextIndex = selected.length
