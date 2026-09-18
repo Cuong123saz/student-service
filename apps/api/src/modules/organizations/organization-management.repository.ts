@@ -1,22 +1,8 @@
-import {
-  and,
-  asc,
-  eq,
-  gt,
-  isNull,
-  lte,
-  or,
-} from 'drizzle-orm'
+import { and, asc, eq, gt, isNull, lte, or } from 'drizzle-orm'
 
 import { db } from '../../db/client.js'
-import {
-  auditLogs,
-} from '../audit/audit.schema.js'
-import {
-  roles,
-  userRoles,
-  users,
-} from '../auth/auth.schema.js'
+import { auditLogs } from '../audit/audit.schema.js'
+import { roles, userRoles, users } from '../auth/auth.schema.js'
 import {
   authorizationScopes,
   permissions,
@@ -43,9 +29,7 @@ import type {
   UpdateOrganizationalUnitInput,
 } from './organization-management.service.js'
 
-type Transaction = Parameters<
-  Parameters<typeof db.transaction>[0]
->[0]
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 interface AuthorityScope {
   scopeType: string
@@ -54,29 +38,21 @@ interface AuthorityScope {
   organizationalUnitId: string | null
 }
 
-export class OrganizationForbiddenError
-extends Error {
+export class OrganizationForbiddenError extends Error {
   constructor() {
     super('Organization target is outside actor authority')
     this.name = 'OrganizationForbiddenError'
   }
 }
 
-export class OrganizationNotFoundError
-extends Error {
-  constructor(
-    readonly field:
-      | 'facultyId'
-      | 'classId'
-      | 'organizationalUnitId',
-  ) {
+export class OrganizationNotFoundError extends Error {
+  constructor(readonly field: 'facultyId' | 'classId' | 'organizationalUnitId') {
     super(`${field} does not reference an existing record`)
     this.name = 'OrganizationNotFoundError'
   }
 }
 
-export class OrganizationConflictError
-extends Error {
+export class OrganizationConflictError extends Error {
   constructor(
     readonly field: 'code' | 'advisorUserId',
     message = 'Organization data conflicts with an existing record',
@@ -86,23 +62,18 @@ extends Error {
   }
 }
 
-export class OrganizationInactiveError
-extends Error {
+export class OrganizationInactiveError extends Error {
   constructor(readonly field: 'facultyId' | 'classId') {
     super(`${field} must reference an active record`)
     this.name = 'OrganizationInactiveError'
   }
 }
 
-function isRecord(
-  value: unknown,
-): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function findPostgresCode(
-  error: unknown,
-): string | undefined {
+function findPostgresCode(error: unknown): string | undefined {
   let current = error
 
   while (isRecord(current)) {
@@ -117,49 +88,38 @@ function findPostgresCode(
 }
 
 function isGlobal(scopes: AuthorityScope[]): boolean {
-  return scopes.some(scope => scope.scopeType === 'GLOBAL')
+  return scopes.some((scope) => scope.scopeType === 'GLOBAL')
 }
 
-function canAccessFaculty(
-  scopes: AuthorityScope[],
-  facultyId: string,
-): boolean {
-  return isGlobal(scopes)
-    || scopes.some(
-      scope => scope.scopeType === 'FACULTY'
-        && scope.facultyId === facultyId,
-    )
+function canAccessFaculty(scopes: AuthorityScope[], facultyId: string): boolean {
+  return (
+    isGlobal(scopes) ||
+    scopes.some((scope) => scope.scopeType === 'FACULTY' && scope.facultyId === facultyId)
+  )
 }
 
-function canAccessClass(
-  scopes: AuthorityScope[],
-  classId: string,
-  facultyId: string,
-): boolean {
-  return canAccessFaculty(scopes, facultyId)
-    || scopes.some(
-      scope => scope.scopeType === 'CLASS'
-        && scope.classId === classId,
-    )
+function canAccessClass(scopes: AuthorityScope[], classId: string, facultyId: string): boolean {
+  return (
+    canAccessFaculty(scopes, facultyId) ||
+    scopes.some((scope) => scope.scopeType === 'CLASS' && scope.classId === classId)
+  )
 }
 
 function canAccessOrganizationalUnit(
   scopes: AuthorityScope[],
   organizationalUnitId: string,
 ): boolean {
-  return isGlobal(scopes)
-    || scopes.some(
-      scope => scope.scopeType === 'ORGANIZATION'
-        && scope.organizationalUnitId === organizationalUnitId,
+  return (
+    isGlobal(scopes) ||
+    scopes.some(
+      (scope) =>
+        scope.scopeType === 'ORGANIZATION' && scope.organizationalUnitId === organizationalUnitId,
     )
+  )
 }
 
-export class DrizzleOrganizationManagementRepository
-implements OrganizationManagementRepository {
-  constructor(
-    private readonly database:
-      typeof db = db,
-  ) {}
+export class DrizzleOrganizationManagementRepository implements OrganizationManagementRepository {
+  constructor(private readonly database: typeof db = db) {}
 
   private async getAuthorityScopes(
     transaction: Transaction,
@@ -170,25 +130,12 @@ implements OrganizationManagementRepository {
         scopeType: authorizationScopes.scopeType,
         facultyId: authorizationScopes.facultyId,
         classId: authorizationScopes.classId,
-        organizationalUnitId:
-          authorizationScopes.organizationalUnitId,
+        organizationalUnitId: authorizationScopes.organizationalUnitId,
       })
       .from(users)
-      .innerJoin(
-        userRoles,
-        eq(users.id, userRoles.userId),
-      )
-      .innerJoin(
-        rolePermissions,
-        eq(userRoles.roleId, rolePermissions.roleId),
-      )
-      .innerJoin(
-        permissions,
-        eq(
-          rolePermissions.permissionId,
-          permissions.id,
-        ),
-      )
+      .innerJoin(userRoles, eq(users.id, userRoles.userId))
+      .innerJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
+      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
       .innerJoin(
         userRoleScopes,
         and(
@@ -196,13 +143,7 @@ implements OrganizationManagementRepository {
           eq(userRoleScopes.roleId, userRoles.roleId),
         ),
       )
-      .innerJoin(
-        authorizationScopes,
-        eq(
-          userRoleScopes.scopeId,
-          authorizationScopes.id,
-        ),
-      )
+      .innerJoin(authorizationScopes, eq(userRoleScopes.scopeId, authorizationScopes.id))
       .where(
         and(
           eq(users.id, actorUserId),
@@ -246,15 +187,9 @@ implements OrganizationManagementRepository {
     })
   }
 
-  async getSnapshot(
-    actorUserId: string,
-    at: Date,
-  ): Promise<OrganizationManagementSnapshot> {
+  async getSnapshot(actorUserId: string, at: Date): Promise<OrganizationManagementSnapshot> {
     return this.database.transaction(async (transaction) => {
-      const scopes = await this.getAuthorityScopes(
-        transaction,
-        actorUserId,
-      )
+      const scopes = await this.getAuthorityScopes(transaction, actorUserId)
 
       if (scopes.length === 0) {
         return {
@@ -280,14 +215,8 @@ implements OrganizationManagementRepository {
           classStatus: academicClasses.status,
         })
         .from(faculties)
-        .leftJoin(
-          academicClasses,
-          eq(academicClasses.facultyId, faculties.id),
-        )
-        .orderBy(
-          asc(faculties.code),
-          asc(academicClasses.code),
-        )
+        .leftJoin(academicClasses, eq(academicClasses.facultyId, faculties.id))
+        .orderBy(asc(faculties.code), asc(academicClasses.code))
 
       const assignmentRows = await transaction
         .select({
@@ -300,13 +229,7 @@ implements OrganizationManagementRepository {
           email: users.email,
         })
         .from(academicAdvisorAssignments)
-        .innerJoin(
-          users,
-          eq(
-            academicAdvisorAssignments.advisorUserId,
-            users.id,
-          ),
-        )
+        .innerJoin(users, eq(academicAdvisorAssignments.advisorUserId, users.id))
         .where(
           and(
             eq(academicAdvisorAssignments.status, 'ACTIVE'),
@@ -318,22 +241,13 @@ implements OrganizationManagementRepository {
           ),
         )
 
-      const assignmentByClass = new Map(
-        assignmentRows.map(row => [row.classId, row]),
-      )
+      const assignmentByClass = new Map(assignmentRows.map((row) => [row.classId, row]))
       const facultyMap = new Map<string, ManagedFaculty>()
 
       for (const row of facultyClassRows) {
-        const facultyAllowed = canAccessFaculty(
-          scopes,
-          row.facultyId,
-        )
+        const facultyAllowed = canAccessFaculty(scopes, row.facultyId)
         const classAllowed = row.classId
-          ? canAccessClass(
-              scopes,
-              row.classId,
-              row.facultyId,
-            )
+          ? canAccessClass(scopes, row.classId, row.facultyId)
           : false
 
         if (!facultyAllowed && !classAllowed) continue
@@ -376,10 +290,11 @@ implements OrganizationManagementRepository {
         }
       }
 
-      const hasAcademicScope = scopes.some(scope =>
-        scope.scopeType === 'GLOBAL'
-        || scope.scopeType === 'FACULTY'
-        || scope.scopeType === 'CLASS',
+      const hasAcademicScope = scopes.some(
+        (scope) =>
+          scope.scopeType === 'GLOBAL' ||
+          scope.scopeType === 'FACULTY' ||
+          scope.scopeType === 'CLASS',
       )
       const advisorRows = hasAcademicScope
         ? await transaction
@@ -390,20 +305,9 @@ implements OrganizationManagementRepository {
               email: users.email,
             })
             .from(users)
-            .innerJoin(
-              userRoles,
-              eq(users.id, userRoles.userId),
-            )
-            .innerJoin(
-              roles,
-              eq(userRoles.roleId, roles.id),
-            )
-            .where(
-              and(
-                eq(users.status, 'ACTIVE'),
-                eq(roles.code, 'ACADEMIC_ADVISOR'),
-              ),
-            )
+            .innerJoin(userRoles, eq(users.id, userRoles.userId))
+            .innerJoin(roles, eq(userRoles.roleId, roles.id))
+            .where(and(eq(users.status, 'ACTIVE'), eq(roles.code, 'ACADEMIC_ADVISOR')))
             .orderBy(asc(users.fullName))
         : []
 
@@ -420,8 +324,8 @@ implements OrganizationManagementRepository {
       return {
         faculties: [...facultyMap.values()],
         organizationalUnits: organizationalUnitRows
-          .filter(unit => canAccessOrganizationalUnit(scopes, unit.id))
-          .map(unit => ({
+          .filter((unit) => canAccessOrganizationalUnit(scopes, unit.id))
+          .map((unit) => ({
             ...unit,
             status: unit.status as OrganizationStatus,
             canManage: true,
@@ -435,15 +339,10 @@ implements OrganizationManagementRepository {
     })
   }
 
-  async createFaculty(
-    input: CreateFacultyInput,
-  ): Promise<{ id: string }> {
+  async createFaculty(input: CreateFacultyInput): Promise<{ id: string }> {
     try {
       return await this.database.transaction(async (transaction) => {
-        const scopes = await this.getAuthorityScopes(
-          transaction,
-          input.actor.userId,
-        )
+        const scopes = await this.getAuthorityScopes(transaction, input.actor.userId)
 
         if (!isGlobal(scopes)) {
           throw new OrganizationForbiddenError()
@@ -492,15 +391,10 @@ implements OrganizationManagementRepository {
     }
   }
 
-  async updateFaculty(
-    input: UpdateFacultyInput,
-  ): Promise<void> {
+  async updateFaculty(input: UpdateFacultyInput): Promise<void> {
     try {
       await this.database.transaction(async (transaction) => {
-        const scopes = await this.getAuthorityScopes(
-          transaction,
-          input.actor.userId,
-        )
+        const scopes = await this.getAuthorityScopes(transaction, input.actor.userId)
         const [current] = await transaction
           .select({
             id: faculties.id,
@@ -550,15 +444,10 @@ implements OrganizationManagementRepository {
     }
   }
 
-  async createOrganizationalUnit(
-    input: CreateOrganizationalUnitInput,
-  ): Promise<{ id: string }> {
+  async createOrganizationalUnit(input: CreateOrganizationalUnitInput): Promise<{ id: string }> {
     try {
       return await this.database.transaction(async (transaction) => {
-        const scopes = await this.getAuthorityScopes(
-          transaction,
-          input.actor.userId,
-        )
+        const scopes = await this.getAuthorityScopes(transaction, input.actor.userId)
 
         if (!isGlobal(scopes)) {
           throw new OrganizationForbiddenError()
@@ -609,15 +498,10 @@ implements OrganizationManagementRepository {
     }
   }
 
-  async updateOrganizationalUnit(
-    input: UpdateOrganizationalUnitInput,
-  ): Promise<void> {
+  async updateOrganizationalUnit(input: UpdateOrganizationalUnitInput): Promise<void> {
     try {
       await this.database.transaction(async (transaction) => {
-        const scopes = await this.getAuthorityScopes(
-          transaction,
-          input.actor.userId,
-        )
+        const scopes = await this.getAuthorityScopes(transaction, input.actor.userId)
         const [current] = await transaction
           .select({
             id: organizationalUnits.id,
@@ -626,16 +510,11 @@ implements OrganizationManagementRepository {
             status: organizationalUnits.status,
           })
           .from(organizationalUnits)
-          .where(eq(
-            organizationalUnits.id,
-            input.organizationalUnitId,
-          ))
+          .where(eq(organizationalUnits.id, input.organizationalUnitId))
           .limit(1)
 
         if (!current) {
-          throw new OrganizationNotFoundError(
-            'organizationalUnitId',
-          )
+          throw new OrganizationNotFoundError('organizationalUnitId')
         }
         if (!canAccessOrganizationalUnit(scopes, current.id)) {
           throw new OrganizationForbiddenError()
@@ -672,15 +551,10 @@ implements OrganizationManagementRepository {
     }
   }
 
-  async createAcademicClass(
-    input: CreateAcademicClassInput,
-  ): Promise<{ id: string }> {
+  async createAcademicClass(input: CreateAcademicClassInput): Promise<{ id: string }> {
     try {
       return await this.database.transaction(async (transaction) => {
-        const scopes = await this.getAuthorityScopes(
-          transaction,
-          input.actor.userId,
-        )
+        const scopes = await this.getAuthorityScopes(transaction, input.actor.userId)
         const [faculty] = await transaction
           .select({ id: faculties.id, status: faculties.status })
           .from(faculties)
@@ -744,15 +618,10 @@ implements OrganizationManagementRepository {
     }
   }
 
-  async updateAcademicClass(
-    input: UpdateAcademicClassInput,
-  ): Promise<void> {
+  async updateAcademicClass(input: UpdateAcademicClassInput): Promise<void> {
     try {
       await this.database.transaction(async (transaction) => {
-        const scopes = await this.getAuthorityScopes(
-          transaction,
-          input.actor.userId,
-        )
+        const scopes = await this.getAuthorityScopes(transaction, input.actor.userId)
         const [current] = await transaction
           .select({
             id: academicClasses.id,
@@ -782,10 +651,7 @@ implements OrganizationManagementRepository {
         if (!targetFaculty) {
           throw new OrganizationNotFoundError('facultyId')
         }
-        if (
-          targetFacultyId !== current.facultyId
-          && !canAccessFaculty(scopes, targetFacultyId)
-        ) {
+        if (targetFacultyId !== current.facultyId && !canAccessFaculty(scopes, targetFacultyId)) {
           throw new OrganizationForbiddenError()
         }
         if (targetFaculty.status !== 'ACTIVE') {
@@ -824,15 +690,10 @@ implements OrganizationManagementRepository {
     }
   }
 
-  async setAcademicAdvisor(
-    input: SetAcademicAdvisorInput,
-  ): Promise<void> {
+  async setAcademicAdvisor(input: SetAcademicAdvisorInput): Promise<void> {
     try {
       await this.database.transaction(async (transaction) => {
-        const scopes = await this.getAuthorityScopes(
-          transaction,
-          input.actor.userId,
-        )
+        const scopes = await this.getAuthorityScopes(transaction, input.actor.userId)
         const [academicClass] = await transaction
           .select({
             id: academicClasses.id,
@@ -873,9 +734,7 @@ implements OrganizationManagementRepository {
           )
           .limit(1)
 
-        if (
-          current?.advisorUserId === input.advisorUserId
-        ) {
+        if (current?.advisorUserId === input.advisorUserId) {
           throw new OrganizationConflictError(
             'advisorUserId',
             'Advisor is already assigned to this class',
@@ -886,14 +745,8 @@ implements OrganizationManagementRepository {
           const [advisor] = await transaction
             .select({ id: users.id })
             .from(users)
-            .innerJoin(
-              userRoles,
-              eq(users.id, userRoles.userId),
-            )
-            .innerJoin(
-              roles,
-              eq(userRoles.roleId, roles.id),
-            )
+            .innerJoin(userRoles, eq(users.id, userRoles.userId))
+            .innerJoin(roles, eq(userRoles.roleId, roles.id))
             .where(
               and(
                 eq(users.id, input.advisorUserId),
@@ -917,9 +770,7 @@ implements OrganizationManagementRepository {
         }
 
         if (current) {
-          const startsAtEffectiveTime =
-            current.validFrom.getTime()
-              === input.effectiveAt.getTime()
+          const startsAtEffectiveTime = current.validFrom.getTime() === input.effectiveAt.getTime()
 
           await transaction
             .update(academicAdvisorAssignments)
@@ -938,24 +789,20 @@ implements OrganizationManagementRepository {
         }
 
         if (input.advisorUserId) {
-          await transaction
-            .insert(academicAdvisorAssignments)
-            .values({
-              advisorUserId: input.advisorUserId,
-              classId: academicClass.id,
-              validFrom: input.effectiveAt,
-              status: 'ACTIVE',
-              createdAt: input.changedAt,
-              updatedAt: input.changedAt,
-            })
+          await transaction.insert(academicAdvisorAssignments).values({
+            advisorUserId: input.advisorUserId,
+            classId: academicClass.id,
+            validFrom: input.effectiveAt,
+            status: 'ACTIVE',
+            createdAt: input.changedAt,
+            updatedAt: input.changedAt,
+          })
         }
 
         await this.appendAudit(transaction, {
           actorUserId: input.actor.userId,
           actorUsername: input.actor.username,
-          action: input.advisorUserId
-            ? 'ACADEMIC_ADVISOR_ASSIGN'
-            : 'ACADEMIC_ADVISOR_UNASSIGN',
+          action: input.advisorUserId ? 'ACADEMIC_ADVISOR_ASSIGN' : 'ACADEMIC_ADVISOR_UNASSIGN',
           resourceType: 'ACADEMIC_CLASS',
           resourceId: academicClass.id,
           occurredAt: input.changedAt,

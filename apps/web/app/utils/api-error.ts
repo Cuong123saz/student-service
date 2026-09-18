@@ -10,13 +10,8 @@ export interface ApiErrorContext {
   requestId?: string
 }
 
-function isRecord(
-  value: unknown,
-): value is Record<string, unknown> {
-  return (
-    typeof value === 'object'
-    && value !== null
-  )
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 function readNumber(
@@ -25,9 +20,7 @@ function readNumber(
 ): number | undefined {
   const value = source?.[property]
 
-  return typeof value === 'number'
-    ? value
-    : undefined
+  return typeof value === 'number' ? value : undefined
 }
 
 function readString(
@@ -36,9 +29,7 @@ function readString(
 ): string | undefined {
   const value = source?.[property]
 
-  return typeof value === 'string'
-    ? value
-    : undefined
+  return typeof value === 'string' ? value : undefined
 }
 
 /**
@@ -55,16 +46,12 @@ function readString(
  *   message
  * }
  */
-export function getApiErrorContext(
-  error: unknown,
-): ApiErrorContext {
+export function getApiErrorContext(error: unknown): ApiErrorContext {
   if (!isRecord(error)) {
     return {}
   }
 
-  const response = isRecord(error.response)
-    ? error.response
-    : undefined
+  const response = isRecord(error.response) ? error.response : undefined
 
   const body = isRecord(error.data)
     ? error.data
@@ -72,24 +59,18 @@ export function getApiErrorContext(
       ? response._data
       : undefined
 
-  const details = isRecord(body?.error)
-    ? body.error
-    : undefined
+  const details = isRecord(body?.error) ? body.error : undefined
 
   return {
     status:
-      readNumber(error, 'statusCode')
-      ?? readNumber(error, 'status')
-      ?? readNumber(response, 'status'),
+      readNumber(error, 'statusCode') ??
+      readNumber(error, 'status') ??
+      readNumber(response, 'status'),
 
     // Ưu tiên structured error mới, nhưng vẫn
     // hỗ trợ code phẳng nếu API cũ có sử dụng.
-    code:
-      readString(details, 'code')
-      ?? readString(body, 'code'),
+    code: readString(details, 'code') ?? readString(body, 'code'),
 
-    requestId:
-      readString(details, 'requestId')
-      ?? readString(body, 'requestId'),
+    requestId: readString(details, 'requestId') ?? readString(body, 'requestId'),
   }
 }

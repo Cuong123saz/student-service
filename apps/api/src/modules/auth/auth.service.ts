@@ -1,6 +1,4 @@
-import type {
-  PasswordHasher,
-} from './password-hasher.js'
+import type { PasswordHasher } from './password-hasher.js'
 
 export interface UserForAuthentication {
   id: string
@@ -19,9 +17,7 @@ export interface AuthenticatedUser {
 }
 
 export interface AuthUserRepository {
-  findByUsername(
-    username: string,
-  ): Promise<UserForAuthentication | null>
+  findByUsername(username: string): Promise<UserForAuthentication | null>
 }
 
 export interface LoginInput {
@@ -29,66 +25,43 @@ export interface LoginInput {
   password: string
 }
 export interface AuthenticationUseCase {
-  authenticate(
-    input: LoginInput,
-  ): Promise<AuthenticatedUser>
+  authenticate(input: LoginInput): Promise<AuthenticatedUser>
 }
-export class InvalidCredentialsError
-extends Error {
+export class InvalidCredentialsError extends Error {
   constructor() {
     super('Invalid username or password')
     this.name = 'InvalidCredentialsError'
   }
 }
 
-export class AuthService
-implements AuthenticationUseCase {
+export class AuthService implements AuthenticationUseCase {
   constructor(
-    private readonly userRepository:
-      AuthUserRepository,
+    private readonly userRepository: AuthUserRepository,
 
-    private readonly passwordHasher:
-      PasswordHasher,
+    private readonly passwordHasher: PasswordHasher,
 
-    private readonly dummyPasswordHash:
-      string,
+    private readonly dummyPasswordHash: string,
   ) {}
 
-  async authenticate(
-    input: LoginInput,
-  ): Promise<AuthenticatedUser> {
-    const normalizedUsername =
-      input.username.trim().toLowerCase()
+  async authenticate(input: LoginInput): Promise<AuthenticatedUser> {
+    const normalizedUsername = input.username.trim().toLowerCase()
 
     const user = normalizedUsername
-      ? await this.userRepository
-          .findByUsername(normalizedUsername)
+      ? await this.userRepository.findByUsername(normalizedUsername)
       : null
 
-    const passwordHash =
-      user?.passwordHash
-      ?? this.dummyPasswordHash
+    const passwordHash = user?.passwordHash ?? this.dummyPasswordHash
 
-    const passwordMatches =
-      await this.passwordHasher.verify(
-        passwordHash,
-        input.password,
-      )
+    const passwordMatches = await this.passwordHasher.verify(passwordHash, input.password)
 
-    if (
-      !user
-      || !user.passwordHash
-      || user.status !== 'ACTIVE'
-      || !passwordMatches
-    ) {
+    if (!user || !user.passwordHash || user.status !== 'ACTIVE' || !passwordMatches) {
       throw new InvalidCredentialsError()
     }
 
     return {
       id: user.id,
       username: user.username,
-      mustChangePassword:
-        user.mustChangePassword,
+      mustChangePassword: user.mustChangePassword,
       roles: [...user.roles],
     }
   }

@@ -1,24 +1,12 @@
 import { sql } from 'drizzle-orm'
-import {
-  check,
-  index,
-  pgTable,
-  timestamp,
-  uniqueIndex,
-  uuid,
-  varchar,
-} from 'drizzle-orm/pg-core'
+import { check, index, pgTable, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
 
-import {
-  users,
-} from '../auth/auth.schema.js'
+import { users } from '../auth/auth.schema.js'
 
 export const faculties = pgTable(
   'faculties',
   {
-    id: uuid('id')
-      .defaultRandom()
-      .primaryKey(),
+    id: uuid('id').defaultRandom().primaryKey(),
 
     code: varchar('code', {
       length: 50,
@@ -47,22 +35,16 @@ export const faculties = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex('faculties_code_unique')
-      .on(table.code),
+    uniqueIndex('faculties_code_unique').on(table.code),
 
-    check(
-      'faculties_status_check',
-      sql`${table.status} IN ('ACTIVE', 'INACTIVE')`,
-    ),
+    check('faculties_status_check', sql`${table.status} IN ('ACTIVE', 'INACTIVE')`),
   ],
 )
 
 export const organizationalUnits = pgTable(
   'organizational_units',
   {
-    id: uuid('id')
-      .defaultRandom()
-      .primaryKey(),
+    id: uuid('id').defaultRandom().primaryKey(),
 
     code: varchar('code', {
       length: 50,
@@ -91,23 +73,16 @@ export const organizationalUnits = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex(
-      'organizational_units_code_unique',
-    ).on(table.code),
+    uniqueIndex('organizational_units_code_unique').on(table.code),
 
-    check(
-      'organizational_units_status_check',
-      sql`${table.status} IN ('ACTIVE', 'INACTIVE')`,
-    ),
+    check('organizational_units_status_check', sql`${table.status} IN ('ACTIVE', 'INACTIVE')`),
   ],
 )
 
 export const academicClasses = pgTable(
   'academic_classes',
   {
-    id: uuid('id')
-      .defaultRandom()
-      .primaryKey(),
+    id: uuid('id').defaultRandom().primaryKey(),
 
     facultyId: uuid('faculty_id')
       .notNull()
@@ -142,16 +117,11 @@ export const academicClasses = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex('academic_classes_code_unique')
-      .on(table.code),
+    uniqueIndex('academic_classes_code_unique').on(table.code),
 
-    index('academic_classes_faculty_id_idx')
-      .on(table.facultyId),
+    index('academic_classes_faculty_id_idx').on(table.facultyId),
 
-    check(
-      'academic_classes_status_check',
-      sql`${table.status} IN ('ACTIVE', 'INACTIVE')`,
-    ),
+    check('academic_classes_status_check', sql`${table.status} IN ('ACTIVE', 'INACTIVE')`),
   ],
 )
 
@@ -187,20 +157,16 @@ export const studentProfiles = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex('student_profiles_student_code_unique')
-      .on(table.studentCode),
+    uniqueIndex('student_profiles_student_code_unique').on(table.studentCode),
 
-    index('student_profiles_class_id_idx')
-      .on(table.classId),
+    index('student_profiles_class_id_idx').on(table.classId),
   ],
 )
 
 export const academicAdvisorAssignments = pgTable(
   'academic_advisor_assignments',
   {
-    id: uuid('id')
-      .defaultRandom()
-      .primaryKey(),
+    id: uuid('id').defaultRandom().primaryKey(),
 
     advisorUserId: uuid('advisor_user_id')
       .notNull()
@@ -241,11 +207,9 @@ export const academicAdvisorAssignments = pgTable(
       .defaultNow(),
   },
   (table) => [
-    index('academic_advisor_assignments_class_id_idx')
-      .on(table.classId),
+    index('academic_advisor_assignments_class_id_idx').on(table.classId),
 
-    index('academic_advisor_assignments_advisor_user_id_idx')
-      .on(table.advisorUserId),
+    index('academic_advisor_assignments_advisor_user_id_idx').on(table.advisorUserId),
 
     check(
       'academic_advisor_assignments_status_check',

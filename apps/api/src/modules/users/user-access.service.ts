@@ -1,9 +1,5 @@
-import type {
-  SystemRoleCode,
-} from '../auth/auth.constants.js'
-import type {
-  AuthorizationScopeType,
-} from '../auth/authorization.schema.js'
+import type { SystemRoleCode } from '../auth/auth.constants.js'
+import type { AuthorizationScopeType } from '../auth/authorization.schema.js'
 
 export interface AccessActor {
   userId: string
@@ -72,41 +68,28 @@ export interface ReplaceUserAccessInput {
 }
 
 export interface UserAccessRepository {
-  getSnapshot(
-    input: ListUserAccessInput,
-  ): Promise<UserAccessSnapshot>
+  getSnapshot(input: ListUserAccessInput): Promise<UserAccessSnapshot>
 
-  replaceAssignments(
-    input: ReplaceUserAccessInput,
-  ): Promise<void>
+  replaceAssignments(input: ReplaceUserAccessInput): Promise<void>
 }
 
 export interface UserAccessUseCase {
-  getSnapshot(
-    input: ListUserAccessInput,
-  ): Promise<UserAccessSnapshot>
+  getSnapshot(input: ListUserAccessInput): Promise<UserAccessSnapshot>
 
-  replaceAssignments(
-    input: Omit<ReplaceUserAccessInput, 'changedAt'>,
-  ): Promise<void>
+  replaceAssignments(input: Omit<ReplaceUserAccessInput, 'changedAt'>): Promise<void>
 }
 
-export class UserAccessService
-implements UserAccessUseCase {
+export class UserAccessService implements UserAccessUseCase {
   constructor(
     private readonly repository: UserAccessRepository,
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
-  getSnapshot(
-    input: ListUserAccessInput,
-  ): Promise<UserAccessSnapshot> {
+  getSnapshot(input: ListUserAccessInput): Promise<UserAccessSnapshot> {
     return this.repository.getSnapshot(input)
   }
 
-  replaceAssignments(
-    input: Omit<ReplaceUserAccessInput, 'changedAt'>,
-  ): Promise<void> {
+  replaceAssignments(input: Omit<ReplaceUserAccessInput, 'changedAt'>): Promise<void> {
     return this.repository.replaceAssignments({
       ...input,
       changedAt: this.clock(),

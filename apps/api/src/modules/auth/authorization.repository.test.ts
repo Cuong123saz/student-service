@@ -1,38 +1,15 @@
 import assert from 'node:assert/strict'
-import {
-  after,
-  beforeEach,
-  test,
-} from 'node:test'
+import { after, beforeEach, test } from 'node:test'
 
-import {
-  databaseClient,
-  db,
-} from '../../db/client.js'
-import {
-  roles,
-  userRoles,
-  users,
-} from './auth.schema.js'
-import {
-  DrizzleAuthorizationRepository,
-} from './authorization.repository.js'
-import {
-  permissions,
-  rolePermissions,
-} from './authorization.schema.js'
+import { databaseClient, db } from '../../db/client.js'
+import { roles, userRoles, users } from './auth.schema.js'
+import { DrizzleAuthorizationRepository } from './authorization.repository.js'
+import { permissions, rolePermissions } from './authorization.schema.js'
 
-const databaseUrl =
-  process.env.DATABASE_URL
+const databaseUrl = process.env.DATABASE_URL
 
-if (
-  !databaseUrl
-  || new URL(databaseUrl).pathname
-    !== '/student_service_test'
-) {
-  throw new Error(
-    'Integration tests must use the student_service_test database',
-  )
+if (!databaseUrl || new URL(databaseUrl).pathname !== '/student_service_test') {
+  throw new Error('Integration tests must use the student_service_test database')
 }
 
 beforeEach(async () => {
@@ -48,19 +25,13 @@ after(async () => {
 })
 
 async function createAssignment(
-  status:
-    | 'ACTIVE'
-    | 'INACTIVE'
-    | 'SUSPENDED',
-  roleCode:
-    | 'ADMIN'
-    | 'SYSTEM_ADMIN' = 'ADMIN',
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED',
+  roleCode: 'ADMIN' | 'SYSTEM_ADMIN' = 'ADMIN',
 ) {
   const insertedUsers = await db
     .insert(users)
     .values({
-      username:
-        `admin-${status.toLowerCase()}`,
+      username: `admin-${status.toLowerCase()}`,
       passwordHash: 'stored-hash',
       fullName: 'Admin Test',
       status,
@@ -92,8 +63,7 @@ async function createAssignment(
     })
     .returning({ id: permissions.id })
 
-  const permission =
-    insertedPermissions[0]
+  const permission = insertedPermissions[0]
   assert.ok(permission)
 
   await db.insert(userRoles).values({
@@ -101,93 +71,61 @@ async function createAssignment(
     roleId: role.id,
   })
 
-  await db
-    .insert(rolePermissions)
-    .values({
-      roleId: role.id,
-      permissionId: permission.id,
-    })
+  await db.insert(rolePermissions).values({
+    roleId: role.id,
+    permissionId: permission.id,
+  })
 
   return user.id
 }
 
-test(
-  'hasPermission chấp nhận user active có permission qua role',
-  async () => {
-    const userId =
-      await createAssignment('ACTIVE')
-    const repository =
-      new DrizzleAuthorizationRepository()
+test('hasPermission chấp nhận user active có permission qua role', async () => {
+  const userId = await createAssignment('ACTIVE')
+  const repository = new DrizzleAuthorizationRepository()
 
-    const allowed = await repository
-      .hasPermission({
-        userId,
-        permission: 'audit.read',
-      })
+  const allowed = await repository.hasPermission({
+    userId,
+    permission: 'audit.read',
+  })
 
-    assert.equal(allowed, true)
-  },
-)
+  assert.equal(allowed, true)
+})
 
-test(
-  'hasPermission từ chối user inactive dù token cũ còn role',
-  async () => {
-    const userId =
-      await createAssignment(
-        'INACTIVE',
-        'SYSTEM_ADMIN',
-      )
-    const repository =
-      new DrizzleAuthorizationRepository()
+test('hasPermission từ chối user inactive dù token cũ còn role', async () => {
+  const userId = await createAssignment('INACTIVE', 'SYSTEM_ADMIN')
+  const repository = new DrizzleAuthorizationRepository()
 
-    const allowed = await repository
-      .hasPermission({
-        userId,
-        permission: 'audit.read',
-      })
+  const allowed = await repository.hasPermission({
+    userId,
+    permission: 'audit.read',
+  })
 
-    assert.equal(allowed, false)
-  },
-)
+  assert.equal(allowed, false)
+})
 
-test(
-  'hasPermission từ chối user suspended dù token cũ còn role',
-  async () => {
-    const userId =
-      await createAssignment(
-        'SUSPENDED',
-        'SYSTEM_ADMIN',
-      )
-    const repository =
-      new DrizzleAuthorizationRepository()
+test('hasPermission từ chối user suspended dù token cũ còn role', async () => {
+  const userId = await createAssignment('SUSPENDED', 'SYSTEM_ADMIN')
+  const repository = new DrizzleAuthorizationRepository()
 
-    const allowed = await repository
-      .hasPermission({
-        userId,
-        permission: 'audit.read',
-      })
+  const allowed = await repository.hasPermission({
+    userId,
+    permission: 'audit.read',
+  })
 
-    assert.equal(allowed, false)
-  },
-)
+  assert.equal(allowed, false)
+})
 
-test(
-  'hasPermission deny by default khi role chưa được cấp permission',
-  async () => {
-    const userId =
-      await createAssignment('ACTIVE')
+test('hasPermission deny by default khi role chưa được cấp permission', async () => {
+  const userId = await createAssignment('ACTIVE')
 
-    await db.delete(rolePermissions)
+  await db.delete(rolePermissions)
 
-    const repository =
-      new DrizzleAuthorizationRepository()
+  const repository = new DrizzleAuthorizationRepository()
 
-    const allowed = await repository
-      .hasPermission({
-        userId,
-        permission: 'audit.read',
-      })
+  const allowed = await repository.hasPermission({
+    userId,
+    permission: 'audit.read',
+  })
 
-    assert.equal(allowed, false)
-  },
-)
+  assert.equal(allowed, false)
+})

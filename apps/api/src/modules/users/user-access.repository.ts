@@ -1,26 +1,10 @@
-import {
-  and,
-  asc,
-  eq,
-  gt,
-  ilike,
-  inArray,
-  isNull,
-  or,
-} from 'drizzle-orm'
+import { and, asc, eq, gt, ilike, inArray, isNull, or } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 
 import { db } from '../../db/client.js'
 import { auditLogs } from '../audit/audit.schema.js'
-import {
-  SYSTEM_ROLES,
-  type SystemRoleCode,
-} from '../auth/auth.constants.js'
-import {
-  roles,
-  userRoles,
-  users,
-} from '../auth/auth.schema.js'
+import { SYSTEM_ROLES, type SystemRoleCode } from '../auth/auth.constants.js'
+import { roles, userRoles, users } from '../auth/auth.schema.js'
 import {
   authorizationScopes,
   permissions,
@@ -49,23 +33,13 @@ import type {
   UserAccessSnapshot,
 } from './user-access.service.js'
 
-type Transaction = Parameters<
-  Parameters<typeof db.transaction>[0]
->[0]
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-const classFaculties = alias(
-  faculties,
-  'user_access_class_faculties',
-)
+const classFaculties = alias(faculties, 'user_access_class_faculties')
 
-const SYSTEM_ROLE_CODES = new Set<string>(
-  SYSTEM_ROLES.map(role => role.code),
-)
+const SYSTEM_ROLE_CODES = new Set<string>(SYSTEM_ROLES.map((role) => role.code))
 
-const ROLE_SCOPE_TYPES: Record<
-  SystemRoleCode,
-  readonly AuthorizationScopeType[]
-> = {
+const ROLE_SCOPE_TYPES: Record<SystemRoleCode, readonly AuthorizationScopeType[]> = {
   SYSTEM_ADMIN: ['GLOBAL'],
   ADMIN: ['GLOBAL', 'FACULTY', 'CLASS', 'ORGANIZATION'],
   STUDENT: [],
@@ -107,9 +81,7 @@ export class UserAccessForbiddenError extends Error {
 }
 
 export class UserAccessNotFoundError extends Error {
-  constructor(
-    readonly field: 'userId' | 'roleCode' | 'scopeId',
-  ) {
+  constructor(readonly field: 'userId' | 'roleCode' | 'scopeId') {
     super(`${field} does not reference an existing record`)
     this.name = 'UserAccessNotFoundError'
   }
@@ -135,9 +107,7 @@ export class UserAccessConflictError extends Error {
   }
 }
 
-function isSystemRoleCode(
-  value: string,
-): value is SystemRoleCode {
+function isSystemRoleCode(value: string): value is SystemRoleCode {
   return SYSTEM_ROLE_CODES.has(value)
 }
 
@@ -150,13 +120,9 @@ function canAssignRoles(
   try {
     assertCanAssignRoles(actorRoles, targetRoles)
     return true
-  } catch (
-    error: unknown
-  ) {
-    if (
-      error instanceof ForbiddenRoleAssignmentError
-      || error instanceof EmptyRoleAssignmentError
-    ) return false
+  } catch (error: unknown) {
+    if (error instanceof ForbiddenRoleAssignmentError || error instanceof EmptyRoleAssignmentError)
+      return false
     throw error
   }
 }
@@ -167,8 +133,7 @@ function isScopeActive(scope: ScopeRow): boolean {
     return scope.facultyStatus === 'ACTIVE'
   }
   if (scope.type === 'CLASS') {
-    return scope.classStatus === 'ACTIVE'
-      && scope.classFacultyStatus === 'ACTIVE'
+    return scope.classStatus === 'ACTIVE' && scope.classFacultyStatus === 'ACTIVE'
   }
   return scope.organizationalUnitStatus === 'ACTIVE'
 }
@@ -188,46 +153,28 @@ function scopeLabel(scope: ScopeRow): string {
     return `${scope.facultyCode ?? ''} · ${scope.facultyName ?? ''}`
   }
   if (scope.type === 'CLASS') {
-    const faculty = scope.classFacultyCode
-      ? ` · ${scope.classFacultyCode}`
-      : ''
+    const faculty = scope.classFacultyCode ? ` · ${scope.classFacultyCode}` : ''
     return `${scope.classCode ?? ''} · ${scope.className ?? ''}${faculty}`
   }
   return `${scope.organizationalUnitCode ?? ''} · ${scope.organizationalUnitName ?? ''}`
 }
 
-function coversScope(
-  authority: ScopeRow,
-  target: ScopeRow,
-): boolean {
+function coversScope(authority: ScopeRow, target: ScopeRow): boolean {
   if (authority.type === 'GLOBAL') return true
-  if (
-    authority.type === 'FACULTY'
-    && target.type === 'FACULTY'
-  ) return authority.facultyId === target.facultyId
-  if (
-    authority.type === 'FACULTY'
-    && target.type === 'CLASS'
-  ) return authority.facultyId === target.classFacultyId
-  if (
-    authority.type === 'CLASS'
-    && target.type === 'CLASS'
-  ) return authority.classId === target.classId
-  if (
-    authority.type === 'ORGANIZATION'
-    && target.type === 'ORGANIZATION'
-  ) {
-    return authority.organizationalUnitId
-      === target.organizationalUnitId
+  if (authority.type === 'FACULTY' && target.type === 'FACULTY')
+    return authority.facultyId === target.facultyId
+  if (authority.type === 'FACULTY' && target.type === 'CLASS')
+    return authority.facultyId === target.classFacultyId
+  if (authority.type === 'CLASS' && target.type === 'CLASS')
+    return authority.classId === target.classId
+  if (authority.type === 'ORGANIZATION' && target.type === 'ORGANIZATION') {
+    return authority.organizationalUnitId === target.organizationalUnitId
   }
   return false
 }
 
-function actorCoversScope(
-  authorityScopes: ScopeRow[],
-  target: ScopeRow,
-): boolean {
-  return authorityScopes.some(scope => coversScope(scope, target))
+function actorCoversScope(authorityScopes: ScopeRow[], target: ScopeRow): boolean {
+  return authorityScopes.some((scope) => coversScope(scope, target))
 }
 
 function actorCoversStudentClass(
@@ -236,16 +183,11 @@ function actorCoversStudentClass(
   facultyId: string | null,
 ): boolean {
   if (!classId || !facultyId) return false
-  return authorityScopes.some(scope =>
-    scope.type === 'GLOBAL'
-    || (
-      scope.type === 'FACULTY'
-      && scope.facultyId === facultyId
-    )
-    || (
-      scope.type === 'CLASS'
-      && scope.classId === classId
-    ),
+  return authorityScopes.some(
+    (scope) =>
+      scope.type === 'GLOBAL' ||
+      (scope.type === 'FACULTY' && scope.facultyId === facultyId) ||
+      (scope.type === 'CLASS' && scope.classId === classId),
   )
 }
 
@@ -256,42 +198,28 @@ function canSeeTarget(
   studentClassId: string | null,
   studentFacultyId: string | null,
 ): boolean {
-  if (actor.authorityScopes.some(scope => scope.type === 'GLOBAL')) {
+  if (actor.authorityScopes.some((scope) => scope.type === 'GLOBAL')) {
     return true
   }
   if (!canAssignRoles(actor.roleCodes, targetRoleCodes)) {
     return false
   }
-  if (
-    actorCoversStudentClass(
-      actor.authorityScopes,
-      studentClassId,
-      studentFacultyId,
-    )
-  ) return true
-  return targetScopes.length > 0
-    && targetScopes.every(scope =>
-      actorCoversScope(actor.authorityScopes, scope),
-    )
+  if (actorCoversStudentClass(actor.authorityScopes, studentClassId, studentFacultyId)) return true
+  return (
+    targetScopes.length > 0 &&
+    targetScopes.every((scope) => actorCoversScope(actor.authorityScopes, scope))
+  )
 }
 
-function normalizeAssignments(
-  input: ReplaceUserAccessInput['assignments'],
-) {
+function normalizeAssignments(input: ReplaceUserAccessInput['assignments']) {
   if (input.length === 0) {
-    throw new UserAccessValidationError(
-      'assignments',
-      'At least one role assignment is required',
-    )
+    throw new UserAccessValidationError('assignments', 'At least one role assignment is required')
   }
 
   const seenRoles = new Set<SystemRoleCode>()
-  return input.map(assignment => {
+  return input.map((assignment) => {
     if (seenRoles.has(assignment.roleCode)) {
-      throw new UserAccessValidationError(
-        'assignments',
-        'Each role can appear only once',
-      )
+      throw new UserAccessValidationError('assignments', 'Each role can appear only once')
     }
     seenRoles.add(assignment.roleCode)
     return {
@@ -301,15 +229,10 @@ function normalizeAssignments(
   })
 }
 
-export class DrizzleUserAccessRepository
-implements UserAccessRepository {
-  constructor(
-    private readonly database: typeof db = db,
-  ) {}
+export class DrizzleUserAccessRepository implements UserAccessRepository {
+  constructor(private readonly database: typeof db = db) {}
 
-  private async getScopeRows(
-    transaction: Transaction,
-  ): Promise<ScopeRow[]> {
+  private async getScopeRows(transaction: Transaction): Promise<ScopeRow[]> {
     const rows = await transaction
       .select({
         id: authorizationScopes.id,
@@ -317,8 +240,7 @@ implements UserAccessRepository {
         facultyId: authorizationScopes.facultyId,
         classId: authorizationScopes.classId,
         classFacultyId: academicClasses.facultyId,
-        organizationalUnitId:
-          authorizationScopes.organizationalUnitId,
+        organizationalUnitId: authorizationScopes.organizationalUnitId,
         facultyCode: faculties.code,
         facultyName: faculties.name,
         facultyStatus: faculties.status,
@@ -332,27 +254,15 @@ implements UserAccessRepository {
         organizationalUnitStatus: organizationalUnits.status,
       })
       .from(authorizationScopes)
-      .leftJoin(
-        faculties,
-        eq(authorizationScopes.facultyId, faculties.id),
-      )
-      .leftJoin(
-        academicClasses,
-        eq(authorizationScopes.classId, academicClasses.id),
-      )
-      .leftJoin(
-        classFaculties,
-        eq(academicClasses.facultyId, classFaculties.id),
-      )
+      .leftJoin(faculties, eq(authorizationScopes.facultyId, faculties.id))
+      .leftJoin(academicClasses, eq(authorizationScopes.classId, academicClasses.id))
+      .leftJoin(classFaculties, eq(academicClasses.facultyId, classFaculties.id))
       .leftJoin(
         organizationalUnits,
-        eq(
-          authorizationScopes.organizationalUnitId,
-          organizationalUnits.id,
-        ),
+        eq(authorizationScopes.organizationalUnitId, organizationalUnits.id),
       )
 
-    return rows.map(row => ({
+    return rows.map((row) => ({
       ...row,
       type: row.type as AuthorizationScopeType,
     }))
@@ -368,23 +278,14 @@ implements UserAccessRepository {
       .from(users)
       .innerJoin(userRoles, eq(users.id, userRoles.userId))
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
-      .where(and(
-        eq(users.id, actorUserId),
-        eq(users.status, 'ACTIVE'),
-      ))
+      .where(and(eq(users.id, actorUserId), eq(users.status, 'ACTIVE')))
 
     const actorScopeRows = await transaction
       .select({ scopeId: userRoleScopes.scopeId })
       .from(users)
       .innerJoin(userRoles, eq(users.id, userRoles.userId))
-      .innerJoin(
-        rolePermissions,
-        eq(userRoles.roleId, rolePermissions.roleId),
-      )
-      .innerJoin(
-        permissions,
-        eq(rolePermissions.permissionId, permissions.id),
-      )
+      .innerJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
+      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
       .innerJoin(
         userRoleScopes,
         and(
@@ -392,36 +293,28 @@ implements UserAccessRepository {
           eq(userRoleScopes.roleId, userRoles.roleId),
         ),
       )
-      .where(and(
-        eq(users.id, actorUserId),
-        eq(users.status, 'ACTIVE'),
-        eq(permissions.code, 'role.manage'),
-      ))
+      .where(
+        and(
+          eq(users.id, actorUserId),
+          eq(users.status, 'ACTIVE'),
+          eq(permissions.code, 'role.manage'),
+        ),
+      )
 
-    const scopeById = new Map(
-      scopeRows.map(scope => [scope.id, scope]),
-    )
+    const scopeById = new Map(scopeRows.map((scope) => [scope.id, scope]))
 
     return {
-      roleCodes: actorRoleRows
-        .map(row => row.code)
-        .filter(isSystemRoleCode),
+      roleCodes: actorRoleRows.map((row) => row.code).filter(isSystemRoleCode),
       authorityScopes: actorScopeRows
-        .map(row => scopeById.get(row.scopeId))
+        .map((row) => scopeById.get(row.scopeId))
         .filter((scope): scope is ScopeRow => Boolean(scope)),
     }
   }
 
-  async getSnapshot(
-    input: { actorUserId: string, search?: string },
-  ): Promise<UserAccessSnapshot> {
-    return this.database.transaction(async transaction => {
+  async getSnapshot(input: { actorUserId: string; search?: string }): Promise<UserAccessSnapshot> {
+    return this.database.transaction(async (transaction) => {
       const scopeRows = await this.getScopeRows(transaction)
-      const actor = await this.getActorContext(
-        transaction,
-        input.actorUserId,
-        scopeRows,
-      )
+      const actor = await this.getActorContext(transaction, input.actorUserId, scopeRows)
 
       if (actor.authorityScopes.length === 0) {
         return { users: [], roles: [], scopes: [] }
@@ -443,17 +336,19 @@ implements UserAccessRepository {
           status: users.status,
         })
         .from(users)
-        .where(pattern
-          ? or(
-              ilike(users.username, pattern),
-              ilike(users.fullName, pattern),
-              ilike(users.email, pattern),
-            )
-          : undefined)
+        .where(
+          pattern
+            ? or(
+                ilike(users.username, pattern),
+                ilike(users.fullName, pattern),
+                ilike(users.email, pattern),
+              )
+            : undefined,
+        )
         .orderBy(asc(users.fullName), asc(users.username))
         .limit(100)
 
-      const userIds = userRows.map(user => user.id)
+      const userIds = userRows.map((user) => user.id)
       if (userIds.length === 0) {
         return {
           users: [],
@@ -489,21 +384,14 @@ implements UserAccessRepository {
           facultyId: academicClasses.facultyId,
         })
         .from(studentProfiles)
-        .innerJoin(
-          academicClasses,
-          eq(studentProfiles.classId, academicClasses.id),
-        )
+        .innerJoin(academicClasses, eq(studentProfiles.classId, academicClasses.id))
         .where(inArray(studentProfiles.userId, userIds))
 
-      const scopeById = new Map(
-        scopeRows.map(scope => [scope.id, scope]),
-      )
-      const studentByUserId = new Map(
-        studentRows.map(profile => [profile.userId, profile]),
-      )
+      const scopeById = new Map(scopeRows.map((scope) => [scope.id, scope]))
+      const studentByUserId = new Map(studentRows.map((profile) => [profile.userId, profile]))
       const assignmentsByUser = new Map<
         string,
-        Map<SystemRoleCode, { roleName: string, scopeIds: string[] }>
+        Map<SystemRoleCode, { roleName: string; scopeIds: string[] }>
       >()
 
       for (const row of assignmentRows) {
@@ -526,12 +414,13 @@ implements UserAccessRepository {
         const roleMap = assignmentsByUser.get(user.id) ?? new Map()
         const roleCodes = [...roleMap.keys()]
         const targetScopes = [...roleMap.values()]
-          .flatMap(assignment => assignment.scopeIds)
-          .map(scopeId => scopeById.get(scopeId))
+          .flatMap((assignment) => assignment.scopeIds)
+          .map((scopeId) => scopeById.get(scopeId))
           .filter((scope): scope is ScopeRow => Boolean(scope))
         const student = studentByUserId.get(user.id)
-        const visible = user.id === input.actorUserId
-          || canSeeTarget(
+        const visible =
+          user.id === input.actorUserId ||
+          canSeeTarget(
             actor,
             roleCodes,
             targetScopes,
@@ -543,15 +432,12 @@ implements UserAccessRepository {
         visibleUsers.push({
           ...user,
           studentCode: student?.studentCode ?? null,
-          assignments: [...roleMap.entries()].map(
-            ([roleCode, assignment]) => ({
-              roleCode,
-              roleName: assignment.roleName,
-              scopeIds: assignment.scopeIds,
-            }),
-          ),
-          canManage: user.id !== input.actorUserId
-            && canAssignRoles(actor.roleCodes, roleCodes),
+          assignments: [...roleMap.entries()].map(([roleCode, assignment]) => ({
+            roleCode,
+            roleName: assignment.roleName,
+            scopeIds: assignment.scopeIds,
+          })),
+          canManage: user.id !== input.actorUserId && canAssignRoles(actor.roleCodes, roleCodes),
         })
       }
 
@@ -563,24 +449,16 @@ implements UserAccessRepository {
     })
   }
 
-  private getAssignableScopes(
-    actor: ActorContext,
-    scopeRows: ScopeRow[],
-  ): AccessScope[] {
+  private getAssignableScopes(actor: ActorContext, scopeRows: ScopeRow[]): AccessScope[] {
     return scopeRows
-      .filter(scope =>
-        isScopeActive(scope)
-        && actorCoversScope(actor.authorityScopes, scope),
-      )
-      .map(scope => ({
+      .filter((scope) => isScopeActive(scope) && actorCoversScope(actor.authorityScopes, scope))
+      .map((scope) => ({
         id: scope.id,
         type: scope.type,
         label: scopeLabel(scope),
         targetId: scopeTargetId(scope),
       }))
-      .sort((left, right) =>
-        left.label.localeCompare(right.label, 'vi'),
-      )
+      .sort((left, right) => left.label.localeCompare(right.label, 'vi'))
   }
 
   private async getAssignableRoles(
@@ -597,14 +475,8 @@ implements UserAccessRepository {
         permission: permissions.code,
       })
       .from(roles)
-      .leftJoin(
-        rolePermissions,
-        eq(roles.id, rolePermissions.roleId),
-      )
-      .leftJoin(
-        permissions,
-        eq(rolePermissions.permissionId, permissions.id),
-      )
+      .leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
+      .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
       .where(inArray(roles.code, [...SYSTEM_ROLE_CODES]))
       .orderBy(asc(roles.code), asc(permissions.code))
 
@@ -615,11 +487,10 @@ implements UserAccessRepository {
       if (!canAssignRoles(actor.roleCodes, [row.code])) continue
       const allowedScopeTypes = [...ROLE_SCOPE_TYPES[row.code]]
       if (
-        allowedScopeTypes.length > 0
-        && !assignableScopes.some(scope =>
-          allowedScopeTypes.includes(scope.type),
-        )
-      ) continue
+        allowedScopeTypes.length > 0 &&
+        !assignableScopes.some((scope) => allowedScopeTypes.includes(scope.type))
+      )
+        continue
 
       let role = roleMap.get(row.code)
       if (!role) {
@@ -638,26 +509,15 @@ implements UserAccessRepository {
     return [...roleMap.values()]
   }
 
-  async replaceAssignments(
-    input: ReplaceUserAccessInput,
-  ): Promise<void> {
-    await this.database.transaction(async transaction => {
+  async replaceAssignments(input: ReplaceUserAccessInput): Promise<void> {
+    await this.database.transaction(async (transaction) => {
       if (input.actor.userId === input.targetUserId) {
-        throw new UserAccessConflictError(
-          'userId',
-          'You cannot change your own access assignments',
-        )
+        throw new UserAccessConflictError('userId', 'You cannot change your own access assignments')
       }
 
       const scopeRows = await this.getScopeRows(transaction)
-      const scopeById = new Map(
-        scopeRows.map(scope => [scope.id, scope]),
-      )
-      const actor = await this.getActorContext(
-        transaction,
-        input.actor.userId,
-        scopeRows,
-      )
+      const scopeById = new Map(scopeRows.map((scope) => [scope.id, scope]))
+      const actor = await this.getActorContext(transaction, input.actor.userId, scopeRows)
       if (actor.authorityScopes.length === 0) {
         throw new UserAccessForbiddenError()
       }
@@ -685,11 +545,11 @@ implements UserAccessRepository {
         )
         .where(eq(userRoles.userId, target.id))
 
-      const currentRoleCodes = [...new Set(
-        currentRows.map(row => row.roleCode).filter(isSystemRoleCode),
-      )]
+      const currentRoleCodes = [
+        ...new Set(currentRows.map((row) => row.roleCode).filter(isSystemRoleCode)),
+      ]
       const currentScopes = currentRows
-        .map(row => row.scopeId ? scopeById.get(row.scopeId) : undefined)
+        .map((row) => (row.scopeId ? scopeById.get(row.scopeId) : undefined))
         .filter((scope): scope is ScopeRow => Boolean(scope))
       const [student] = await transaction
         .select({
@@ -697,32 +557,27 @@ implements UserAccessRepository {
           facultyId: academicClasses.facultyId,
         })
         .from(studentProfiles)
-        .innerJoin(
-          academicClasses,
-          eq(studentProfiles.classId, academicClasses.id),
-        )
+        .innerJoin(academicClasses, eq(studentProfiles.classId, academicClasses.id))
         .where(eq(studentProfiles.userId, target.id))
         .limit(1)
 
       if (
-        !canAssignRoles(actor.roleCodes, currentRoleCodes)
-        || !canSeeTarget(
+        !canAssignRoles(actor.roleCodes, currentRoleCodes) ||
+        !canSeeTarget(
           actor,
           currentRoleCodes,
           currentScopes,
           student?.classId ?? null,
           student?.facultyId ?? null,
         )
-      ) throw new UserAccessForbiddenError()
+      )
+        throw new UserAccessForbiddenError()
 
       const assignments = normalizeAssignments(input.assignments)
-      const requestedRoleCodes = assignments.map(row => row.roleCode)
+      const requestedRoleCodes = assignments.map((row) => row.roleCode)
       assertCanAssignRoles(actor.roleCodes, requestedRoleCodes)
 
-      if (
-        requestedRoleCodes.includes('STUDENT')
-        !== Boolean(student)
-      ) {
+      if (requestedRoleCodes.includes('STUDENT') !== Boolean(student)) {
         throw new UserAccessValidationError(
           'assignments',
           'STUDENT role must match the existing student profile',
@@ -734,9 +589,7 @@ implements UserAccessRepository {
         .from(roles)
         .where(inArray(roles.code, requestedRoleCodes))
       const roleIdByCode = new Map(
-        roleRows
-          .filter(row => isSystemRoleCode(row.code))
-          .map(row => [row.code, row.id]),
+        roleRows.filter((row) => isSystemRoleCode(row.code)).map((row) => [row.code, row.id]),
       )
       if (roleIdByCode.size !== requestedRoleCodes.length) {
         throw new UserAccessNotFoundError('roleCode')
@@ -763,10 +616,7 @@ implements UserAccessRepository {
         for (const scopeId of assignment.scopeIds) {
           const scope = scopeById.get(scopeId)
           if (!scope) throw new UserAccessNotFoundError('scopeId')
-          if (
-            !isScopeActive(scope)
-            || !allowedTypes.includes(scope.type)
-          ) {
+          if (!isScopeActive(scope) || !allowedTypes.includes(scope.type)) {
             throw new UserAccessValidationError(
               'scopeIds',
               `Scope is not active or compatible with ${assignment.roleCode}`,
@@ -778,11 +628,9 @@ implements UserAccessRepository {
         }
 
         if (
-          assignment.roleCode === 'SYSTEM_ADMIN'
-          && (
-            assignment.scopeIds.length !== 1
-            || scopeById.get(assignment.scopeIds[0]!)?.type !== 'GLOBAL'
-          )
+          assignment.roleCode === 'SYSTEM_ADMIN' &&
+          (assignment.scopeIds.length !== 1 ||
+            scopeById.get(assignment.scopeIds[0]!)?.type !== 'GLOBAL')
         ) {
           throw new UserAccessValidationError(
             'scopeIds',
@@ -792,23 +640,22 @@ implements UserAccessRepository {
       }
 
       if (
-        currentRoleCodes.includes('ACADEMIC_ADVISOR')
-        && !requestedRoleCodes.includes('ACADEMIC_ADVISOR')
+        currentRoleCodes.includes('ACADEMIC_ADVISOR') &&
+        !requestedRoleCodes.includes('ACADEMIC_ADVISOR')
       ) {
         const [activeAssignment] = await transaction
           .select({ id: academicAdvisorAssignments.id })
           .from(academicAdvisorAssignments)
-          .where(and(
-            eq(
-              academicAdvisorAssignments.advisorUserId,
-              target.id,
+          .where(
+            and(
+              eq(academicAdvisorAssignments.advisorUserId, target.id),
+              eq(academicAdvisorAssignments.status, 'ACTIVE'),
+              or(
+                isNull(academicAdvisorAssignments.validTo),
+                gt(academicAdvisorAssignments.validTo, input.changedAt),
+              ),
             ),
-            eq(academicAdvisorAssignments.status, 'ACTIVE'),
-            or(
-              isNull(academicAdvisorAssignments.validTo),
-              gt(academicAdvisorAssignments.validTo, input.changedAt),
-            ),
-          ))
+          )
           .limit(1)
         if (activeAssignment) {
           throw new UserAccessConflictError(
@@ -818,38 +665,30 @@ implements UserAccessRepository {
         }
       }
 
-      const serialize = (
-        rows: Array<{ roleCode: string, scopeId: string | null }>,
-      ) => rows.map(row =>
-        `${row.roleCode}:${row.scopeId ?? 'NONE'}`,
-      ).sort()
+      const serialize = (rows: Array<{ roleCode: string; scopeId: string | null }>) =>
+        rows.map((row) => `${row.roleCode}:${row.scopeId ?? 'NONE'}`).sort()
       const before = serialize(currentRows)
-      const after = assignments.flatMap(assignment =>
-        assignment.scopeIds.length
-          ? assignment.scopeIds.map(scopeId =>
-              `${assignment.roleCode}:${scopeId}`,
-            )
-          : [`${assignment.roleCode}:NONE`],
-      ).sort()
-      if (JSON.stringify(before) === JSON.stringify(after)) {
-        throw new UserAccessConflictError(
-          'assignments',
-          'Access assignments have not changed',
+      const after = assignments
+        .flatMap((assignment) =>
+          assignment.scopeIds.length
+            ? assignment.scopeIds.map((scopeId) => `${assignment.roleCode}:${scopeId}`)
+            : [`${assignment.roleCode}:NONE`],
         )
+        .sort()
+      if (JSON.stringify(before) === JSON.stringify(after)) {
+        throw new UserAccessConflictError('assignments', 'Access assignments have not changed')
       }
 
-      await transaction
-        .delete(userRoles)
-        .where(eq(userRoles.userId, target.id))
+      await transaction.delete(userRoles).where(eq(userRoles.userId, target.id))
       await transaction.insert(userRoles).values(
-        assignments.map(assignment => ({
+        assignments.map((assignment) => ({
           userId: target.id,
           roleId: roleIdByCode.get(assignment.roleCode)!,
           assignedAt: input.changedAt,
         })),
       )
-      const scopeAssignments = assignments.flatMap(assignment =>
-        assignment.scopeIds.map(scopeId => ({
+      const scopeAssignments = assignments.flatMap((assignment) =>
+        assignment.scopeIds.map((scopeId) => ({
           userId: target.id,
           roleId: roleIdByCode.get(assignment.roleCode)!,
           scopeId,

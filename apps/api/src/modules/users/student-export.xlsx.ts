@@ -1,14 +1,8 @@
-import {
-  strToU8,
-  zipSync,
-} from 'fflate'
+import { strToU8, zipSync } from 'fflate'
 
-import type {
-  StudentExportRecord,
-} from './student-export.service.js'
+import type { StudentExportRecord } from './student-export.service.js'
 
-const XLSX_CONTENT_TYPE =
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 export { XLSX_CONTENT_TYPE }
 
@@ -31,9 +25,7 @@ function columnName(index: number): string {
 
   while (value > 0) {
     const remainder = (value - 1) % 26
-    result = String.fromCharCode(
-      65 + remainder,
-    ) + result
+    result = String.fromCharCode(65 + remainder) + result
     value = Math.floor((value - 1) / 26)
   }
 
@@ -50,12 +42,7 @@ function escapeXml(value: string): string {
     .replaceAll("'", '&apos;')
 }
 
-function textCell(
-  value: string | number,
-  row: number,
-  column: number,
-  style: number,
-): string {
+function textCell(value: string | number, row: number, column: number, style: number): string {
   const reference = `${columnName(column)}${row}`
   const content = escapeXml(String(value))
 
@@ -67,29 +54,18 @@ function worksheetXml(
   rows: readonly (readonly (string | number)[])[],
   columnsXml: string,
 ): string {
-  const headerCells = headers
-    .map((header, index) =>
-      textCell(header, 1, index, 1),
-    )
-    .join('')
+  const headerCells = headers.map((header, index) => textCell(header, 1, index, 1)).join('')
 
-  const dataRows = rows.map(
-    (values, recordIndex) => {
+  const dataRows = rows
+    .map((values, recordIndex) => {
       const rowNumber = recordIndex + 2
       const cells = values
-        .map((value, columnIndex) =>
-          textCell(
-            value,
-            rowNumber,
-            columnIndex,
-            2,
-          ),
-        )
+        .map((value, columnIndex) => textCell(value, rowNumber, columnIndex, 2))
         .join('')
 
       return `<row r="${rowNumber}">${cells}</row>`
-    },
-  ).join('')
+    })
+    .join('')
 
   const lastRow = rows.length + 1
   const lastColumn = columnName(headers.length - 1)
@@ -157,33 +133,26 @@ function createWorkbook(input: {
   rows: readonly (readonly (string | number)[])[]
   columnsXml: string
 }): Buffer {
-  const archive = zipSync({
-    '[Content_Types].xml':
-      strToU8(contentTypesXml),
-    '_rels/.rels':
-      strToU8(rootRelationshipsXml),
-    'xl/workbook.xml':
-      strToU8(workbookXml(input.sheetName)),
-    'xl/_rels/workbook.xml.rels':
-      strToU8(workbookRelationshipsXml),
-    'xl/styles.xml':
-      strToU8(stylesXml),
-    'xl/worksheets/sheet1.xml':
-      strToU8(worksheetXml(
-        input.headers,
-        input.rows,
-        input.columnsXml,
-      )),
-  }, {
-    level: 6,
-  })
+  const archive = zipSync(
+    {
+      '[Content_Types].xml': strToU8(contentTypesXml),
+      '_rels/.rels': strToU8(rootRelationshipsXml),
+      'xl/workbook.xml': strToU8(workbookXml(input.sheetName)),
+      'xl/_rels/workbook.xml.rels': strToU8(workbookRelationshipsXml),
+      'xl/styles.xml': strToU8(stylesXml),
+      'xl/worksheets/sheet1.xml': strToU8(
+        worksheetXml(input.headers, input.rows, input.columnsXml),
+      ),
+    },
+    {
+      level: 6,
+    },
+  )
 
   return Buffer.from(archive)
 }
 
-export function createStudentExportWorkbook(
-  records: readonly StudentExportRecord[],
-): Buffer {
+export function createStudentExportWorkbook(records: readonly StudentExportRecord[]): Buffer {
   return createWorkbook({
     sheetName: 'Danh sách sinh viên',
     headers: exportHeaders,
@@ -212,12 +181,7 @@ export function createStudentExportWorkbook(
 export function createStudentImportTemplateWorkbook(): Buffer {
   return createWorkbook({
     sheetName: 'Mẫu import sinh viên',
-    headers: [
-      'Mã sinh viên',
-      'Họ và tên',
-      'Email',
-      'Mã lớp',
-    ],
+    headers: ['Mã sinh viên', 'Họ và tên', 'Email', 'Mã lớp'],
     rows: [
       ['00123456', 'Nguyễn Văn A', '00123456@example.edu.vn', 'K15A'],
       ['00123457', 'Trần Thị B', '00123457@example.edu.vn', 'K15A'],

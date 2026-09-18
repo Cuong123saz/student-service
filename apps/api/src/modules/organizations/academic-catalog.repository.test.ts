@@ -1,19 +1,8 @@
 import assert from 'node:assert/strict'
-import {
-  after,
-  beforeEach,
-  test,
-} from 'node:test'
+import { after, beforeEach, test } from 'node:test'
 
-import {
-  databaseClient,
-  db,
-} from '../../db/client.js'
-import {
-  roles,
-  userRoles,
-  users,
-} from '../auth/auth.schema.js'
+import { databaseClient, db } from '../../db/client.js'
+import { roles, userRoles, users } from '../auth/auth.schema.js'
 import {
   authorizationScopes,
   permissions,
@@ -27,20 +16,12 @@ import {
   organizationalUnits,
   studentProfiles,
 } from './organization.schema.js'
-import {
-  DrizzleAcademicCatalogRepository,
-} from './academic-catalog.repository.js'
+import { DrizzleAcademicCatalogRepository } from './academic-catalog.repository.js'
 
 const databaseUrl = process.env.DATABASE_URL
 
-if (
-  !databaseUrl
-  || new URL(databaseUrl).pathname
-    !== '/student_service_test'
-) {
-  throw new Error(
-    'Integration tests must use the student_service_test database',
-  )
+if (!databaseUrl || new URL(databaseUrl).pathname !== '/student_service_test') {
+  throw new Error('Integration tests must use the student_service_test database')
 }
 
 beforeEach(async () => {
@@ -206,121 +187,89 @@ async function grantScope(
   })
 }
 
-test(
-  'GLOBAL scope trả mọi khoa và lớp đang hoạt động',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'GLOBAL',
-    })
+test('GLOBAL scope trả mọi khoa và lớp đang hoạt động', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'GLOBAL',
+  })
 
-    const result = await new DrizzleAcademicCatalogRepository()
-      .listVisibleTo(fixture.actorUserId)
+  const result = await new DrizzleAcademicCatalogRepository().listVisibleTo(fixture.actorUserId)
 
-    assert.deepEqual(
-      result.map(faculty => ({
-        code: faculty.code,
-        classes: faculty.classes.map(
-          academicClass => academicClass.code,
-        ),
-      })),
-      [
-        {
-          code: 'CATALOG-FACULTY-A',
-          classes: ['CATALOG-A1', 'CATALOG-A2'],
-        },
-        {
-          code: 'CATALOG-FACULTY-B',
-          classes: ['CATALOG-B1'],
-        },
-      ],
-    )
-  },
-)
+  assert.deepEqual(
+    result.map((faculty) => ({
+      code: faculty.code,
+      classes: faculty.classes.map((academicClass) => academicClass.code),
+    })),
+    [
+      {
+        code: 'CATALOG-FACULTY-A',
+        classes: ['CATALOG-A1', 'CATALOG-A2'],
+      },
+      {
+        code: 'CATALOG-FACULTY-B',
+        classes: ['CATALOG-B1'],
+      },
+    ],
+  )
+})
 
-test(
-  'FACULTY scope không trả khoa khác',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'FACULTY',
-      facultyId: fixture.firstFacultyId,
-    })
+test('FACULTY scope không trả khoa khác', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'FACULTY',
+    facultyId: fixture.firstFacultyId,
+  })
 
-    const result = await new DrizzleAcademicCatalogRepository()
-      .listVisibleTo(fixture.actorUserId)
+  const result = await new DrizzleAcademicCatalogRepository().listVisibleTo(fixture.actorUserId)
 
-    assert.deepEqual(
-      result.map(faculty => ({
-        code: faculty.code,
-        classes: faculty.classes.map(
-          academicClass => academicClass.code,
-        ),
-      })),
-      [
-        {
-          code: 'CATALOG-FACULTY-A',
-          classes: ['CATALOG-A1', 'CATALOG-A2'],
-        },
-      ],
-    )
-  },
-)
+  assert.deepEqual(
+    result.map((faculty) => ({
+      code: faculty.code,
+      classes: faculty.classes.map((academicClass) => academicClass.code),
+    })),
+    [
+      {
+        code: 'CATALOG-FACULTY-A',
+        classes: ['CATALOG-A1', 'CATALOG-A2'],
+      },
+    ],
+  )
+})
 
-test(
-  'CLASS scope chỉ trả đúng lớp được giao',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'CLASS',
-      classId: fixture.siblingClassId,
-    })
+test('CLASS scope chỉ trả đúng lớp được giao', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'CLASS',
+    classId: fixture.siblingClassId,
+  })
 
-    const result = await new DrizzleAcademicCatalogRepository()
-      .listVisibleTo(fixture.actorUserId)
+  const result = await new DrizzleAcademicCatalogRepository().listVisibleTo(fixture.actorUserId)
 
-    assert.deepEqual(
-      result.map(faculty => ({
-        code: faculty.code,
-        classes: faculty.classes.map(
-          academicClass => academicClass.code,
-        ),
-      })),
-      [
-        {
-          code: 'CATALOG-FACULTY-A',
-          classes: ['CATALOG-A2'],
-        },
-      ],
-    )
-  },
-)
+  assert.deepEqual(
+    result.map((faculty) => ({
+      code: faculty.code,
+      classes: faculty.classes.map((academicClass) => academicClass.code),
+    })),
+    [
+      {
+        code: 'CATALOG-FACULTY-A',
+        classes: ['CATALOG-A2'],
+      },
+    ],
+  )
+})
 
-test(
-  'thiếu permission hoặc scope thì catalog rỗng',
-  async () => {
-    const fixture = await createFixture()
-    const repository =
-      new DrizzleAcademicCatalogRepository()
+test('thiếu permission hoặc scope thì catalog rỗng', async () => {
+  const fixture = await createFixture()
+  const repository = new DrizzleAcademicCatalogRepository()
 
-    assert.deepEqual(
-      await repository.listVisibleTo(
-        fixture.actorUserId,
-      ),
-      [],
-    )
+  assert.deepEqual(await repository.listVisibleTo(fixture.actorUserId), [])
 
-    await grantScope(fixture, {
-      scopeType: 'CLASS',
-      classId: fixture.firstClassId,
-    })
-    await db.delete(rolePermissions)
+  await grantScope(fixture, {
+    scopeType: 'CLASS',
+    classId: fixture.firstClassId,
+  })
+  await db.delete(rolePermissions)
 
-    assert.deepEqual(
-      await repository.listVisibleTo(
-        fixture.actorUserId,
-      ),
-      [],
-    )
-  },
-)
+  assert.deepEqual(await repository.listVisibleTo(fixture.actorUserId), [])
+})

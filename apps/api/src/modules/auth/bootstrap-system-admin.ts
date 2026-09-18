@@ -1,67 +1,32 @@
 import { eq } from 'drizzle-orm'
-import {
-  validateNewPassword,
-} from './password-policy.js'
-import {
-  databaseClient,
-  db,
-} from '../../db/client.js'
-import {
-  roles,
-  userRoles,
-  users,
-} from './auth.schema.js'
-import {
-  authorizationScopes,
-  userRoleScopes,
-} from './authorization.schema.js'
-import {
-  Argon2PasswordHasher,
-} from './password-hasher.js'
+import { validateNewPassword } from './password-policy.js'
+import { databaseClient, db } from '../../db/client.js'
+import { roles, userRoles, users } from './auth.schema.js'
+import { authorizationScopes, userRoleScopes } from './authorization.schema.js'
+import { Argon2PasswordHasher } from './password-hasher.js'
 
 type BootstrapVariable =
-  | 'BOOTSTRAP_ADMIN_USERNAME'
-  | 'BOOTSTRAP_ADMIN_FULL_NAME'
-  | 'BOOTSTRAP_ADMIN_PASSWORD'
+  'BOOTSTRAP_ADMIN_USERNAME' | 'BOOTSTRAP_ADMIN_FULL_NAME' | 'BOOTSTRAP_ADMIN_PASSWORD'
 
-function readRequiredVariable(
-  name: BootstrapVariable,
-): string {
+function readRequiredVariable(name: BootstrapVariable): string {
   const value = process.env[name]
 
   if (!value) {
-    throw new Error(
-      `Missing required variable: ${name}`,
-    )
+    throw new Error(`Missing required variable: ${name}`)
   }
 
   return value
 }
 
-
 async function bootstrapSystemAdmin() {
-  const username =
-    readRequiredVariable(
-      'BOOTSTRAP_ADMIN_USERNAME',
-    )
-      .trim()
-      .toLowerCase()
+  const username = readRequiredVariable('BOOTSTRAP_ADMIN_USERNAME').trim().toLowerCase()
 
-  const fullName =
-    readRequiredVariable(
-      'BOOTSTRAP_ADMIN_FULL_NAME',
-    ).trim()
+  const fullName = readRequiredVariable('BOOTSTRAP_ADMIN_FULL_NAME').trim()
 
-  const password = validateNewPassword(
-    readRequiredVariable(
-      'BOOTSTRAP_ADMIN_PASSWORD',
-    ),
-  )
+  const password = validateNewPassword(readRequiredVariable('BOOTSTRAP_ADMIN_PASSWORD'))
 
   if (!username || !fullName) {
-    throw new Error(
-      'Username and full name must not be empty',
-    )
+    throw new Error('Username and full name must not be empty')
   }
 
   const systemAdminRows = await db
@@ -69,18 +34,13 @@ async function bootstrapSystemAdmin() {
       id: roles.id,
     })
     .from(roles)
-    .where(
-      eq(roles.code, 'SYSTEM_ADMIN'),
-    )
+    .where(eq(roles.code, 'SYSTEM_ADMIN'))
     .limit(1)
 
-  const systemAdminRole =
-    systemAdminRows[0]
+  const systemAdminRole = systemAdminRows[0]
 
   if (!systemAdminRole) {
-    throw new Error(
-      'SYSTEM_ADMIN role does not exist. Run db:seed first.',
-    )
+    throw new Error('SYSTEM_ADMIN role does not exist. Run db:seed first.')
   }
 
   const globalScopeRows = await db
@@ -88,20 +48,13 @@ async function bootstrapSystemAdmin() {
       id: authorizationScopes.id,
     })
     .from(authorizationScopes)
-    .where(
-      eq(
-        authorizationScopes.scopeType,
-        'GLOBAL',
-      ),
-    )
+    .where(eq(authorizationScopes.scopeType, 'GLOBAL'))
     .limit(1)
 
   const globalScope = globalScopeRows[0]
 
   if (!globalScope) {
-    throw new Error(
-      'GLOBAL authorization scope does not exist. Run database migrations first.',
-    )
+    throw new Error('GLOBAL authorization scope does not exist. Run database migrations first.')
   }
 
   const existingAdminRows = await db
@@ -109,23 +62,13 @@ async function bootstrapSystemAdmin() {
       id: users.id,
     })
     .from(users)
-    .innerJoin(
-      userRoles,
-      eq(users.id, userRoles.userId),
-    )
-    .innerJoin(
-      roles,
-      eq(userRoles.roleId, roles.id),
-    )
-    .where(
-      eq(roles.code, 'SYSTEM_ADMIN'),
-    )
+    .innerJoin(userRoles, eq(users.id, userRoles.userId))
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(eq(roles.code, 'SYSTEM_ADMIN'))
     .limit(1)
 
   if (existingAdminRows[0]) {
-    throw new Error(
-      'A SYSTEM_ADMIN account already exists',
-    )
+    throw new Error('A SYSTEM_ADMIN account already exists')
   }
 
   const existingUsernameRows = await db
@@ -133,77 +76,56 @@ async function bootstrapSystemAdmin() {
       id: users.id,
     })
     .from(users)
-    .where(
-      eq(users.username, username),
-    )
+    .where(eq(users.username, username))
     .limit(1)
 
   if (existingUsernameRows[0]) {
-    throw new Error(
-      'Username already exists',
-    )
+    throw new Error('Username already exists')
   }
 
-  const passwordHasher =
-    new Argon2PasswordHasher()
+  const passwordHasher = new Argon2PasswordHasher()
 
-  const passwordHash =
-    await passwordHasher.hash(password)
+  const passwordHash = await passwordHasher.hash(password)
 
-  await db.transaction(
-    async (transaction) => {
-      const insertedUsers =
-        await transaction
-          .insert(users)
-          .values({
-            username,
-            passwordHash,
-            fullName,
-            status: 'ACTIVE',
-            mustChangePassword: false,
-          })
-          .returning({
-            id: users.id,
-          })
+  await db.transaction(async (transaction) => {
+    const insertedUsers = await transaction
+      .insert(users)
+      .values({
+        username,
+        passwordHash,
+        fullName,
+        status: 'ACTIVE',
+        mustChangePassword: false,
+      })
+      .returning({
+        id: users.id,
+      })
 
-      const insertedUser =
-        insertedUsers[0]
+    const insertedUser = insertedUsers[0]
 
-      if (!insertedUser) {
-        throw new Error(
-          'Could not create SYSTEM_ADMIN account',
-        )
-      }
+    if (!insertedUser) {
+      throw new Error('Could not create SYSTEM_ADMIN account')
+    }
 
-      await transaction
-        .insert(userRoles)
-        .values({
-          userId: insertedUser.id,
-          roleId: systemAdminRole.id,
-        })
+    await transaction.insert(userRoles).values({
+      userId: insertedUser.id,
+      roleId: systemAdminRole.id,
+    })
 
-      await transaction
-        .insert(userRoleScopes)
-        .values({
-          userId: insertedUser.id,
-          roleId: systemAdminRole.id,
-          scopeId: globalScope.id,
-        })
-    },
-  )
+    await transaction.insert(userRoleScopes).values({
+      userId: insertedUser.id,
+      roleId: systemAdminRole.id,
+      scopeId: globalScope.id,
+    })
+  })
 
-  console.log(
-    `SYSTEM_ADMIN created: ${username}`,
-  )
+  console.log(`SYSTEM_ADMIN created: ${username}`)
 }
 
 try {
   await bootstrapSystemAdmin()
 } catch (error: unknown) {
-  console.error(
-    'Bootstrap failed',
-    error,
-  )
+  console.error('Bootstrap failed', error)
 
   process.exitCode = 1
 } finally {

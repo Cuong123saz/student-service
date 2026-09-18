@@ -21,11 +21,7 @@ async function handleLogout() {
 
 <template>
   <div class="default-layout">
-    <AppHeader
-      :user="user"
-      :logging-out="isLoggingOut"
-      @logout="handleLogout"
-    />
+    <AppHeader :user="user" :logging-out="isLoggingOut" @logout="handleLogout" />
 
     <main class="default-layout__content page-container">
       <slot />
@@ -41,8 +37,15 @@ async function handleLogout() {
   grid-template-rows: auto 1fr auto;
   min-height: 100vh;
 }
-.default-layout__content { width: 100%; padding-top: 42px; padding-bottom: 64px; }
+.default-layout__content {
+  width: 100%;
+  padding-top: 42px;
+  padding-bottom: 64px;
+}
 @media (max-width: 640px) {
-  .default-layout__content { padding-top: 30px; padding-bottom: 48px; }
+  .default-layout__content {
+    padding-top: 30px;
+    padding-bottom: 48px;
+  }
 }
 </style>

@@ -6,13 +6,9 @@ import type {
   StudentProfileRepository,
   StudentProfileView,
 } from './student-profile.repository.js'
-import {
-  StudentProfileNotFoundError,
-  StudentProfileService,
-} from './student-profile.service.js'
+import { StudentProfileNotFoundError, StudentProfileService } from './student-profile.service.js'
 
-const userId =
-  '85ca4291-c7bd-4370-a117-976bf237261c'
+const userId = '85ca4291-c7bd-4370-a117-976bf237261c'
 
 const profile: StudentProfileView = {
   userId,
@@ -32,42 +28,31 @@ const profile: StudentProfileView = {
   },
 }
 
-const now =
-  new Date('2026-09-05T00:00:00.000Z')
+const now = new Date('2026-09-05T00:00:00.000Z')
 
 const advisor: CurrentAdvisorView = {
-  userId:
-    'd960e04b-7f2d-4dc5-a622-40babcc56b7b',
+  userId: 'd960e04b-7f2d-4dc5-a622-40babcc56b7b',
   username: 'advisor001',
   fullName: 'Giảng viên Cố vấn',
   email: 'advisor001@example.edu.vn',
   class: profile.class,
-  validFrom:
-    new Date('2026-01-01T00:00:00.000Z'),
+  validFrom: new Date('2026-01-01T00:00:00.000Z'),
   validTo: null,
 }
 
-class FakeStudentProfileRepository
-implements StudentProfileRepository {
-  receivedAdvisorLookup:
-    { userId: string; now: Date }
-    | undefined
+class FakeStudentProfileRepository implements StudentProfileRepository {
+  receivedAdvisorLookup: { userId: string; now: Date } | undefined
 
   constructor(
-    private readonly storedProfile:
-      StudentProfileView | null,
-    private readonly storedAdvisor:
-      CurrentAdvisorView | null,
+    private readonly storedProfile: StudentProfileView | null,
+    private readonly storedAdvisor: CurrentAdvisorView | null,
   ) {}
 
   async findStudentProfileByUserId() {
     return this.storedProfile
   }
 
-  async findCurrentAdvisorForStudentUserId(
-    receivedUserId: string,
-    receivedNow: Date,
-  ) {
+  async findCurrentAdvisorForStudentUserId(receivedUserId: string, receivedNow: Date) {
     this.receivedAdvisorLookup = {
       userId: receivedUserId,
       now: receivedNow,
@@ -77,78 +62,31 @@ implements StudentProfileRepository {
   }
 }
 
-test(
-  'trả hồ sơ sinh viên khi tồn tại',
-  async () => {
-    const service = new StudentProfileService(
-      new FakeStudentProfileRepository(
-        profile,
-        advisor,
-      ),
-    )
+test('trả hồ sơ sinh viên khi tồn tại', async () => {
+  const service = new StudentProfileService(new FakeStudentProfileRepository(profile, advisor))
 
-    assert.deepEqual(
-      await service.getProfile(userId),
-      profile,
-    )
-  },
-)
+  assert.deepEqual(await service.getProfile(userId), profile)
+})
 
-test(
-  'báo lỗi khi sinh viên chưa có hồ sơ học vụ',
-  async () => {
-    const service = new StudentProfileService(
-      new FakeStudentProfileRepository(
-        null,
-        advisor,
-      ),
-    )
+test('báo lỗi khi sinh viên chưa có hồ sơ học vụ', async () => {
+  const service = new StudentProfileService(new FakeStudentProfileRepository(null, advisor))
 
-    await assert.rejects(
-      service.getProfile(userId),
-      StudentProfileNotFoundError,
-    )
-  },
-)
+  await assert.rejects(service.getProfile(userId), StudentProfileNotFoundError)
+})
 
-test(
-  'tìm cố vấn hiện tại tại đúng thời điểm nghiệp vụ',
-  async () => {
-    const repository =
-      new FakeStudentProfileRepository(
-        profile,
-        advisor,
-      )
-    const service = new StudentProfileService(
-      repository,
-      () => now,
-    )
+test('tìm cố vấn hiện tại tại đúng thời điểm nghiệp vụ', async () => {
+  const repository = new FakeStudentProfileRepository(profile, advisor)
+  const service = new StudentProfileService(repository, () => now)
 
-    assert.deepEqual(
-      await service.getCurrentAdvisor(userId),
-      advisor,
-    )
-    assert.deepEqual(
-      repository.receivedAdvisorLookup,
-      { userId, now },
-    )
-  },
-)
+  assert.deepEqual(await service.getCurrentAdvisor(userId), advisor)
+  assert.deepEqual(repository.receivedAdvisorLookup, { userId, now })
+})
 
-test(
-  'trả null khi lớp chưa có cố vấn hiện tại',
-  async () => {
-    const service = new StudentProfileService(
-      new FakeStudentProfileRepository(
-        profile,
-        null,
-      ),
-      () => now,
-    )
+test('trả null khi lớp chưa có cố vấn hiện tại', async () => {
+  const service = new StudentProfileService(
+    new FakeStudentProfileRepository(profile, null),
+    () => now,
+  )
 
-    assert.equal(
-      await service.getCurrentAdvisor(userId),
-      null,
-    )
-  },
-)
+  assert.equal(await service.getCurrentAdvisor(userId), null)
+})

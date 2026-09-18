@@ -17,9 +17,7 @@ function getResponseStatus(error: unknown): number | undefined {
     return candidate.statusCode
   }
 
-  return typeof candidate.response?.status === 'number'
-    ? candidate.response.status
-    : undefined
+  return typeof candidate.response?.status === 'number' ? candidate.response.status : undefined
 }
 
 export function useAdminStudents() {
@@ -32,9 +30,7 @@ export function useAdminStudents() {
   const isUpdating = ref(false)
   const updateErrorMessage = ref('')
 
-  async function load(
-    query: AdminStudentDirectoryQuery = {},
-  ): Promise<boolean> {
+  async function load(query: AdminStudentDirectoryQuery = {}): Promise<boolean> {
     if (isLoading.value) return false
 
     isLoading.value = true
@@ -43,14 +39,13 @@ export function useAdminStudents() {
     nextCursor.value = null
 
     try {
-      const response =
-        await $fetch<AdminStudentDirectoryResponse>(
-          `${config.public.apiBase}/api/v1/admin/students`,
-          {
-            credentials: 'include',
-            query,
-          },
-        )
+      const response = await $fetch<AdminStudentDirectoryResponse>(
+        `${config.public.apiBase}/api/v1/admin/students`,
+        {
+          credentials: 'include',
+          query,
+        },
+      )
 
       students.value = response.students
       nextCursor.value = response.nextCursor
@@ -59,14 +54,11 @@ export function useAdminStudents() {
       const status = getResponseStatus(error)
 
       if (status === 401) {
-        errorMessage.value =
-          'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+        errorMessage.value = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
       } else if (status === 403) {
-        errorMessage.value =
-          'Tài khoản của bạn chưa được cấp quyền xem danh sách sinh viên.'
+        errorMessage.value = 'Tài khoản của bạn chưa được cấp quyền xem danh sách sinh viên.'
       } else {
-        errorMessage.value =
-          'Không thể tải danh sách sinh viên. Vui lòng thử lại sau.'
+        errorMessage.value = 'Không thể tải danh sách sinh viên. Vui lòng thử lại sau.'
       }
 
       return false
@@ -76,24 +68,18 @@ export function useAdminStudents() {
     }
   }
 
-  async function updateStudent(
-    userId: string,
-    input: UpdateAdminStudentInput,
-  ): Promise<boolean> {
+  async function updateStudent(userId: string, input: UpdateAdminStudentInput): Promise<boolean> {
     if (isUpdating.value) return false
 
     isUpdating.value = true
     updateErrorMessage.value = ''
 
     try {
-      await $fetch(
-        `${config.public.apiBase}/api/v1/admin/students/${userId}`,
-        {
-          method: 'PATCH',
-          credentials: 'include',
-          body: input,
-        },
-      )
+      await $fetch(`${config.public.apiBase}/api/v1/admin/students/${userId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        body: input,
+      })
       return true
     } catch (error: unknown) {
       const status = getResponseStatus(error)

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
-  variant?: 'info' | 'success' | 'warning' | 'error'
-  title?: string
-}>(), {
-  variant: 'info',
-  title: '',
-})
+withDefaults(
+  defineProps<{
+    variant?: 'info' | 'success' | 'warning' | 'error'
+    title?: string
+  }>(),
+  {
+    variant: 'info',
+    title: '',
+  },
+)
 </script>
 
 <template>
@@ -27,10 +30,31 @@ withDefaults(defineProps<{
   font-size: 14px;
   line-height: 1.55;
 }
-.base-alert strong { display: block; margin-bottom: 3px; }
-.base-alert__content :deep(p:last-child) { margin-bottom: 0; }
-.base-alert--info { border-color: #bfdbfe; color: var(--color-info); background: var(--color-info-background); }
-.base-alert--success { border-color: #bbf7d0; color: var(--color-success); background: var(--color-success-background); }
-.base-alert--warning { border-color: #fed7aa; color: var(--color-warning); background: var(--color-warning-background); }
-.base-alert--error { border-color: #fecaca; color: var(--color-error); background: var(--color-error-background); }
+.base-alert strong {
+  display: block;
+  margin-bottom: 3px;
+}
+.base-alert__content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.base-alert--info {
+  border-color: #bfdbfe;
+  color: var(--color-info);
+  background: var(--color-info-background);
+}
+.base-alert--success {
+  border-color: #bbf7d0;
+  color: var(--color-success);
+  background: var(--color-success-background);
+}
+.base-alert--warning {
+  border-color: #fed7aa;
+  color: var(--color-warning);
+  background: var(--color-warning-background);
+}
+.base-alert--error {
+  border-color: #fecaca;
+  color: var(--color-error);
+  background: var(--color-error-background);
+}
 </style>

@@ -4,8 +4,7 @@ import type {
   StudentProfileView,
 } from './student-profile.repository.js'
 
-export class StudentProfileNotFoundError
-extends Error {
+export class StudentProfileNotFoundError extends Error {
   constructor() {
     super('Student profile not found')
     this.name = 'StudentProfileNotFoundError'
@@ -13,29 +12,19 @@ extends Error {
 }
 
 export interface StudentProfileUseCase {
-  getProfile(
-    userId: string,
-  ): Promise<StudentProfileView>
+  getProfile(userId: string): Promise<StudentProfileView>
 
-  getCurrentAdvisor(
-    userId: string,
-  ): Promise<CurrentAdvisorView | null>
+  getCurrentAdvisor(userId: string): Promise<CurrentAdvisorView | null>
 }
 
-export class StudentProfileService
-implements StudentProfileUseCase {
+export class StudentProfileService implements StudentProfileUseCase {
   constructor(
-    private readonly repository:
-      StudentProfileRepository,
-    private readonly now: () => Date =
-      () => new Date(),
+    private readonly repository: StudentProfileRepository,
+    private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async getProfile(
-    userId: string,
-  ): Promise<StudentProfileView> {
-    const profile = await this.repository
-      .findStudentProfileByUserId(userId)
+  async getProfile(userId: string): Promise<StudentProfileView> {
+    const profile = await this.repository.findStudentProfileByUserId(userId)
 
     if (!profile) {
       throw new StudentProfileNotFoundError()
@@ -44,21 +33,14 @@ implements StudentProfileUseCase {
     return profile
   }
 
-  async getCurrentAdvisor(
-    userId: string,
-  ): Promise<CurrentAdvisorView | null> {
-    const profile = await this.repository
-      .findStudentProfileByUserId(userId)
+  async getCurrentAdvisor(userId: string): Promise<CurrentAdvisorView | null> {
+    const profile = await this.repository.findStudentProfileByUserId(userId)
 
     if (!profile) {
       throw new StudentProfileNotFoundError()
     }
 
-    const advisor = await this.repository
-      .findCurrentAdvisorForStudentUserId(
-        userId,
-        this.now(),
-      )
+    const advisor = await this.repository.findCurrentAdvisorForStudentUserId(userId, this.now())
 
     return advisor
   }

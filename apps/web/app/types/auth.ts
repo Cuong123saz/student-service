@@ -1,10 +1,5 @@
 export type SystemRoleCode =
-  | 'SYSTEM_ADMIN'
-  | 'ADMIN'
-  | 'STUDENT'
-  | 'ACADEMIC_ADVISOR'
-  | 'FACULTY_REVIEWER'
-  | 'DOCUMENT_SIGNER'
+  'SYSTEM_ADMIN' | 'ADMIN' | 'STUDENT' | 'ACADEMIC_ADVISOR' | 'FACULTY_REVIEWER' | 'DOCUMENT_SIGNER'
 
 export interface SessionUser {
   id: string

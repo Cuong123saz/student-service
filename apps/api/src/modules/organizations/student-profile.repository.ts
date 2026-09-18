@@ -1,20 +1,7 @@
-import {
-  and,
-  eq,
-  gt,
-  isNull,
-  lte,
-  or,
-} from 'drizzle-orm'
+import { and, eq, gt, isNull, lte, or } from 'drizzle-orm'
 
-import {
-  db,
-} from '../../db/client.js'
-import {
-  roles,
-  userRoles,
-  users,
-} from '../auth/auth.schema.js'
+import { db } from '../../db/client.js'
+import { roles, userRoles, users } from '../auth/auth.schema.js'
 import {
   academicAdvisorAssignments,
   academicClasses,
@@ -55,29 +42,20 @@ export interface CurrentAdvisorView {
 }
 
 export interface StudentProfileRepository {
-  findStudentProfileByUserId(
-    userId: string,
-  ): Promise<StudentProfileView | null>
+  findStudentProfileByUserId(userId: string): Promise<StudentProfileView | null>
 
-  findCurrentAdvisorForStudentUserId(
-    userId: string,
-    now: Date,
-  ): Promise<CurrentAdvisorView | null>
+  findCurrentAdvisorForStudentUserId(userId: string, now: Date): Promise<CurrentAdvisorView | null>
 }
 
-export class DrizzleStudentProfileRepository
-implements StudentProfileRepository {
-  async findStudentProfileByUserId(
-    userId: string,
-  ): Promise<StudentProfileView | null> {
+export class DrizzleStudentProfileRepository implements StudentProfileRepository {
+  async findStudentProfileByUserId(userId: string): Promise<StudentProfileView | null> {
     const rows = await db
       .select({
         userId: users.id,
         username: users.username,
         fullName: users.fullName,
         email: users.email,
-        studentCode:
-          studentProfiles.studentCode,
+        studentCode: studentProfiles.studentCode,
         classId: academicClasses.id,
         classCode: academicClasses.code,
         className: academicClasses.name,
@@ -86,24 +64,9 @@ implements StudentProfileRepository {
         facultyName: faculties.name,
       })
       .from(studentProfiles)
-      .innerJoin(
-        users,
-        eq(studentProfiles.userId, users.id),
-      )
-      .innerJoin(
-        academicClasses,
-        eq(
-          studentProfiles.classId,
-          academicClasses.id,
-        ),
-      )
-      .innerJoin(
-        faculties,
-        eq(
-          academicClasses.facultyId,
-          faculties.id,
-        ),
-      )
+      .innerJoin(users, eq(studentProfiles.userId, users.id))
+      .innerJoin(academicClasses, eq(studentProfiles.classId, academicClasses.id))
+      .innerJoin(faculties, eq(academicClasses.facultyId, faculties.id))
       .where(eq(studentProfiles.userId, userId))
       .limit(1)
 
@@ -145,60 +108,26 @@ implements StudentProfileRepository {
         classId: academicClasses.id,
         classCode: academicClasses.code,
         className: academicClasses.name,
-        validFrom:
-          academicAdvisorAssignments.validFrom,
-        validTo:
-          academicAdvisorAssignments.validTo,
+        validFrom: academicAdvisorAssignments.validFrom,
+        validTo: academicAdvisorAssignments.validTo,
       })
       .from(studentProfiles)
-      .innerJoin(
-        academicClasses,
-        eq(
-          studentProfiles.classId,
-          academicClasses.id,
-        ),
-      )
+      .innerJoin(academicClasses, eq(studentProfiles.classId, academicClasses.id))
       .innerJoin(
         academicAdvisorAssignments,
-        eq(
-          academicAdvisorAssignments.classId,
-          academicClasses.id,
-        ),
+        eq(academicAdvisorAssignments.classId, academicClasses.id),
       )
-      .innerJoin(
-        users,
-        eq(
-          academicAdvisorAssignments.advisorUserId,
-          users.id,
-        ),
-      )
-      .innerJoin(
-        userRoles,
-        eq(userRoles.userId, users.id),
-      )
-      .innerJoin(
-        roles,
-        eq(userRoles.roleId, roles.id),
-      )
+      .innerJoin(users, eq(academicAdvisorAssignments.advisorUserId, users.id))
+      .innerJoin(userRoles, eq(userRoles.userId, users.id))
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .where(
         and(
           eq(studentProfiles.userId, userId),
-          eq(
-            academicAdvisorAssignments.status,
-            'ACTIVE',
-          ),
-          lte(
-            academicAdvisorAssignments.validFrom,
-            now,
-          ),
+          eq(academicAdvisorAssignments.status, 'ACTIVE'),
+          lte(academicAdvisorAssignments.validFrom, now),
           or(
-            isNull(
-              academicAdvisorAssignments.validTo,
-            ),
-            gt(
-              academicAdvisorAssignments.validTo,
-              now,
-            ),
+            isNull(academicAdvisorAssignments.validTo),
+            gt(academicAdvisorAssignments.validTo, now),
           ),
           eq(users.status, 'ACTIVE'),
           eq(roles.code, 'ACADEMIC_ADVISOR'),

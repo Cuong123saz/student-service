@@ -1,7 +1,4 @@
-import type {
-  UserAccessApiError,
-  UserAccessSnapshot,
-} from '~/types/user-access'
+import type { UserAccessApiError, UserAccessSnapshot } from '~/types/user-access'
 import type { SystemRoleCode } from '~/types/auth'
 
 function parseAccessError(error: unknown): UserAccessApiError {
@@ -13,25 +10,22 @@ function parseAccessError(error: unknown): UserAccessApiError {
     response?: { status?: unknown }
     data?: {
       message?: unknown
-      error?: { field?: unknown, message?: unknown }
+      error?: { field?: unknown; message?: unknown }
     }
   }
-  const status = typeof candidate.statusCode === 'number'
-    ? candidate.statusCode
-    : typeof candidate.response?.status === 'number'
-      ? candidate.response.status
-      : undefined
-  const field = typeof candidate.data?.error?.field === 'string'
-    ? candidate.data.error.field
-    : undefined
-  const message = candidate.data?.error?.message
-    ?? candidate.data?.message
+  const status =
+    typeof candidate.statusCode === 'number'
+      ? candidate.statusCode
+      : typeof candidate.response?.status === 'number'
+        ? candidate.response.status
+        : undefined
+  const field =
+    typeof candidate.data?.error?.field === 'string' ? candidate.data.error.field : undefined
+  const message = candidate.data?.error?.message ?? candidate.data?.message
   return {
     ...(status === undefined ? {} : { status }),
     ...(field === undefined ? {} : { field }),
-    message: typeof message === 'string'
-      ? message
-      : 'Yêu cầu chưa thể thực hiện.',
+    message: typeof message === 'string' ? message : 'Yêu cầu chưa thể thực hiện.',
   }
 }
 
@@ -56,11 +50,12 @@ export function useUserAccess() {
     } catch (error: unknown) {
       const parsed = parseAccessError(error)
       data.value = null
-      errorMessage.value = parsed.status === 401
-        ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-        : parsed.status === 403
-          ? 'Tài khoản chưa được cấp quyền quản lý vai trò.'
-          : 'Không thể tải dữ liệu phân quyền. Vui lòng thử lại.'
+      errorMessage.value =
+        parsed.status === 401
+          ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+          : parsed.status === 403
+            ? 'Tài khoản chưa được cấp quyền quản lý vai trò.'
+            : 'Không thể tải dữ liệu phân quyền. Vui lòng thử lại.'
       return false
     } finally {
       isLoading.value = false

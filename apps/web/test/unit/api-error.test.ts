@@ -1,12 +1,6 @@
-import {
-  describe,
-  expect,
-  it,
-} from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import {
-  getApiErrorContext,
-} from '../../app/utils/api-error'
+import { getApiErrorContext } from '../../app/utils/api-error'
 
 describe('getApiErrorContext', () => {
   it('đọc structured error từ data của $fetch', () => {
@@ -49,7 +43,6 @@ describe('getApiErrorContext', () => {
   })
 
   it('không tin tưởng giá trị lỗi không phải object', () => {
-    expect(getApiErrorContext('network failed'))
-      .toEqual({})
+    expect(getApiErrorContext('network failed')).toEqual({})
   })
 })

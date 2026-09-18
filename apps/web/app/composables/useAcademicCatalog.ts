@@ -1,11 +1,6 @@
-import type {
-  AcademicCatalogFaculty,
-  AcademicCatalogResponse,
-} from '~/types/academic-catalog'
+import type { AcademicCatalogFaculty, AcademicCatalogResponse } from '~/types/academic-catalog'
 
-function getCatalogResponseStatus(
-  error: unknown,
-): number | undefined {
+function getCatalogResponseStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined
 
   const candidate = error as {
@@ -17,9 +12,7 @@ function getCatalogResponseStatus(
     return candidate.statusCode
   }
 
-  return typeof candidate.response?.status === 'number'
-    ? candidate.response.status
-    : undefined
+  return typeof candidate.response?.status === 'number' ? candidate.response.status : undefined
 }
 
 export function useAcademicCatalog() {
@@ -48,14 +41,11 @@ export function useAcademicCatalog() {
       const status = getCatalogResponseStatus(error)
 
       if (status === 401) {
-        errorMessage.value =
-          'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+        errorMessage.value = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
       } else if (status === 403) {
-        errorMessage.value =
-          'Tài khoản chưa được cấp quyền xem danh mục khoa và lớp.'
+        errorMessage.value = 'Tài khoản chưa được cấp quyền xem danh mục khoa và lớp.'
       } else {
-        errorMessage.value =
-          'Không thể tải danh mục khoa và lớp. Vui lòng thử lại.'
+        errorMessage.value = 'Không thể tải danh mục khoa và lớp. Vui lòng thử lại.'
       }
 
       return false

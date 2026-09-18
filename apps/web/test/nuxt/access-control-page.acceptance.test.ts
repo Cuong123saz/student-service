@@ -1,15 +1,5 @@
-import {
-  mountSuspended,
-  mockNuxtImport,
-} from '@nuxt/test-utils/runtime'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest'
+import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 
 import AccessControlPage from '../../app/pages/admin/access-control/index.vue'
@@ -32,15 +22,11 @@ const { logoutMock, navigateToMock } = vi.hoisted(() => ({
 
 let accessMock = createAccessMock()
 
-mockNuxtImport('useUserAccess', () => (
-  () => accessMock
-))
+mockNuxtImport('useUserAccess', () => () => accessMock)
 
 mockNuxtImport('navigateTo', () => navigateToMock)
 
-mockNuxtImport('useAdminAuth', () => (
-  () => ({ logout: logoutMock })
-))
+mockNuxtImport('useAdminAuth', () => () => ({ logout: logoutMock }))
 
 beforeEach(() => {
   accessMock = createAccessMock()
@@ -57,8 +43,7 @@ describe('trang phân quyền', () => {
     logoutMock.mockRejectedValueOnce(new Error('Server session expired'))
     accessMock.load.mockImplementation(async () => {
       accessMock.hasLoaded.value = true
-      accessMock.errorMessage.value =
-        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+      accessMock.errorMessage.value = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
       return false
     })
 
@@ -66,9 +51,7 @@ describe('trang phân quyền', () => {
     await nextTick()
 
     const dialog = document.body.querySelector('[role="dialog"]')
-    const loginButton = document.body.querySelector<HTMLButtonElement>(
-      '#session-expired-login',
-    )
+    const loginButton = document.body.querySelector<HTMLButtonElement>('#session-expired-login')
 
     expect(dialog?.getAttribute('aria-modal')).toBe('true')
     expect(dialog?.textContent).toContain('Vui lòng đăng nhập lại')
@@ -81,17 +64,13 @@ describe('trang phân quyền', () => {
     await nextTick()
 
     expect(logoutMock).toHaveBeenCalledOnce()
-    expect(navigateToMock).toHaveBeenCalledWith(
-      '/admin/login',
-      { replace: true },
-    )
+    expect(navigateToMock).toHaveBeenCalledWith('/admin/login', { replace: true })
   })
 
   it('giữ cảnh báo có thể thử lại cho lỗi không phải hết phiên', async () => {
     accessMock.load.mockImplementation(async () => {
       accessMock.hasLoaded.value = true
-      accessMock.errorMessage.value =
-        'Không thể tải dữ liệu phân quyền. Vui lòng thử lại.'
+      accessMock.errorMessage.value = 'Không thể tải dữ liệu phân quyền. Vui lòng thử lại.'
       return false
     })
 

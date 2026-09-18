@@ -1,35 +1,18 @@
-import {
-  and,
-  eq,
-} from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
-import {
-  databaseClient,
-  db,
-} from '../../db/client.js'
+import { databaseClient, db } from '../../db/client.js'
 
-import {
-  roles,
-  userRoles,
-  users,
-} from './auth.schema.js'
+import { roles, userRoles, users } from './auth.schema.js'
 
-import {
-  Argon2PasswordHasher,
-} from './password-hasher.js'
+import { Argon2PasswordHasher } from './password-hasher.js'
 
-import {
-  validateNewPassword,
-} from './password-policy.js'
+import { validateNewPassword } from './password-policy.js'
 
 type RecoveryVariable =
-  | 'ALLOW_ADMIN_PASSWORD_RECOVERY'
-  | 'RECOVERY_ADMIN_USERNAME'
-  | 'RECOVERY_ADMIN_PASSWORD'
+  'ALLOW_ADMIN_PASSWORD_RECOVERY' | 'RECOVERY_ADMIN_USERNAME' | 'RECOVERY_ADMIN_PASSWORD'
 
 function shouldReactivateAdmin(): boolean {
-  const value =
-    process.env.RECOVER_ADMIN_STATUS
+  const value = process.env.RECOVER_ADMIN_STATUS
 
   if (value === undefined || value === 'false') {
     return false
@@ -39,169 +22,88 @@ function shouldReactivateAdmin(): boolean {
     return true
   }
 
-  throw new Error(
-    'RECOVER_ADMIN_STATUS must be true or false',
-  )
+  throw new Error('RECOVER_ADMIN_STATUS must be true or false')
 }
 
-function readRequiredVariable(
-  name: RecoveryVariable,
-): string {
-  const value =
-    process.env[name]
+function readRequiredVariable(name: RecoveryVariable): string {
+  const value = process.env[name]
 
   if (!value) {
-    throw new Error(
-      `Missing required variable: ${name}`,
-    )
+    throw new Error(`Missing required variable: ${name}`)
   }
 
   return value
 }
 
-async function recoverSystemAdminPassword():
-Promise<void> {
-  const recoveryAllowed =
-    readRequiredVariable(
-      'ALLOW_ADMIN_PASSWORD_RECOVERY',
-    )
+async function recoverSystemAdminPassword(): Promise<void> {
+  const recoveryAllowed = readRequiredVariable('ALLOW_ADMIN_PASSWORD_RECOVERY')
 
   if (recoveryAllowed !== 'true') {
-    throw new Error(
-      'Admin password recovery is not explicitly allowed',
-    )
+    throw new Error('Admin password recovery is not explicitly allowed')
   }
 
-  const username =
-    readRequiredVariable(
-      'RECOVERY_ADMIN_USERNAME',
-    )
-      .trim()
-      .toLowerCase()
+  const username = readRequiredVariable('RECOVERY_ADMIN_USERNAME').trim().toLowerCase()
 
-  const temporaryPassword =
-    validateNewPassword(
-      readRequiredVariable(
-        'RECOVERY_ADMIN_PASSWORD',
-      ),
-    )
+  const temporaryPassword = validateNewPassword(readRequiredVariable('RECOVERY_ADMIN_PASSWORD'))
 
-  const adminRows =
-    await db
-      .select({
-        id: users.id,
-        status: users.status,
-      })
-      .from(users)
-      .innerJoin(
-        userRoles,
-        eq(
-          users.id,
-          userRoles.userId,
-        ),
-      )
-      .innerJoin(
-        roles,
-        eq(
-          userRoles.roleId,
-          roles.id,
-        ),
-      )
-      .where(
-        and(
-          eq(
-            users.username,
-            username,
-          ),
-          eq(
-            roles.code,
-            'SYSTEM_ADMIN',
-          ),
-        ),
-      )
-      .limit(1)
+  const adminRows = await db
+    .select({
+      id: users.id,
+      status: users.status,
+    })
+    .from(users)
+    .innerJoin(userRoles, eq(users.id, userRoles.userId))
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(and(eq(users.username, username), eq(roles.code, 'SYSTEM_ADMIN')))
+    .limit(1)
 
-  const admin =
-    adminRows[0]
+  const admin = adminRows[0]
 
   if (!admin) {
-    throw new Error(
-      'SYSTEM_ADMIN account not found',
-    )
+    throw new Error('SYSTEM_ADMIN account not found')
   }
 
-  const reactivateAdmin =
-    shouldReactivateAdmin()
+  const reactivateAdmin = shouldReactivateAdmin()
 
-  const statusCanBeRecovered =
-    admin.status === 'INACTIVE'
-    || admin.status === 'SUSPENDED'
+  const statusCanBeRecovered = admin.status === 'INACTIVE' || admin.status === 'SUSPENDED'
 
-  if (
-    admin.status !== 'ACTIVE'
-    && !statusCanBeRecovered
-  ) {
-    throw new Error(
-      `SYSTEM_ADMIN status cannot be recovered automatically: ${admin.status}`,
-    )
+  if (admin.status !== 'ACTIVE' && !statusCanBeRecovered) {
+    throw new Error(`SYSTEM_ADMIN status cannot be recovered automatically: ${admin.status}`)
   }
 
-  if (
-    admin.status !== 'ACTIVE'
-    && !reactivateAdmin
-  ) {
+  if (admin.status !== 'ACTIVE' && !reactivateAdmin) {
     throw new Error(
       'SYSTEM_ADMIN account is not active. Set RECOVER_ADMIN_STATUS=true for explicit reactivation',
     )
   }
 
-  const passwordHasher =
-    new Argon2PasswordHasher()
+  const passwordHasher = new Argon2PasswordHasher()
 
-  const passwordHash =
-    await passwordHasher.hash(
-      temporaryPassword,
-    )
+  const passwordHash = await passwordHasher.hash(temporaryPassword)
 
   await db
     .update(users)
     .set({
       passwordHash,
-      status: reactivateAdmin
-        ? 'ACTIVE'
-        : admin.status,
+      status: reactivateAdmin ? 'ACTIVE' : admin.status,
       mustChangePassword: true,
       updatedAt: new Date(),
     })
-    .where(
-      eq(users.id, admin.id),
-    )
+    .where(eq(users.id, admin.id))
 
-  console.log(
-    `SYSTEM_ADMIN password recovered: ${username}`,
-  )
+  console.log(`SYSTEM_ADMIN password recovered: ${username}`)
 
-  if (
-    admin.status !== 'ACTIVE'
-    && reactivateAdmin
-  ) {
-    console.log(
-      `SYSTEM_ADMIN reactivated from status: ${admin.status}`,
-    )
+  if (admin.status !== 'ACTIVE' && reactivateAdmin) {
+    console.log(`SYSTEM_ADMIN reactivated from status: ${admin.status}`)
   }
 
-  console.log(
-    'Password change will be required at the next login',
-  )
+  console.log('Password change will be required at the next login')
 }
 
 try {
   await recoverSystemAdminPassword()
 } catch (error: unknown) {
-  console.error(
-    'Admin password recovery failed',
-    error,
-  )
+  console.error('Admin password recovery failed', error)
 
   process.exitCode = 1
 } finally {

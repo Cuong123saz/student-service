@@ -1,22 +1,10 @@
 import { Type } from '@sinclair/typebox'
-import type {
-  FastifyInstance,
-  FastifyPluginOptions,
-} from 'fastify'
+import type { FastifyInstance, FastifyPluginOptions } from 'fastify'
 
-import {
-  requireAdminReadySession,
-  requireAdminSession,
-} from '../auth/admin-auth.guard.js'
-import {
-  requireAdminPermission,
-} from '../auth/admin-permission.guard.js'
-import type {
-  AuthorizationUseCase,
-} from '../auth/authorization.service.js'
-import type {
-  AcademicCatalogUseCase,
-} from './academic-catalog.service.js'
+import { requireAdminReadySession, requireAdminSession } from '../auth/admin-auth.guard.js'
+import { requireAdminPermission } from '../auth/admin-permission.guard.js'
+import type { AuthorizationUseCase } from '../auth/authorization.service.js'
+import type { AcademicCatalogUseCase } from './academic-catalog.service.js'
 
 const identitySchema = Type.Object({
   id: Type.String({ format: 'uuid' }),
@@ -39,12 +27,9 @@ const errorResponseSchema = Type.Object({
   message: Type.String(),
 })
 
-export interface AcademicCatalogRoutesOptions
-extends FastifyPluginOptions {
-  academicCatalogService:
-    AcademicCatalogUseCase
-  authorizationService:
-    AuthorizationUseCase
+export interface AcademicCatalogRoutesOptions extends FastifyPluginOptions {
+  academicCatalogService: AcademicCatalogUseCase
+  authorizationService: AuthorizationUseCase
 }
 
 export async function academicCatalogRoutes(
@@ -57,10 +42,7 @@ export async function academicCatalogRoutes(
       preHandler: [
         requireAdminSession,
         requireAdminReadySession,
-        requireAdminPermission(
-          options.authorizationService,
-          'student.read',
-        ),
+        requireAdminPermission(options.authorizationService, 'student.read'),
       ],
       schema: {
         response: {
@@ -79,9 +61,7 @@ export async function academicCatalogRoutes(
         })
       }
 
-      const faculties = await options
-        .academicCatalogService
-        .listVisibleCatalog(session.sub)
+      const faculties = await options.academicCatalogService.listVisibleCatalog(session.sub)
 
       return { faculties }
     },

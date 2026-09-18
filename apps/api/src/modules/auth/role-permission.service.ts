@@ -41,21 +41,16 @@ export interface ReplaceRolePermissionsInput {
 export interface RolePermissionRepository {
   getSnapshot(actorUserId: string): Promise<RolePermissionSnapshot>
 
-  replacePermissions(
-    input: ReplaceRolePermissionsInput,
-  ): Promise<void>
+  replacePermissions(input: ReplaceRolePermissionsInput): Promise<void>
 }
 
 export interface RolePermissionUseCase {
   getSnapshot(actorUserId: string): Promise<RolePermissionSnapshot>
 
-  replacePermissions(
-    input: Omit<ReplaceRolePermissionsInput, 'changedAt'>,
-  ): Promise<void>
+  replacePermissions(input: Omit<ReplaceRolePermissionsInput, 'changedAt'>): Promise<void>
 }
 
-export class RolePermissionService
-implements RolePermissionUseCase {
+export class RolePermissionService implements RolePermissionUseCase {
   constructor(
     private readonly repository: RolePermissionRepository,
     private readonly clock: () => Date = () => new Date(),
@@ -65,9 +60,7 @@ implements RolePermissionUseCase {
     return this.repository.getSnapshot(actorUserId)
   }
 
-  replacePermissions(
-    input: Omit<ReplaceRolePermissionsInput, 'changedAt'>,
-  ): Promise<void> {
+  replacePermissions(input: Omit<ReplaceRolePermissionsInput, 'changedAt'>): Promise<void> {
     return this.repository.replacePermissions({
       ...input,
       permissionCodes: [...new Set(input.permissionCodes)].sort(),

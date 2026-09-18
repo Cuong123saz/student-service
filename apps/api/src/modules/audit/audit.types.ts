@@ -1,24 +1,12 @@
-export type AuditActorType =
-  | 'USER'
-  | 'ANONYMOUS'
-  | 'SYSTEM'
+export type AuditActorType = 'USER' | 'ANONYMOUS' | 'SYSTEM'
 
-export type AuditOutcome =
-  | 'SUCCESS'
-  | 'FAILURE'
+export type AuditOutcome = 'SUCCESS' | 'FAILURE'
 
-export type AuditMetadataValue =
-  | string
-  | number
-  | boolean
-  | null
-  | readonly string[]
+export type AuditMetadataValue = string | number | boolean | null | readonly string[]
 
-export type AuditMetadata =
-  Record<string, AuditMetadataValue>
+export type AuditMetadata = Record<string, AuditMetadataValue>
 
-export type AuditState =
-  Record<string, AuditMetadataValue>
+export type AuditState = Record<string, AuditMetadataValue>
 
 export interface AuditEventInput {
   actorType: AuditActorType
@@ -36,8 +24,7 @@ export interface AuditEventInput {
   after?: AuditState | null
 }
 
-export interface StoredAuditEvent
-extends AuditEventInput {
+export interface StoredAuditEvent extends AuditEventInput {
   id: string
   occurredAt: Date
 }

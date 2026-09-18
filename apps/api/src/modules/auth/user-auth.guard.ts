@@ -1,34 +1,18 @@
-import type {
-  FastifyReply,
-  FastifyRequest,
-} from 'fastify'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 
-import {
-  JWT_ISSUER,
-  USER_JWT_AUDIENCE,
-  USER_SESSION_COOKIE_NAME,
-} from './auth.constants.js'
+import { JWT_ISSUER, USER_JWT_AUDIENCE, USER_SESSION_COOKIE_NAME } from './auth.constants.js'
 
-import {
-  isUserSession,
-} from './auth-session.js'
+import { isUserSession } from './auth-session.js'
 
-const USER_PORTAL_ROLES =
-  new Set([
-    'STUDENT',
-    'ACADEMIC_ADVISOR',
-    'FACULTY_REVIEWER',
-    'DOCUMENT_SIGNER',
-  ])
+const USER_PORTAL_ROLES = new Set([
+  'STUDENT',
+  'ACADEMIC_ADVISOR',
+  'FACULTY_REVIEWER',
+  'DOCUMENT_SIGNER',
+])
 
-export async function requireUserSession(
-  request: FastifyRequest,
-  reply: FastifyReply,
-) {
-  const token =
-    request.cookies[
-      USER_SESSION_COOKIE_NAME
-    ]
+export async function requireUserSession(request: FastifyRequest, reply: FastifyReply) {
+  const token = request.cookies[USER_SESSION_COOKIE_NAME]
 
   if (!token) {
     return reply.code(401).send({
@@ -39,17 +23,11 @@ export async function requireUserSession(
   let decoded: unknown
 
   try {
-    decoded =
-      request.server.jwt.verify(
-        token,
-        {
-          allowedAud:
-            USER_JWT_AUDIENCE,
+    decoded = request.server.jwt.verify(token, {
+      allowedAud: USER_JWT_AUDIENCE,
 
-          allowedIss:
-            JWT_ISSUER,
-        },
-      )
+      allowedIss: JWT_ISSUER,
+    })
   } catch {
     return reply.code(401).send({
       message: 'Unauthorized',
@@ -62,13 +40,7 @@ export async function requireUserSession(
     })
   }
 
-  const hasUserPortalRole =
-    decoded.roles.some(
-      (role) =>
-        USER_PORTAL_ROLES.has(
-          role,
-        ),
-    )
+  const hasUserPortalRole = decoded.roles.some((role) => USER_PORTAL_ROLES.has(role))
 
   if (!hasUserPortalRole) {
     return reply.code(403).send({
@@ -79,20 +51,14 @@ export async function requireUserSession(
   request.userSession = decoded
 }
 
-export async function requireStudentRole(
-  request: FastifyRequest,
-  reply: FastifyReply,
-) {
+export async function requireStudentRole(request: FastifyRequest, reply: FastifyReply) {
   if (!request.userSession) {
     return reply.code(401).send({
       message: 'Unauthorized',
     })
   }
 
-  if (
-    !request.userSession.roles
-      .includes('STUDENT')
-  ) {
+  if (!request.userSession.roles.includes('STUDENT')) {
     return reply.code(403).send({
       message: 'Forbidden',
     })

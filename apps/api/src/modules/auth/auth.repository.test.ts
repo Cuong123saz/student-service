@@ -1,35 +1,15 @@
 import assert from 'node:assert/strict'
 import { eq } from 'drizzle-orm'
-import {
-  after,
-  beforeEach,
-  test,
-} from 'node:test'
+import { after, beforeEach, test } from 'node:test'
 
-import {
-  databaseClient,
-  db,
-} from '../../db/client.js'
-import {
-  roles,
-  userRoles,
-  users,
-} from './auth.schema.js'
-import {
-  DrizzleAuthUserRepository,
-} from './auth.repository.js'
+import { databaseClient, db } from '../../db/client.js'
+import { roles, userRoles, users } from './auth.schema.js'
+import { DrizzleAuthUserRepository } from './auth.repository.js'
 
-const databaseUrl =
-  process.env.DATABASE_URL
+const databaseUrl = process.env.DATABASE_URL
 
-if (
-  !databaseUrl
-  || new URL(databaseUrl).pathname
-    !== '/student_service_test'
-) {
-  throw new Error(
-    'Integration tests must use the student_service_test database',
-  )
+if (!databaseUrl || new URL(databaseUrl).pathname !== '/student_service_test') {
+  throw new Error('Integration tests must use the student_service_test database')
 }
 
 beforeEach(async () => {
@@ -42,212 +22,146 @@ after(async () => {
   await databaseClient.end()
 })
 
-test(
-  'findByUsername trả tài khoản cùng các role',
-  async () => {
-    const insertedUsers = await db
-      .insert(users)
-      .values({
-        username: 'student001',
-        passwordHash: 'stored-password-hash',
-        fullName: 'Nguyễn Văn A',
-        status: 'ACTIVE',
-        mustChangePassword: true,
-      })
-      .returning()
+test('findByUsername trả tài khoản cùng các role', async () => {
+  const insertedUsers = await db
+    .insert(users)
+    .values({
+      username: 'student001',
+      passwordHash: 'stored-password-hash',
+      fullName: 'Nguyễn Văn A',
+      status: 'ACTIVE',
+      mustChangePassword: true,
+    })
+    .returning()
 
-    const insertedUser =
-      insertedUsers[0]
+  const insertedUser = insertedUsers[0]
 
-    assert.ok(insertedUser)
+  assert.ok(insertedUser)
 
-    const insertedRoles = await db
-      .insert(roles)
-      .values([
-        {
-          code: 'STUDENT',
-          name: 'Sinh viên',
-          isSystem: true,
-        },
-        {
-          code: 'DOCUMENT_SIGNER',
-          name: 'Người ký văn bản',
-          isSystem: true,
-        },
-      ])
-      .returning()
-
-    const studentRole =
-      insertedRoles.find(
-        (role) =>
-          role.code === 'STUDENT',
-      )
-
-    const signerRole =
-      insertedRoles.find(
-        (role) =>
-          role.code
-            === 'DOCUMENT_SIGNER',
-      )
-
-    assert.ok(studentRole)
-    assert.ok(signerRole)
-
-    await db.insert(userRoles).values([
+  const insertedRoles = await db
+    .insert(roles)
+    .values([
       {
-        userId: insertedUser.id,
-        roleId: studentRole.id,
+        code: 'STUDENT',
+        name: 'Sinh viên',
+        isSystem: true,
       },
       {
-        userId: insertedUser.id,
-        roleId: signerRole.id,
+        code: 'DOCUMENT_SIGNER',
+        name: 'Người ký văn bản',
+        isSystem: true,
       },
     ])
+    .returning()
 
-    const repository =
-      new DrizzleAuthUserRepository()
+  const studentRole = insertedRoles.find((role) => role.code === 'STUDENT')
 
-    const result =
-      await repository.findByUsername(
-        'student001',
-      )
+  const signerRole = insertedRoles.find((role) => role.code === 'DOCUMENT_SIGNER')
 
-    assert.ok(result)
+  assert.ok(studentRole)
+  assert.ok(signerRole)
 
-    assert.equal(
-      result.id,
-      insertedUser.id,
-    )
-    assert.equal(
-      result.passwordHash,
-      'stored-password-hash',
-    )
-    assert.equal(
-      result.mustChangePassword,
-      true,
-    )
+  await db.insert(userRoles).values([
+    {
+      userId: insertedUser.id,
+      roleId: studentRole.id,
+    },
+    {
+      userId: insertedUser.id,
+      roleId: signerRole.id,
+    },
+  ])
 
-    assert.deepEqual(
-      [...result.roles].sort(),
-      [
-        'DOCUMENT_SIGNER',
-        'STUDENT',
-      ],
-    )
-  },
-)
+  const repository = new DrizzleAuthUserRepository()
 
-test(
-  'findByUsername trả null khi không tồn tại',
-  async () => {
-    const repository =
-      new DrizzleAuthUserRepository()
+  const result = await repository.findByUsername('student001')
 
-    const result =
-      await repository.findByUsername(
-        'unknown',
-      )
+  assert.ok(result)
 
-    assert.equal(result, null)
-  },
-)
-test(
-  'findPasswordStateById trả trạng thái mật khẩu',
-  async () => {
-    const insertedUsers = await db
-      .insert(users)
-      .values({
-        username: 'admin001',
-        passwordHash: 'old-hash',
-        fullName: 'Admin Test',
-        status: 'ACTIVE',
-        mustChangePassword: true,
-      })
-      .returning()
+  assert.equal(result.id, insertedUser.id)
+  assert.equal(result.passwordHash, 'stored-password-hash')
+  assert.equal(result.mustChangePassword, true)
 
-    const insertedUser =
-      insertedUsers[0]
+  assert.deepEqual([...result.roles].sort(), ['DOCUMENT_SIGNER', 'STUDENT'])
+})
 
-    assert.ok(insertedUser)
+test('findByUsername trả null khi không tồn tại', async () => {
+  const repository = new DrizzleAuthUserRepository()
 
-    const repository =
-      new DrizzleAuthUserRepository()
+  const result = await repository.findByUsername('unknown')
 
-    const result =
-      await repository
-        .findPasswordStateById(
-          insertedUser.id,
-        )
-
-    assert.deepEqual(result, {
-      id: insertedUser.id,
+  assert.equal(result, null)
+})
+test('findPasswordStateById trả trạng thái mật khẩu', async () => {
+  const insertedUsers = await db
+    .insert(users)
+    .values({
+      username: 'admin001',
       passwordHash: 'old-hash',
+      fullName: 'Admin Test',
       status: 'ACTIVE',
+      mustChangePassword: true,
     })
-  },
-)
+    .returning()
 
-test(
-  'updatePassword cập nhật hash và hoàn thành đổi mật khẩu',
-  async () => {
-    const insertedUsers = await db
-      .insert(users)
-      .values({
-        username: 'admin001',
-        passwordHash: 'old-hash',
-        fullName: 'Admin Test',
-        status: 'ACTIVE',
-        mustChangePassword: true,
-      })
-      .returning()
+  const insertedUser = insertedUsers[0]
 
-    const insertedUser =
-      insertedUsers[0]
+  assert.ok(insertedUser)
 
-    assert.ok(insertedUser)
+  const repository = new DrizzleAuthUserRepository()
 
-    const repository =
-      new DrizzleAuthUserRepository()
+  const result = await repository.findPasswordStateById(insertedUser.id)
 
-    const updated =
-      await repository.updatePassword(
-        insertedUser.id,
-        'new-hash',
-      )
+  assert.deepEqual(result, {
+    id: insertedUser.id,
+    passwordHash: 'old-hash',
+    status: 'ACTIVE',
+  })
+})
 
-    assert.equal(updated, true)
-
-    const rows = await db
-      .select({
-        passwordHash:
-          users.passwordHash,
-        mustChangePassword:
-          users.mustChangePassword,
-      })
-      .from(users)
-      .where(
-        eq(users.id, insertedUser.id),
-      )
-
-    assert.deepEqual(rows[0], {
-      passwordHash: 'new-hash',
-      mustChangePassword: false,
+test('updatePassword cập nhật hash và hoàn thành đổi mật khẩu', async () => {
+  const insertedUsers = await db
+    .insert(users)
+    .values({
+      username: 'admin001',
+      passwordHash: 'old-hash',
+      fullName: 'Admin Test',
+      status: 'ACTIVE',
+      mustChangePassword: true,
     })
-  },
-)
+    .returning()
 
-test(
-  'updatePassword trả false khi user không tồn tại',
-  async () => {
-    const repository =
-      new DrizzleAuthUserRepository()
+  const insertedUser = insertedUsers[0]
 
-    const updated =
-      await repository.updatePassword(
-        '85ca4291-c7bd-4370-a117-976bf237261c',
-        'new-hash',
-      )
+  assert.ok(insertedUser)
 
-    assert.equal(updated, false)
-  },
-)
+  const repository = new DrizzleAuthUserRepository()
+
+  const updated = await repository.updatePassword(insertedUser.id, 'new-hash')
+
+  assert.equal(updated, true)
+
+  const rows = await db
+    .select({
+      passwordHash: users.passwordHash,
+      mustChangePassword: users.mustChangePassword,
+    })
+    .from(users)
+    .where(eq(users.id, insertedUser.id))
+
+  assert.deepEqual(rows[0], {
+    passwordHash: 'new-hash',
+    mustChangePassword: false,
+  })
+})
+
+test('updatePassword trả false khi user không tồn tại', async () => {
+  const repository = new DrizzleAuthUserRepository()
+
+  const updated = await repository.updatePassword(
+    '85ca4291-c7bd-4370-a117-976bf237261c',
+    'new-hash',
+  )
+
+  assert.equal(updated, false)
+})

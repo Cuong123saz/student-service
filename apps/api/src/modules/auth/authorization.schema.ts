@@ -14,50 +14,36 @@ import {
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
-import {
-  roles,
-  userRoles,
-} from './auth.schema.js'
+import { roles, userRoles } from './auth.schema.js'
 import {
   academicClasses,
   faculties,
   organizationalUnits,
 } from '../organizations/organization.schema.js'
 
-export const AUTHORIZATION_SCOPE_TYPES = [
-  'GLOBAL',
-  'FACULTY',
-  'CLASS',
-  'ORGANIZATION',
-] as const
+export const AUTHORIZATION_SCOPE_TYPES = ['GLOBAL', 'FACULTY', 'CLASS', 'ORGANIZATION'] as const
 
-export type AuthorizationScopeType =
-  (typeof AUTHORIZATION_SCOPE_TYPES)[number]
+export type AuthorizationScopeType = (typeof AUTHORIZATION_SCOPE_TYPES)[number]
 
-export const permissions = pgTable(
-  'permissions',
-  {
-    id: serial('id').primaryKey(),
+export const permissions = pgTable('permissions', {
+  id: serial('id').primaryKey(),
 
-    code: varchar('code', {
-      length: 100,
-    })
-      .notNull()
-      .unique(),
+  code: varchar('code', {
+    length: 100,
+  })
+    .notNull()
+    .unique(),
 
-    name: varchar('name', {
-      length: 150,
-    }).notNull(),
+  name: varchar('name', {
+    length: 150,
+  }).notNull(),
 
-    description: varchar('description', {
-      length: 255,
-    }),
+  description: varchar('description', {
+    length: 255,
+  }),
 
-    isSystem: boolean('is_system')
-      .notNull()
-      .default(true),
-  },
-)
+  isSystem: boolean('is_system').notNull().default(true),
+})
 
 export const rolePermissions = pgTable(
   'role_permissions',
@@ -82,41 +68,30 @@ export const rolePermissions = pgTable(
   },
   (table) => [
     primaryKey({
-      columns: [
-        table.roleId,
-        table.permissionId,
-      ],
+      columns: [table.roleId, table.permissionId],
     }),
-    index(
-      'role_permissions_permission_id_idx',
-    ).on(table.permissionId),
+    index('role_permissions_permission_id_idx').on(table.permissionId),
   ],
 )
 
 export const authorizationScopes = pgTable(
   'authorization_scopes',
   {
-    id: uuid('id')
-      .defaultRandom()
-      .primaryKey(),
+    id: uuid('id').defaultRandom().primaryKey(),
 
     scopeType: varchar('scope_type', {
       length: 30,
     }).notNull(),
 
-    facultyId: uuid('faculty_id')
-      .references(() => faculties.id, {
-        onDelete: 'cascade',
-      }),
+    facultyId: uuid('faculty_id').references(() => faculties.id, {
+      onDelete: 'cascade',
+    }),
 
-    classId: uuid('class_id')
-      .references(() => academicClasses.id, {
-        onDelete: 'cascade',
-      }),
+    classId: uuid('class_id').references(() => academicClasses.id, {
+      onDelete: 'cascade',
+    }),
 
-    organizationalUnitId: uuid(
-      'organizational_unit_id',
-    ),
+    organizationalUnitId: uuid('organizational_unit_id'),
 
     createdAt: timestamp('created_at', {
       withTimezone: true,
@@ -125,25 +100,15 @@ export const authorizationScopes = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex(
-      'authorization_scopes_global_unique',
-    )
+    uniqueIndex('authorization_scopes_global_unique')
       .on(table.scopeType)
-      .where(
-        sql`${table.scopeType} = 'GLOBAL'`,
-      ),
+      .where(sql`${table.scopeType} = 'GLOBAL'`),
 
-    uniqueIndex(
-      'authorization_scopes_faculty_unique',
-    ).on(table.facultyId),
+    uniqueIndex('authorization_scopes_faculty_unique').on(table.facultyId),
 
-    uniqueIndex(
-      'authorization_scopes_class_unique',
-    ).on(table.classId),
+    uniqueIndex('authorization_scopes_class_unique').on(table.classId),
 
-    uniqueIndex(
-      'authorization_scopes_organization_unique',
-    ).on(table.organizationalUnitId),
+    uniqueIndex('authorization_scopes_organization_unique').on(table.organizationalUnitId),
 
     check(
       'authorization_scopes_target_check',
@@ -186,10 +151,7 @@ export const userRoleScopes = pgTable(
 
     scopeId: uuid('scope_id')
       .notNull()
-      .references(
-        () => authorizationScopes.id,
-        { onDelete: 'cascade' },
-      ),
+      .references(() => authorizationScopes.id, { onDelete: 'cascade' }),
 
     assignedAt: timestamp('assigned_at', {
       withTimezone: true,
@@ -199,27 +161,15 @@ export const userRoleScopes = pgTable(
   },
   (table) => [
     primaryKey({
-      columns: [
-        table.userId,
-        table.roleId,
-        table.scopeId,
-      ],
+      columns: [table.userId, table.roleId, table.scopeId],
     }),
 
     foreignKey({
-      columns: [
-        table.userId,
-        table.roleId,
-      ],
-      foreignColumns: [
-        userRoles.userId,
-        userRoles.roleId,
-      ],
+      columns: [table.userId, table.roleId],
+      foreignColumns: [userRoles.userId, userRoles.roleId],
       name: 'user_role_scopes_user_role_fk',
     }).onDelete('cascade'),
 
-    index(
-      'user_role_scopes_scope_id_idx',
-    ).on(table.scopeId),
+    index('user_role_scopes_scope_id_idx').on(table.scopeId),
   ],
 )

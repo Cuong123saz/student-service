@@ -8,14 +8,8 @@ import type {
 
 export function useAdminAuth() {
   const config = useRuntimeConfig()
-  const user = useState<AdminSessionUser | null>(
-    'admin-session-user',
-    () => null,
-  )
-  const isResolved = useState(
-    'admin-session-resolved',
-    () => false,
-  )
+  const user = useState<AdminSessionUser | null>('admin-session-user', () => null)
+  const isResolved = useState('admin-session-resolved', () => false)
 
   async function login(input: AdminLoginInput) {
     const response = await $fetch<AdminLoginResponse>(
@@ -62,14 +56,11 @@ export function useAdminAuth() {
   }
 
   async function changePassword(input: AdminChangePasswordInput) {
-    await $fetch(
-      `${config.public.apiBase}/api/v1/admin/auth/change-password`,
-      {
-        method: 'POST',
-        body: input,
-        credentials: 'include',
-      },
-    )
+    await $fetch(`${config.public.apiBase}/api/v1/admin/auth/change-password`, {
+      method: 'POST',
+      body: input,
+      credentials: 'include',
+    })
 
     user.value = null
     isResolved.value = true
@@ -77,13 +68,10 @@ export function useAdminAuth() {
 
   async function logout() {
     try {
-      await $fetch(
-        `${config.public.apiBase}/api/v1/admin/auth/logout`,
-        {
-          method: 'POST',
-          credentials: 'include',
-        },
-      )
+      await $fetch(`${config.public.apiBase}/api/v1/admin/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      })
     } finally {
       user.value = null
       isResolved.value = true

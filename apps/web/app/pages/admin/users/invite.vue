@@ -11,8 +11,22 @@ const {
   errorMessage: catalogErrorMessage,
   load: loadCatalog,
 } = useAcademicCatalog()
-const form = reactive({ fullName: '', username: '', email: '', roles: [] as SystemRoleCode[], studentCode: '', classId: '' })
-const errors = reactive({ fullName: '', username: '', email: '', roles: '', studentCode: '', classId: '' })
+const form = reactive({
+  fullName: '',
+  username: '',
+  email: '',
+  roles: [] as SystemRoleCode[],
+  studentCode: '',
+  classId: '',
+})
+const errors = reactive({
+  fullName: '',
+  username: '',
+  email: '',
+  roles: '',
+  studentCode: '',
+  classId: '',
+})
 const isSubmitting = ref(false)
 const successMessage = ref('')
 const requestError = ref('')
@@ -26,21 +40,21 @@ function clearFieldError(field: keyof typeof errors) {
   requestError.value = ''
 }
 
-const standardRoles: { code: SystemRoleCode, label: string }[] = [
+const standardRoles: { code: SystemRoleCode; label: string }[] = [
   { code: 'STUDENT', label: 'Sinh viên' },
   { code: 'ACADEMIC_ADVISOR', label: 'Giảng viên cố vấn' },
   { code: 'FACULTY_REVIEWER', label: 'Cán bộ khoa' },
   { code: 'DOCUMENT_SIGNER', label: 'Người ký văn bản' },
 ]
-const privilegedRoles: { code: SystemRoleCode, label: string }[] = [
+const privilegedRoles: { code: SystemRoleCode; label: string }[] = [
   { code: 'ADMIN', label: 'Quản trị nghiệp vụ' },
   { code: 'SYSTEM_ADMIN', label: 'Quản trị hệ thống' },
 ]
-const availableRoles = computed(() => (
+const availableRoles = computed(() =>
   user.value?.roles.includes('SYSTEM_ADMIN')
     ? [...standardRoles, ...privilegedRoles]
-    : standardRoles
-))
+    : standardRoles,
+)
 const isStudent = computed(() => form.roles.includes('STUDENT'))
 
 onMounted(() => {
@@ -56,10 +70,9 @@ function validate() {
     ? 'Địa chỉ email không hợp lệ.'
     : ''
   errors.roles = form.roles.length ? '' : 'Chọn ít nhất một vai trò.'
-  errors.studentCode = isStudent.value && !form.studentCode.trim()
-    ? 'Vui lòng nhập mã sinh viên.' : ''
-  errors.classId = isStudent.value && !form.classId.trim()
-    ? 'Vui lòng chọn lớp học vụ.' : ''
+  errors.studentCode =
+    isStudent.value && !form.studentCode.trim() ? 'Vui lòng nhập mã sinh viên.' : ''
+  errors.classId = isStudent.value && !form.classId.trim() ? 'Vui lòng chọn lớp học vụ.' : ''
   return !Object.values(errors).some(Boolean)
 }
 
@@ -70,7 +83,14 @@ function resetForm() {
   form.roles = []
   form.studentCode = ''
   form.classId = ''
-  Object.assign(errors, { fullName: '', username: '', email: '', roles: '', studentCode: '', classId: '' })
+  Object.assign(errors, {
+    fullName: '',
+    username: '',
+    email: '',
+    roles: '',
+    studentCode: '',
+    classId: '',
+  })
   requestError.value = ''
 }
 
@@ -89,29 +109,36 @@ async function handleSubmit() {
       username: form.username.trim().toLowerCase(),
       email: invitedEmail,
       roles: [...form.roles],
-      ...(isStudent.value ? { studentCode: form.studentCode.trim().toUpperCase(), classId: form.classId.trim() } : {}),
+      ...(isStudent.value
+        ? { studentCode: form.studentCode.trim().toUpperCase(), classId: form.classId.trim() }
+        : {}),
     })
-    successMessage.value = response.invitation.deliveryStatus === 'SENT'
-      ? `Đã gửi liên kết kích hoạt đến ${invitedEmail}.`
-      : `Tài khoản đã tạo nhưng email chưa gửi được đến ${invitedEmail}. Hãy dùng chức năng gửi lại lời mời.`
+    successMessage.value =
+      response.invitation.deliveryStatus === 'SENT'
+        ? `Đã gửi liên kết kích hoạt đến ${invitedEmail}.`
+        : `Tài khoản đã tạo nhưng email chưa gửi được đến ${invitedEmail}. Hãy dùng chức năng gửi lại lời mời.`
     lastInvitedUserId.value = response.user.id
     deliveryFailed.value = response.invitation.deliveryStatus === 'FAILED'
     resetForm()
   } catch (error: unknown) {
-    const responseError = (error as {
-      data?: {
-        error?: {
-          field?: string
-          message?: string
-        }
-      }
-    } | undefined)?.data?.error
+    const responseError = (
+      error as
+        | {
+            data?: {
+              error?: {
+                field?: string
+                message?: string
+              }
+            }
+          }
+        | undefined
+    )?.data?.error
     const field = responseError?.field
     if (
-      field === 'username'
-      || field === 'email'
-      || field === 'studentCode'
-      || field === 'classId'
+      field === 'username' ||
+      field === 'email' ||
+      field === 'studentCode' ||
+      field === 'classId'
     ) {
       errors[field] = responseError.message ?? 'Giá trị không hợp lệ.'
       requestError.value = ''
@@ -146,12 +173,24 @@ async function handleResend() {
     <header>
       <p class="page-eyebrow">Quản lý người dùng</p>
       <h1 class="page-title">Gửi lời mời người dùng</h1>
-      <p class="page-description">Người dùng sẽ nhận email chứa liên kết để tự tạo mật khẩu và kích hoạt tài khoản.</p>
+      <p class="page-description">
+        Người dùng sẽ nhận email chứa liên kết để tự tạo mật khẩu và kích hoạt tài khoản.
+      </p>
     </header>
 
-    <BaseAlert v-if="successMessage" :variant="deliveryFailed ? 'warning' : 'success'" :title="deliveryFailed ? 'Tài khoản đã tạo' : 'Gửi lời mời thành công'">
+    <BaseAlert
+      v-if="successMessage"
+      :variant="deliveryFailed ? 'warning' : 'success'"
+      :title="deliveryFailed ? 'Tài khoản đã tạo' : 'Gửi lời mời thành công'"
+    >
       {{ successMessage }}
-      <button v-if="deliveryFailed" class="invite-resend" type="button" :disabled="isResending" @click="handleResend">
+      <button
+        v-if="deliveryFailed"
+        class="invite-resend"
+        type="button"
+        :disabled="isResending"
+        @click="handleResend"
+      >
         {{ isResending ? 'Đang gửi lại…' : 'Gửi lại lời mời' }}
       </button>
     </BaseAlert>
@@ -161,7 +200,8 @@ async function handleResend() {
 
     <form class="invite-form surface-card" novalidate @submit.prevent="handleSubmit">
       <BaseAlert variant="info">
-        Hệ thống không hiển thị mã kích hoạt. Người dùng tự thiết lập mật khẩu qua liên kết gửi đến email.
+        Hệ thống không hiển thị mã kích hoạt. Người dùng tự thiết lập mật khẩu qua liên kết gửi đến
+        email.
       </BaseAlert>
       <BaseInput
         id="invite-full-name"
@@ -187,11 +227,7 @@ async function handleResend() {
           :error="errors.studentCode"
           @update:model-value="clearFieldError('studentCode')"
         />
-        <BaseAlert
-          v-if="catalogErrorMessage"
-          variant="warning"
-          title="Chưa tải được danh mục lớp"
-        >
+        <BaseAlert v-if="catalogErrorMessage" variant="warning" title="Chưa tải được danh mục lớp">
           {{ catalogErrorMessage }}
           <button
             type="button"
@@ -257,8 +293,11 @@ async function handleResend() {
       <fieldset :aria-describedby="errors.roles ? 'invite-roles-error' : undefined">
         <legend>Vai trò <span>(có thể chọn nhiều)</span></legend>
         <label v-for="role in availableRoles" :key="role.code">
-          <input v-model="form.roles" type="checkbox" :value="role.code" :disabled="isSubmitting">
-          <span><strong>{{ role.label }}</strong><small>{{ role.code }}</small></span>
+          <input v-model="form.roles" type="checkbox" :value="role.code" :disabled="isSubmitting" />
+          <span
+            ><strong>{{ role.label }}</strong
+            ><small>{{ role.code }}</small></span
+          >
         </label>
         <p v-if="errors.roles" id="invite-roles-error" role="alert">{{ errors.roles }}</p>
       </fieldset>
@@ -276,27 +315,116 @@ async function handleResend() {
 </template>
 
 <style scoped>
-.invite-page { max-width: 650px; }
-.invite-page > header { margin-bottom: 24px; }
-.invite-page > .base-alert { margin-bottom: 14px; }
-.invite-form { display: grid; gap: 20px; padding: 26px; }
-.invite-form fieldset { display: grid; gap: 9px; margin: 0; padding: 0; border: 0; }
-.invite-form legend { margin-bottom: 2px; font-size: 14px; font-weight: 700; }
-.invite-form legend span { color: var(--color-muted); font-weight: 400; }
-.invite-form fieldset label { display: flex; min-height: 48px; align-items: center; gap: 11px; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 10px; cursor: pointer; }
-.invite-form fieldset label:has(input:checked) { border-color: #93c5fd; background: var(--color-primary-soft); }
-.invite-form fieldset input { width: 18px; height: 18px; accent-color: var(--color-primary); }
-.invite-form fieldset label span { display: flex; align-items: center; justify-content: space-between; flex: 1; gap: 12px; }
-.invite-form fieldset small { color: var(--color-muted); font-size: 11px; }
-.invite-form fieldset p { margin: 0; color: var(--color-error); font-size: 13px; }
-.invite-form__actions { display: flex; gap: 10px; padding-top: 4px; }
-.invite-resend { display: block; margin-top: 9px; padding: 0; border: 0; color: var(--color-primary); background: transparent; font-size: 13px; font-weight: 800; cursor: pointer; }
-.invite-resend:disabled { opacity: .6; cursor: wait; }
-.invite-catalog-retry { display: block; margin-top: 8px; padding: 0; border: 0; color: currentcolor; background: transparent; cursor: pointer; font-size: 13px; font-weight: 800; text-decoration: underline; }
-.invite-catalog-retry:disabled { cursor: wait; opacity: .6; }
+.invite-page {
+  max-width: 650px;
+}
+.invite-page > header {
+  margin-bottom: 24px;
+}
+.invite-page > .base-alert {
+  margin-bottom: 14px;
+}
+.invite-form {
+  display: grid;
+  gap: 20px;
+  padding: 26px;
+}
+.invite-form fieldset {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.invite-form legend {
+  margin-bottom: 2px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.invite-form legend span {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+.invite-form fieldset label {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.invite-form fieldset label:has(input:checked) {
+  border-color: #93c5fd;
+  background: var(--color-primary-soft);
+}
+.invite-form fieldset input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+.invite-form fieldset label span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  gap: 12px;
+}
+.invite-form fieldset small {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+.invite-form fieldset p {
+  margin: 0;
+  color: var(--color-error);
+  font-size: 13px;
+}
+.invite-form__actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 4px;
+}
+.invite-resend {
+  display: block;
+  margin-top: 9px;
+  padding: 0;
+  border: 0;
+  color: var(--color-primary);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.invite-resend:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.invite-catalog-retry {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  color: currentcolor;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: underline;
+}
+.invite-catalog-retry:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
 @media (max-width: 520px) {
-  .invite-form { padding: 21px 18px; }
-  .invite-form__actions { flex-direction: column; }
-  .invite-form__actions :deep(button) { width: 100%; }
+  .invite-form {
+    padding: 21px 18px;
+  }
+  .invite-form__actions {
+    flex-direction: column;
+  }
+  .invite-form__actions :deep(button) {
+    width: 100%;
+  }
 }
 </style>

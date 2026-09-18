@@ -1,7 +1,4 @@
-import type {
-  RolePermissionApiError,
-  RolePermissionSnapshot,
-} from '~/types/role-permission'
+import type { RolePermissionApiError, RolePermissionSnapshot } from '~/types/role-permission'
 
 function readApiError(error: unknown): RolePermissionApiError {
   if (!error || typeof error !== 'object') {
@@ -12,25 +9,22 @@ function readApiError(error: unknown): RolePermissionApiError {
     response?: { status?: unknown }
     data?: {
       message?: unknown
-      error?: { field?: unknown, message?: unknown }
+      error?: { field?: unknown; message?: unknown }
     }
   }
-  const status = typeof candidate.statusCode === 'number'
-    ? candidate.statusCode
-    : typeof candidate.response?.status === 'number'
-      ? candidate.response.status
-      : undefined
-  const field = typeof candidate.data?.error?.field === 'string'
-    ? candidate.data.error.field
-    : undefined
-  const message = candidate.data?.error?.message
-    ?? candidate.data?.message
+  const status =
+    typeof candidate.statusCode === 'number'
+      ? candidate.statusCode
+      : typeof candidate.response?.status === 'number'
+        ? candidate.response.status
+        : undefined
+  const field =
+    typeof candidate.data?.error?.field === 'string' ? candidate.data.error.field : undefined
+  const message = candidate.data?.error?.message ?? candidate.data?.message
   return {
     ...(status === undefined ? {} : { status }),
     ...(field === undefined ? {} : { field }),
-    message: typeof message === 'string'
-      ? message
-      : 'Yêu cầu chưa thể thực hiện.',
+    message: typeof message === 'string' ? message : 'Yêu cầu chưa thể thực hiện.',
   }
 }
 
@@ -47,19 +41,19 @@ export function useRolePermissions() {
     isLoading.value = true
     errorMessage.value = ''
     try {
-      data.value = await $fetch<RolePermissionSnapshot>(
-        `${baseUrl}/role-permissions`,
-        { credentials: 'include' },
-      )
+      data.value = await $fetch<RolePermissionSnapshot>(`${baseUrl}/role-permissions`, {
+        credentials: 'include',
+      })
       return true
     } catch (error: unknown) {
       const parsed = readApiError(error)
       data.value = null
-      errorMessage.value = parsed.status === 401
-        ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-        : parsed.status === 403
-          ? 'Chỉ quản trị hệ thống toàn cục được quản lý ma trận quyền.'
-          : 'Không thể tải ma trận quyền. Vui lòng thử lại.'
+      errorMessage.value =
+        parsed.status === 401
+          ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+          : parsed.status === 403
+            ? 'Chỉ quản trị hệ thống toàn cục được quản lý ma trận quyền.'
+            : 'Không thể tải ma trận quyền. Vui lòng thử lại.'
       return false
     } finally {
       isLoading.value = false
@@ -67,10 +61,7 @@ export function useRolePermissions() {
     }
   }
 
-  async function replacePermissions(
-    roleId: number,
-    permissionCodes: string[],
-  ): Promise<void> {
+  async function replacePermissions(roleId: number, permissionCodes: string[]): Promise<void> {
     try {
       await $fetch(`${baseUrl}/roles/${roleId}/permissions`, {
         method: 'PUT',

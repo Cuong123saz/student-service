@@ -1,24 +1,13 @@
-import type {
-  FastifyReply,
-  FastifyRequest,
-} from 'fastify'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 
-import type {
-  SystemPermissionCode,
-} from './authorization.constants.js'
-import type {
-  AuthorizationUseCase,
-} from './authorization.service.js'
+import type { SystemPermissionCode } from './authorization.constants.js'
+import type { AuthorizationUseCase } from './authorization.service.js'
 
 export function requireAdminPermission(
-  authorizationService:
-    AuthorizationUseCase,
+  authorizationService: AuthorizationUseCase,
   permission: SystemPermissionCode,
 ) {
-  return async function checkAdminPermission(
-    request: FastifyRequest,
-    reply: FastifyReply,
-  ) {
+  return async function checkAdminPermission(request: FastifyRequest, reply: FastifyReply) {
     const session = request.adminSession
 
     if (!session) {
@@ -27,11 +16,10 @@ export function requireAdminPermission(
       })
     }
 
-    const allowed = await authorizationService
-      .hasPermission({
-        userId: session.sub,
-        permission,
-      })
+    const allowed = await authorizationService.hasPermission({
+      userId: session.sub,
+      permission,
+    })
 
     if (!allowed) {
       return reply.code(403).send({

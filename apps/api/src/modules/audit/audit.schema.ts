@@ -1,27 +1,12 @@
 import { sql } from 'drizzle-orm'
-import {
-  check,
-  index,
-  jsonb,
-  pgTable,
-  timestamp,
-  uuid,
-  varchar,
-} from 'drizzle-orm/pg-core'
+import { check, index, jsonb, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
 
-import type {
-  AuditActorType,
-  AuditMetadata,
-  AuditOutcome,
-  AuditState,
-} from './audit.types.js'
+import type { AuditActorType, AuditMetadata, AuditOutcome, AuditState } from './audit.types.js'
 
 export const auditLogs = pgTable(
   'audit_logs',
   {
-    id: uuid('id')
-      .defaultRandom()
-      .primaryKey(),
+    id: uuid('id').defaultRandom().primaryKey(),
 
     occurredAt: timestamp('occurred_at', {
       withTimezone: true,
@@ -80,37 +65,23 @@ export const auditLogs = pgTable(
     // Additive nullable snapshots: existing authentication events keep using
     // metadata, while state-changing events can record safe before/after data.
     // Never place passwords, hashes, cookies or raw action tokens here.
-    before: jsonb('before')
-      .$type<AuditState>(),
+    before: jsonb('before').$type<AuditState>(),
 
-    after: jsonb('after')
-      .$type<AuditState>(),
+    after: jsonb('after').$type<AuditState>(),
   },
   (table) => [
-    index('audit_logs_occurred_at_idx')
-      .on(table.occurredAt),
+    index('audit_logs_occurred_at_idx').on(table.occurredAt),
 
-    index('audit_logs_actor_user_id_occurred_at_idx')
-      .on(
-        table.actorUserId,
-        table.occurredAt,
-      ),
+    index('audit_logs_actor_user_id_occurred_at_idx').on(table.actorUserId, table.occurredAt),
 
-    index('audit_logs_action_occurred_at_idx')
-      .on(
-        table.action,
-        table.occurredAt,
-      ),
+    index('audit_logs_action_occurred_at_idx').on(table.action, table.occurredAt),
 
     check(
       'audit_logs_actor_type_check',
       sql`${table.actorType} IN ('USER', 'ANONYMOUS', 'SYSTEM')`,
     ),
 
-    check(
-      'audit_logs_outcome_check',
-      sql`${table.outcome} IN ('SUCCESS', 'FAILURE')`,
-    ),
+    check('audit_logs_outcome_check', sql`${table.outcome} IN ('SUCCESS', 'FAILURE')`),
 
     check(
       'audit_logs_actor_identity_check',

@@ -37,8 +37,7 @@ const {
 } = useAcademicCatalog()
 const { resendInvitation } = useUserInvitation()
 
-type ResendFeedbackVariant =
-  'success' | 'warning' | 'error'
+type ResendFeedbackVariant = 'success' | 'warning' | 'error'
 
 interface ResendFeedback {
   userId: string
@@ -79,32 +78,19 @@ const exportUrl = computed(() =>
   }),
 )
 
-const pageNumber = computed(
-  () => cursorHistory.value.length + 1,
-)
-const hasActiveFilters = computed(
-  () => Boolean(
-    appliedSearch.value
-    || appliedStatus.value
-    || appliedFaculty.value
-    || appliedClass.value,
-  ),
+const pageNumber = computed(() => cursorHistory.value.length + 1)
+const hasActiveFilters = computed(() =>
+  Boolean(appliedSearch.value || appliedStatus.value || appliedFaculty.value || appliedClass.value),
 )
 const availableClasses = computed(() => {
   if (!facultyInput.value) {
-    return faculties.value.flatMap(
-      faculty => faculty.classes,
-    )
+    return faculties.value.flatMap((faculty) => faculty.classes)
   }
 
-  return faculties.value.find(
-    faculty => faculty.id === facultyInput.value,
-  )?.classes ?? []
+  return faculties.value.find((faculty) => faculty.id === facultyInput.value)?.classes ?? []
 })
-const availableEditClasses = computed(() =>
-  faculties.value.find(
-    faculty => faculty.id === editForm.facultyId,
-  )?.classes ?? [],
+const availableEditClasses = computed(
+  () => faculties.value.find((faculty) => faculty.id === editForm.facultyId)?.classes ?? [],
 )
 
 function beginEdit(student: AdminStudentDirectoryItem) {
@@ -157,14 +143,12 @@ function initials(fullName: string): string {
     .trim()
     .split(/\s+/)
     .slice(-2)
-    .map(part => part.charAt(0))
+    .map((part) => part.charAt(0))
     .join('')
     .toUpperCase()
 }
 
-function getResponseStatus(
-  error: unknown,
-): number | undefined {
+function getResponseStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') {
     return undefined
   }
@@ -178,9 +162,7 @@ function getResponseStatus(
     return candidate.statusCode
   }
 
-  return typeof candidate.response?.status === 'number'
-    ? candidate.response.status
-    : undefined
+  return typeof candidate.response?.status === 'number' ? candidate.response.status : undefined
 }
 
 function beginResend(userId: string) {
@@ -194,13 +176,7 @@ function cancelResend() {
   pendingResendUserId.value = ''
 }
 
-async function confirmResend(
-  student: {
-    userId: string
-    fullName: string
-    email: string | null
-  },
-) {
+async function confirmResend(student: { userId: string; fullName: string; email: string | null }) {
   if (resendingUserId.value) return
 
   pendingResendUserId.value = ''
@@ -209,40 +185,36 @@ async function confirmResend(
 
   try {
     const response = await resendInvitation(student.userId)
-    const recipient = student.email
-      ? ` tới ${student.email}`
-      : ''
+    const recipient = student.email ? ` tới ${student.email}` : ''
 
-    resendFeedback.value = response.invitation.deliveryStatus === 'SENT'
-      ? {
-          userId: student.userId,
-          variant: 'success',
-          title: 'Đã gửi lại lời mời',
-          message: `Liên kết kích hoạt mới của ${student.fullName} đã được gửi${recipient}.`,
-        }
-      : {
-          userId: student.userId,
-          variant: 'warning',
-          title: 'Email chưa gửi được',
-          message: 'Token mới đã được tạo nhưng dịch vụ email chưa gửi thành công. Bạn có thể thử lại sau.',
-        }
+    resendFeedback.value =
+      response.invitation.deliveryStatus === 'SENT'
+        ? {
+            userId: student.userId,
+            variant: 'success',
+            title: 'Đã gửi lại lời mời',
+            message: `Liên kết kích hoạt mới của ${student.fullName} đã được gửi${recipient}.`,
+          }
+        : {
+            userId: student.userId,
+            variant: 'warning',
+            title: 'Email chưa gửi được',
+            message:
+              'Token mới đã được tạo nhưng dịch vụ email chưa gửi thành công. Bạn có thể thử lại sau.',
+          }
   } catch (error: unknown) {
     const status = getResponseStatus(error)
-    let message =
-      'Không thể gửi lại lời mời lúc này. Vui lòng thử lại sau.'
+    let message = 'Không thể gửi lại lời mời lúc này. Vui lòng thử lại sau.'
 
     if (status === 401) {
-      message =
-        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+      message = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
     } else if (status === 403) {
       message =
         'Bạn không có quyền gửi lời mời cho sinh viên này hoặc sinh viên nằm ngoài phạm vi được giao.'
     } else if (status === 404 || status === 409) {
-      message =
-        'Tài khoản không còn ở trạng thái có thể gửi lại lời mời. Hãy làm mới danh sách.'
+      message = 'Tài khoản không còn ở trạng thái có thể gửi lại lời mời. Hãy làm mới danh sách.'
     } else if (status === 429) {
-      message =
-        'Bạn đã gửi lại quá nhiều lần. Vui lòng chờ 15 phút rồi thử lại.'
+      message = 'Bạn đã gửi lại quá nhiều lần. Vui lòng chờ 15 phút rồi thử lại.'
     }
 
     resendFeedback.value = {
@@ -256,26 +228,16 @@ async function confirmResend(
   }
 }
 
-async function loadPage(
-  cursor = currentCursor.value,
-) {
+async function loadPage(cursor = currentCursor.value) {
   pendingResendUserId.value = ''
 
   return await load({
     limit: PAGE_SIZE,
     ...(cursor ? { after: cursor } : {}),
-    ...(appliedStatus.value
-      ? { status: appliedStatus.value }
-      : {}),
-    ...(appliedSearch.value
-      ? { search: appliedSearch.value }
-      : {}),
-    ...(appliedFaculty.value
-      ? { facultyId: appliedFaculty.value }
-      : {}),
-    ...(appliedClass.value
-      ? { classId: appliedClass.value }
-      : {}),
+    ...(appliedStatus.value ? { status: appliedStatus.value } : {}),
+    ...(appliedSearch.value ? { search: appliedSearch.value } : {}),
+    ...(appliedFaculty.value ? { facultyId: appliedFaculty.value } : {}),
+    ...(appliedClass.value ? { classId: appliedClass.value } : {}),
   })
 }
 
@@ -322,17 +284,17 @@ watch(facultyInput, () => {
   classInput.value = ''
 })
 
-watch(() => editForm.facultyId, (facultyId, previousFacultyId) => {
-  if (previousFacultyId && facultyId !== previousFacultyId) {
-    editForm.classId = ''
-  }
-})
+watch(
+  () => editForm.facultyId,
+  (facultyId, previousFacultyId) => {
+    if (previousFacultyId && facultyId !== previousFacultyId) {
+      editForm.classId = ''
+    }
+  },
+)
 
 onMounted(() => {
-  void Promise.all([
-    loadPage(),
-    loadCatalog(),
-  ])
+  void Promise.all([loadPage(), loadCatalog()])
 })
 </script>
 
@@ -347,10 +309,7 @@ onMounted(() => {
         </p>
       </div>
       <div class="student-directory__header-actions">
-        <NuxtLink
-          class="student-directory__import"
-          to="/admin/students/import"
-        >
+        <NuxtLink class="student-directory__import" to="/admin/students/import">
           Import danh sách
         </NuxtLink>
 
@@ -363,11 +322,7 @@ onMounted(() => {
           Tải Excel mẫu
         </a>
 
-        <a
-          class="student-directory__export"
-          :href="exportUrl"
-          download="danh-sach-sinh-vien.xlsx"
-        >
+        <a class="student-directory__export" :href="exportUrl" download="danh-sach-sinh-vien.xlsx">
           <span aria-hidden="true">⇩</span>
           Xuất Excel
         </a>
@@ -402,7 +357,7 @@ onMounted(() => {
             maxlength="100"
             placeholder="Họ tên, mã sinh viên hoặc tên đăng nhập"
             :disabled="isLoading"
-          >
+          />
         </span>
       </label>
 
@@ -410,11 +365,7 @@ onMounted(() => {
         <span>Trạng thái tài khoản</span>
         <select v-model="statusInput" :disabled="isLoading">
           <option value="">Tất cả trạng thái</option>
-          <option
-            v-for="status in studentAccountStatuses"
-            :key="status"
-            :value="status"
-          >
+          <option v-for="status in studentAccountStatuses" :key="status" :value="status">
             {{ studentAccountStatusLabels[status] }}
           </option>
         </select>
@@ -422,16 +373,9 @@ onMounted(() => {
 
       <label class="student-directory__select">
         <span>Khoa</span>
-        <select
-          v-model="facultyInput"
-          :disabled="isLoading || isCatalogLoading"
-        >
+        <select v-model="facultyInput" :disabled="isLoading || isCatalogLoading">
           <option value="">Tất cả khoa</option>
-          <option
-            v-for="faculty in faculties"
-            :key="faculty.id"
-            :value="faculty.id"
-          >
+          <option v-for="faculty in faculties" :key="faculty.id" :value="faculty.id">
             {{ faculty.code }} · {{ faculty.name }}
           </option>
         </select>
@@ -439,10 +383,7 @@ onMounted(() => {
 
       <label class="student-directory__select">
         <span>Lớp học vụ</span>
-        <select
-          v-model="classInput"
-          :disabled="isLoading || isCatalogLoading"
-        >
+        <select v-model="classInput" :disabled="isLoading || isCatalogLoading">
           <option value="">Tất cả lớp</option>
           <option
             v-for="academicClass in availableClasses"
@@ -455,9 +396,7 @@ onMounted(() => {
       </label>
 
       <div class="student-directory__filter-actions">
-        <BaseButton type="submit" :loading="isLoading">
-          Áp dụng
-        </BaseButton>
+        <BaseButton type="submit" :loading="isLoading"> Áp dụng </BaseButton>
         <BaseButton
           v-if="hasActiveFilters || searchInput || statusInput || facultyInput || classInput"
           type="button"
@@ -470,11 +409,7 @@ onMounted(() => {
       </div>
     </form>
 
-    <BaseAlert
-      v-if="catalogErrorMessage"
-      variant="warning"
-      title="Bộ lọc khoa/lớp chưa sẵn sàng"
-    >
+    <BaseAlert v-if="catalogErrorMessage" variant="warning" title="Bộ lọc khoa/lớp chưa sẵn sàng">
       {{ catalogErrorMessage }} Bạn vẫn có thể tìm theo từ khóa và trạng thái.
       <button
         type="button"
@@ -520,32 +455,22 @@ onMounted(() => {
         </NuxtLink>
       </BaseAlert>
 
-      <BaseAlert
-        v-if="editSuccessMessage"
-        variant="success"
-        title="Đã lưu thông tin sinh viên"
-      >
+      <BaseAlert v-if="editSuccessMessage" variant="success" title="Đã lưu thông tin sinh viên">
         {{ editSuccessMessage }}
       </BaseAlert>
 
       <div v-if="isLoading" class="student-directory__loading" role="status">
-        <img src="/images/naem-logo.jpg" alt="">
+        <img src="/images/naem-logo.jpg" alt="" />
         <div>
           <strong>Đang tải danh sách sinh viên</strong>
           <span>Hệ thống đang kiểm tra quyền và phạm vi dữ liệu…</span>
         </div>
       </div>
 
-      <BaseAlert
-        v-else-if="errorMessage"
-        variant="error"
-        title="Không thể hiển thị danh sách"
-      >
+      <BaseAlert v-else-if="errorMessage" variant="error" title="Không thể hiển thị danh sách">
         {{ errorMessage }}
         <div class="student-directory__error-actions">
-          <BaseButton type="button" variant="secondary" @click="loadPage()">
-            Thử lại
-          </BaseButton>
+          <BaseButton type="button" variant="secondary" @click="loadPage()"> Thử lại </BaseButton>
           <NuxtLink v-if="errorMessage.includes('hết hạn')" to="/admin/login">
             Đăng nhập lại
           </NuxtLink>
@@ -559,14 +484,10 @@ onMounted(() => {
         <span aria-hidden="true">SV</span>
         <h2>Không tìm thấy sinh viên</h2>
         <p>
-          Hãy thay đổi từ khóa hoặc trạng thái. Kết quả cũng có thể bị giới hạn bởi phạm vi được giao.
+          Hãy thay đổi từ khóa hoặc trạng thái. Kết quả cũng có thể bị giới hạn bởi phạm vi được
+          giao.
         </p>
-        <BaseButton
-          v-if="hasActiveFilters"
-          type="button"
-          variant="secondary"
-          @click="clearFilters"
-        >
+        <BaseButton v-if="hasActiveFilters" type="button" variant="secondary" @click="clearFilters">
           Xóa bộ lọc
         </BaseButton>
       </div>
@@ -595,7 +516,9 @@ onMounted(() => {
                     </div>
                   </div>
                 </td>
-                <td><code>{{ student.studentCode }}</code></td>
+                <td>
+                  <code>{{ student.studentCode }}</code>
+                </td>
                 <td>
                   <strong>{{ student.academicClass.code }}</strong>
                   <small>{{ student.academicClass.name }}</small>
@@ -674,11 +597,7 @@ onMounted(() => {
             ← Trang trước
           </button>
           <span>Trang {{ pageNumber }}</span>
-          <button
-            type="button"
-            :disabled="!nextCursor || isLoading"
-            @click="goToNextPage"
-          >
+          <button type="button" :disabled="!nextCursor || isLoading" @click="goToNextPage">
             Trang sau →
           </button>
         </nav>
@@ -703,7 +622,9 @@ onMounted(() => {
             <p class="page-eyebrow">Hồ sơ sinh viên</p>
             <h2 id="student-edit-title">Sửa thông tin cá nhân</h2>
           </div>
-          <button type="button" aria-label="Đóng" :disabled="isUpdating" @click="cancelEdit">×</button>
+          <button type="button" aria-label="Đóng" :disabled="isUpdating" @click="cancelEdit">
+            ×
+          </button>
         </header>
 
         <label>
@@ -716,13 +637,13 @@ onMounted(() => {
             maxlength="50"
             autocomplete="off"
             required
-          >
+          />
           <small>Chỉ nhập chữ số. Số 0 ở đầu vẫn được giữ nguyên.</small>
         </label>
 
         <label>
           <span>Tên sinh viên</span>
-          <input v-model="editForm.fullName" type="text" minlength="2" maxlength="255" required>
+          <input v-model="editForm.fullName" type="text" minlength="2" maxlength="255" required />
         </label>
 
         <label>
@@ -739,7 +660,11 @@ onMounted(() => {
           <span>Lớp hành chính</span>
           <select v-model="editForm.classId" :disabled="!editForm.facultyId" required>
             <option value="" disabled>Chọn lớp hành chính</option>
-            <option v-for="academicClass in availableEditClasses" :key="academicClass.id" :value="academicClass.id">
+            <option
+              v-for="academicClass in availableEditClasses"
+              :key="academicClass.id"
+              :value="academicClass.id"
+            >
               {{ academicClass.code }} · {{ academicClass.name }}
             </option>
           </select>
@@ -758,9 +683,7 @@ onMounted(() => {
           <BaseButton type="button" variant="secondary" :disabled="isUpdating" @click="cancelEdit">
             Hủy
           </BaseButton>
-          <BaseButton type="submit" :loading="isUpdating">
-            Lưu thay đổi
-          </BaseButton>
+          <BaseButton type="submit" :loading="isUpdating"> Lưu thay đổi </BaseButton>
         </footer>
       </form>
     </div>
@@ -768,122 +691,674 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.student-directory { display: grid; gap: 24px; }
-.student-directory__header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
-.student-directory__header > div { max-width: 720px; }
-.student-directory__header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 9px; }
-.student-directory__header-actions .student-directory__import { display: inline-flex; min-height: 44px; align-items: center; padding: 10px 16px; border: 1px solid var(--color-border); border-radius: 12px; color: var(--color-primary); background: var(--color-surface); font-size: 14px; font-weight: 750; text-decoration: none; transition: border-color 160ms ease, background-color 160ms ease; }
-.student-directory__header-actions .student-directory__import:hover { border-color: #b9d6ff; background: var(--color-primary-soft); }
-.student-directory__template { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; padding: 10px 16px; border: 1px solid #b9d6ff; border-radius: 12px; color: var(--color-primary-dark); background: var(--color-primary-soft); font-size: 14px; font-weight: 750; text-decoration: none; transition: border-color 160ms ease, background-color 160ms ease; }
-.student-directory__template:hover { border-color: var(--color-primary); background: #e2f0ff; }
-.student-directory__export { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; padding: 10px 16px; border: 1px solid #b9d6ff; border-radius: 12px; color: var(--color-primary-dark); background: var(--color-primary-soft); font-size: 14px; font-weight: 750; text-decoration: none; transition: border-color 160ms ease, background-color 160ms ease; }
-.student-directory__export:hover { border-color: var(--color-primary); background: #e2f0ff; }
-.student-directory__invite { display: inline-flex; min-height: 44px; flex: 0 0 auto; align-items: center; gap: 7px; padding: 10px 17px; border-radius: 12px; color: #fff; background: linear-gradient(135deg, var(--color-primary), #205c94); box-shadow: 0 8px 20px rgb(23 76 130 / 20%); font-size: 14px; font-weight: 750; text-decoration: none; transition: transform 160ms ease, box-shadow 160ms ease; }
-.student-directory__invite:hover { transform: translateY(-1px); box-shadow: 0 11px 24px rgb(23 76 130 / 28%); }
-.student-directory__scope-note { display: flex; align-items: center; gap: 13px; padding: 14px 17px; border: 1px solid #cfe2f5; border-radius: 14px; color: var(--color-primary-dark); background: linear-gradient(100deg, #edf6ff, #f8fbff); }
-.student-directory__scope-note > span { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border-radius: 9px; color: #fff; background: var(--color-primary); font-weight: 800; }
-.student-directory__scope-note p { display: grid; gap: 2px; margin: 0; font-size: 13px; line-height: 1.45; }
-.student-directory__scope-note strong { font-size: 14px; }
-.student-directory__filters { display: grid; grid-template-columns: minmax(240px, 1fr) repeat(3, minmax(150px, .48fr)); align-items: end; gap: 14px; padding: 20px; border-radius: 18px; }
-.student-directory__filters label { display: grid; gap: 8px; color: var(--color-text); font-size: 13px; font-weight: 700; }
-.student-directory__search-control { position: relative; display: block; }
-.student-directory__search-control > span { position: absolute; top: 50%; left: 14px; color: var(--color-subtle); font-size: 20px; transform: translateY(-52%); }
+.student-directory {
+  display: grid;
+  gap: 24px;
+}
+.student-directory__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.student-directory__header > div {
+  max-width: 720px;
+}
+.student-directory__header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+}
+.student-directory__header-actions .student-directory__import {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  color: var(--color-primary);
+  background: var(--color-surface);
+  font-size: 14px;
+  font-weight: 750;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+.student-directory__header-actions .student-directory__import:hover {
+  border-color: #b9d6ff;
+  background: var(--color-primary-soft);
+}
+.student-directory__template {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border: 1px solid #b9d6ff;
+  border-radius: 12px;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-soft);
+  font-size: 14px;
+  font-weight: 750;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+.student-directory__template:hover {
+  border-color: var(--color-primary);
+  background: #e2f0ff;
+}
+.student-directory__export {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border: 1px solid #b9d6ff;
+  border-radius: 12px;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-soft);
+  font-size: 14px;
+  font-weight: 750;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+.student-directory__export:hover {
+  border-color: var(--color-primary);
+  background: #e2f0ff;
+}
+.student-directory__invite {
+  display: inline-flex;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 17px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-primary), #205c94);
+  box-shadow: 0 8px 20px rgb(23 76 130 / 20%);
+  font-size: 14px;
+  font-weight: 750;
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+.student-directory__invite:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 11px 24px rgb(23 76 130 / 28%);
+}
+.student-directory__scope-note {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 17px;
+  border: 1px solid #cfe2f5;
+  border-radius: 14px;
+  color: var(--color-primary-dark);
+  background: linear-gradient(100deg, #edf6ff, #f8fbff);
+}
+.student-directory__scope-note > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 9px;
+  color: #fff;
+  background: var(--color-primary);
+  font-weight: 800;
+}
+.student-directory__scope-note p {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.student-directory__scope-note strong {
+  font-size: 14px;
+}
+.student-directory__filters {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) repeat(3, minmax(150px, 0.48fr));
+  align-items: end;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 18px;
+}
+.student-directory__filters label {
+  display: grid;
+  gap: 8px;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.student-directory__search-control {
+  position: relative;
+  display: block;
+}
+.student-directory__search-control > span {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  color: var(--color-subtle);
+  font-size: 20px;
+  transform: translateY(-52%);
+}
 .student-directory__filters input,
-.student-directory__filters select { width: 100%; min-height: 46px; border: 1px solid var(--color-border); border-radius: 11px; color: var(--color-text); background: #fbfdff; transition: border-color 150ms ease, box-shadow 150ms ease; }
-.student-directory__filters input { padding: 10px 14px 10px 42px; }
-.student-directory__filters select { padding: 10px 36px 10px 13px; }
+.student-directory__filters select {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  color: var(--color-text);
+  background: #fbfdff;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+.student-directory__filters input {
+  padding: 10px 14px 10px 42px;
+}
+.student-directory__filters select {
+  padding: 10px 36px 10px 13px;
+}
 .student-directory__filters input:focus,
-.student-directory__filters select:focus { border-color: var(--color-primary); outline: 0; background: #fff; box-shadow: 0 0 0 4px rgb(21 94 239 / 10%); }
-.student-directory__filter-actions { display: flex; grid-column: 1 / -1; gap: 8px; }
-.student-directory__catalog-retry { display: block; margin-top: 8px; padding: 0; border: 0; color: currentcolor; background: transparent; cursor: pointer; font-size: 13px; font-weight: 800; text-decoration: underline; }
-.student-directory__catalog-retry:disabled { cursor: wait; opacity: .6; }
-.student-directory__result-heading { display: flex; min-height: 45px; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
-.student-directory__result-heading h2 { margin-bottom: 3px; font-size: 18px; }
-.student-directory__result-heading p { margin: 0; color: var(--color-muted); font-size: 13px; }
-.student-directory__refresh { padding: 7px 2px; border: 0; color: var(--color-primary); background: transparent; cursor: pointer; font-size: 13px; font-weight: 750; }
-.student-directory__refresh:disabled { cursor: wait; opacity: .55; }
-.student-directory__loading { display: flex; min-height: 220px; align-items: center; justify-content: center; gap: 18px; border: 1px solid var(--color-border); border-radius: 18px; background: var(--color-surface); }
-.student-directory__loading img { width: 58px; height: 58px; border-radius: 13px; object-fit: cover; box-shadow: 0 8px 24px rgb(11 31 64 / 15%); animation: loading-pulse 1.4s ease-in-out infinite; }
-.student-directory__loading div { display: grid; gap: 5px; }
-.student-directory__loading span { color: var(--color-muted); font-size: 13px; }
-.student-directory__error-actions { display: flex; align-items: center; gap: 15px; margin-top: 10px; }
-.student-directory__error-actions a { color: var(--color-primary); font-weight: 750; }
-.student-directory__feedback-link { display: inline-block; margin-left: 8px; color: currentcolor; font-weight: 800; }
-.student-directory__empty { display: grid; min-height: 280px; place-items: center; align-content: center; gap: 9px; padding: 32px; text-align: center; }
-.student-directory__empty > span { display: grid; width: 58px; height: 58px; place-items: center; border: 1px solid #cfe2f5; border-radius: 17px; color: var(--color-primary); background: var(--color-primary-soft); font-weight: 850; }
-.student-directory__empty h2 { margin: 3px 0 0; font-size: 19px; }
-.student-directory__empty p { max-width: 510px; margin: 0 0 6px; color: var(--color-muted); font-size: 14px; line-height: 1.6; }
-.student-directory__table-wrap { overflow: hidden; border-radius: 18px; }
-.student-directory table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.student-directory th { padding: 13px 16px; border-bottom: 1px solid var(--color-border); color: var(--color-muted); background: #f6f9fd; font-size: 10px; letter-spacing: .055em; text-align: left; text-transform: uppercase; }
-.student-directory td { padding: 15px 16px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-.student-directory tbody tr { transition: background-color 140ms ease; }
-.student-directory tbody tr:hover { background: #f8fbff; }
-.student-directory tbody tr:last-child td { border-bottom: 0; }
+.student-directory__filters select:focus {
+  border-color: var(--color-primary);
+  outline: 0;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(21 94 239 / 10%);
+}
+.student-directory__filter-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+}
+.student-directory__catalog-retry {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  color: currentcolor;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: underline;
+}
+.student-directory__catalog-retry:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.student-directory__result-heading {
+  display: flex;
+  min-height: 45px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 12px;
+}
+.student-directory__result-heading h2 {
+  margin-bottom: 3px;
+  font-size: 18px;
+}
+.student-directory__result-heading p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.student-directory__refresh {
+  padding: 7px 2px;
+  border: 0;
+  color: var(--color-primary);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 750;
+}
+.student-directory__refresh:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+.student-directory__loading {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface);
+}
+.student-directory__loading img {
+  width: 58px;
+  height: 58px;
+  border-radius: 13px;
+  object-fit: cover;
+  box-shadow: 0 8px 24px rgb(11 31 64 / 15%);
+  animation: loading-pulse 1.4s ease-in-out infinite;
+}
+.student-directory__loading div {
+  display: grid;
+  gap: 5px;
+}
+.student-directory__loading span {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.student-directory__error-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 10px;
+}
+.student-directory__error-actions a {
+  color: var(--color-primary);
+  font-weight: 750;
+}
+.student-directory__feedback-link {
+  display: inline-block;
+  margin-left: 8px;
+  color: currentcolor;
+  font-weight: 800;
+}
+.student-directory__empty {
+  display: grid;
+  min-height: 280px;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  padding: 32px;
+  text-align: center;
+}
+.student-directory__empty > span {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid #cfe2f5;
+  border-radius: 17px;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-weight: 850;
+}
+.student-directory__empty h2 {
+  margin: 3px 0 0;
+  font-size: 19px;
+}
+.student-directory__empty p {
+  max-width: 510px;
+  margin: 0 0 6px;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.student-directory__table-wrap {
+  overflow: hidden;
+  border-radius: 18px;
+}
+.student-directory table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.student-directory th {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-muted);
+  background: #f6f9fd;
+  font-size: 10px;
+  letter-spacing: 0.055em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.student-directory td {
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+.student-directory tbody tr {
+  transition: background-color 140ms ease;
+}
+.student-directory tbody tr:hover {
+  background: #f8fbff;
+}
+.student-directory tbody tr:last-child td {
+  border-bottom: 0;
+}
 .student-directory td > strong,
-.student-directory td > small { display: block; }
-.student-directory td > strong { margin-bottom: 3px; }
-.student-directory td > small { max-width: 220px; overflow: hidden; color: var(--color-muted); text-overflow: ellipsis; white-space: nowrap; }
-.student-directory code { padding: 4px 7px; border-radius: 7px; color: var(--color-primary-dark); background: var(--color-primary-soft); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 750; }
-.student-directory__identity { display: flex; min-width: 220px; align-items: center; gap: 11px; }
-.student-directory__identity > span { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border-radius: 11px; color: #fff; background: linear-gradient(145deg, var(--color-primary), #3272aa); font-size: 11px; font-weight: 800; }
-.student-directory__identity div { display: grid; gap: 3px; min-width: 0; }
-.student-directory__identity small { overflow: hidden; max-width: 220px; color: var(--color-muted); text-overflow: ellipsis; white-space: nowrap; }
-.student-directory__status { display: inline-flex; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 750; white-space: nowrap; }
-.student-directory__status--active { color: var(--color-success); background: var(--color-success-background); }
-.student-directory__status--invited { color: var(--color-info); background: var(--color-info-background); }
-.student-directory__status--inactive { color: var(--color-muted); background: #edf1f5; }
-.student-directory__status--suspended { color: var(--color-error); background: var(--color-error-background); }
+.student-directory td > small {
+  display: block;
+}
+.student-directory td > strong {
+  margin-bottom: 3px;
+}
+.student-directory td > small {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.student-directory code {
+  padding: 4px 7px;
+  border-radius: 7px;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-soft);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 750;
+}
+.student-directory__identity {
+  display: flex;
+  min-width: 220px;
+  align-items: center;
+  gap: 11px;
+}
+.student-directory__identity > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 11px;
+  color: #fff;
+  background: linear-gradient(145deg, var(--color-primary), #3272aa);
+  font-size: 11px;
+  font-weight: 800;
+}
+.student-directory__identity div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.student-directory__identity small {
+  overflow: hidden;
+  max-width: 220px;
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.student-directory__status {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.student-directory__status--active {
+  color: var(--color-success);
+  background: var(--color-success-background);
+}
+.student-directory__status--invited {
+  color: var(--color-info);
+  background: var(--color-info-background);
+}
+.student-directory__status--inactive {
+  color: var(--color-muted);
+  background: #edf1f5;
+}
+.student-directory__status--suspended {
+  color: var(--color-error);
+  background: var(--color-error-background);
+}
 .student-directory__action-heading,
-.student-directory__action-cell { width: 180px; text-align: right !important; }
-.student-directory__resend-button { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; border: 1px solid #b9d6ff; border-radius: 9px; color: var(--color-primary-dark); background: var(--color-primary-soft); cursor: pointer; font-size: 12px; font-weight: 780; white-space: nowrap; transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease; }
-.student-directory__edit-button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; margin-bottom: 6px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 9px; color: var(--color-primary); background: #fff; cursor: pointer; font-size: 12px; font-weight: 780; white-space: nowrap; }
-.student-directory__edit-button:hover:not(:disabled) { border-color: var(--color-primary); background: var(--color-primary-soft); }
-.student-directory__modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; overflow-y: auto; place-items: center; padding: 24px; background: rgb(8 24 43 / 58%); }
-.student-directory__edit-modal { display: grid; width: min(560px, 100%); gap: 18px; padding: 24px; border-radius: 18px; box-shadow: 0 24px 70px rgb(0 0 0 / 25%); }
-.student-directory__edit-modal header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.student-directory__edit-modal h2 { margin: 2px 0 0; }
-.student-directory__edit-modal header > button { width: 36px; height: 36px; border: 0; border-radius: 9px; color: var(--color-muted); background: #f2f5f8; cursor: pointer; font-size: 24px; }
-.student-directory__edit-modal label { display: grid; gap: 7px; color: var(--color-text); font-size: 13px; font-weight: 750; }
+.student-directory__action-cell {
+  width: 180px;
+  text-align: right !important;
+}
+.student-directory__resend-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid #b9d6ff;
+  border-radius: 9px;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-soft);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 780;
+  white-space: nowrap;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+.student-directory__edit-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  color: var(--color-primary);
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 780;
+  white-space: nowrap;
+}
+.student-directory__edit-button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.student-directory__modal-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  overflow-y: auto;
+  place-items: center;
+  padding: 24px;
+  background: rgb(8 24 43 / 58%);
+}
+.student-directory__edit-modal {
+  display: grid;
+  width: min(560px, 100%);
+  gap: 18px;
+  padding: 24px;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 25%);
+}
+.student-directory__edit-modal header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.student-directory__edit-modal h2 {
+  margin: 2px 0 0;
+}
+.student-directory__edit-modal header > button {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--color-muted);
+  background: #f2f5f8;
+  cursor: pointer;
+  font-size: 24px;
+}
+.student-directory__edit-modal label {
+  display: grid;
+  gap: 7px;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 750;
+}
 .student-directory__edit-modal input,
-.student-directory__edit-modal select { min-height: 45px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px; background: #fff; }
-.student-directory__edit-modal small { color: var(--color-muted); font-weight: 500; }
-.student-directory__edit-modal footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 4px; }
-.student-directory__resend-button:hover:not(:disabled) { border-color: var(--color-primary); background: #e2f0ff; transform: translateY(-1px); }
-.student-directory__resend-button:disabled { cursor: wait; opacity: .6; }
-.student-directory__confirmation { display: grid; justify-items: end; gap: 6px; }
-.student-directory__confirmation > span { color: var(--color-text); font-size: 12px; font-weight: 750; white-space: nowrap; }
-.student-directory__confirmation > div { display: flex; justify-content: flex-end; gap: 5px; }
+.student-directory__edit-modal select {
+  min-height: 45px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+}
+.student-directory__edit-modal small {
+  color: var(--color-muted);
+  font-weight: 500;
+}
+.student-directory__edit-modal footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding-top: 4px;
+}
+.student-directory__resend-button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: #e2f0ff;
+  transform: translateY(-1px);
+}
+.student-directory__resend-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.student-directory__confirmation {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+.student-directory__confirmation > span {
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.student-directory__confirmation > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+}
 .student-directory__confirm-button,
-.student-directory__cancel-button { min-height: 31px; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 11px; font-weight: 800; }
-.student-directory__confirm-button { border: 1px solid var(--color-primary); color: #fff; background: var(--color-primary); }
-.student-directory__cancel-button { border: 1px solid var(--color-border); color: var(--color-muted); background: #fff; }
+.student-directory__cancel-button {
+  min-height: 31px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+.student-directory__confirm-button {
+  border: 1px solid var(--color-primary);
+  color: #fff;
+  background: var(--color-primary);
+}
+.student-directory__cancel-button {
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+  background: #fff;
+}
 .student-directory__confirm-button:disabled,
-.student-directory__cancel-button:disabled { cursor: wait; opacity: .6; }
-.student-directory__no-action { color: var(--color-subtle); }
-.student-directory__pagination { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.student-directory__cancel-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.student-directory__no-action {
+  color: var(--color-subtle);
+}
+.student-directory__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
 .student-directory__pagination button,
-.student-directory__pagination span { min-height: 38px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); font-size: 12px; font-weight: 700; }
-.student-directory__pagination button { color: var(--color-primary); cursor: pointer; }
-.student-directory__pagination button:hover:not(:disabled) { border-color: #b9d6ff; background: var(--color-primary-soft); }
-.student-directory__pagination button:disabled { color: var(--color-subtle); cursor: not-allowed; opacity: .65; }
-.student-directory__pagination span { display: grid; place-items: center; color: var(--color-muted); }
-@keyframes loading-pulse { 50% { transform: scale(.95); opacity: .7; } }
+.student-directory__pagination span {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  font-size: 12px;
+  font-weight: 700;
+}
+.student-directory__pagination button {
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.student-directory__pagination button:hover:not(:disabled) {
+  border-color: #b9d6ff;
+  background: var(--color-primary-soft);
+}
+.student-directory__pagination button:disabled {
+  color: var(--color-subtle);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.student-directory__pagination span {
+  display: grid;
+  place-items: center;
+  color: var(--color-muted);
+}
+@keyframes loading-pulse {
+  50% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+}
 @media (max-width: 960px) {
-  .student-directory__filters { grid-template-columns: 1fr 220px; }
-  .student-directory__filter-actions { grid-column: 1 / -1; }
-  .student-directory__table-wrap { overflow-x: auto; }
-  .student-directory table { min-width: 900px; }
+  .student-directory__filters {
+    grid-template-columns: 1fr 220px;
+  }
+  .student-directory__filter-actions {
+    grid-column: 1 / -1;
+  }
+  .student-directory__table-wrap {
+    overflow-x: auto;
+  }
+  .student-directory table {
+    min-width: 900px;
+  }
 }
 @media (max-width: 640px) {
-  .student-directory__header { align-items: stretch; flex-direction: column; }
-  .student-directory__header-actions { align-items: stretch; flex-direction: column; }
-  .student-directory__header-actions > a { justify-content: center; }
-  .student-directory__invite { align-self: flex-start; }
-  .student-directory__filters { grid-template-columns: 1fr; padding: 17px; }
-  .student-directory__filter-actions { grid-column: auto; flex-wrap: wrap; }
-  .student-directory__scope-note { align-items: flex-start; }
-  .student-directory__loading { align-items: center; flex-direction: column; padding: 28px; text-align: center; }
-  .student-directory__pagination { justify-content: space-between; }
+  .student-directory__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .student-directory__header-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .student-directory__header-actions > a {
+    justify-content: center;
+  }
+  .student-directory__invite {
+    align-self: flex-start;
+  }
+  .student-directory__filters {
+    grid-template-columns: 1fr;
+    padding: 17px;
+  }
+  .student-directory__filter-actions {
+    grid-column: auto;
+    flex-wrap: wrap;
+  }
+  .student-directory__scope-note {
+    align-items: flex-start;
+  }
+  .student-directory__loading {
+    align-items: center;
+    flex-direction: column;
+    padding: 28px;
+    text-align: center;
+  }
+  .student-directory__pagination {
+    justify-content: space-between;
+  }
 }
 </style>

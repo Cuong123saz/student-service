@@ -1,23 +1,10 @@
-export type AuditActorType =
-  | 'USER'
-  | 'ANONYMOUS'
-  | 'SYSTEM'
+export type AuditActorType = 'USER' | 'ANONYMOUS' | 'SYSTEM'
 
-export type AuditOutcome =
-  | 'SUCCESS'
-  | 'FAILURE'
+export type AuditOutcome = 'SUCCESS' | 'FAILURE'
 
-export type AuditMetadataValue =
-  | string
-  | number
-  | boolean
-  | null
-  | string[]
+export type AuditMetadataValue = string | number | boolean | null | string[]
 
-export type AuditState = Record<
-  string,
-  AuditMetadataValue
->
+export type AuditState = Record<string, AuditMetadataValue>
 
 export interface AuditLogItem {
   id: string

@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { roleLabels, type UserSessionUser } from '~/types/auth'
 
-const props = withDefaults(defineProps<{
-  user?: UserSessionUser | null
-  loggingOut?: boolean
-}>(), {
-  user: null,
-  loggingOut: false,
-})
+const props = withDefaults(
+  defineProps<{
+    user?: UserSessionUser | null
+    loggingOut?: boolean
+  }>(),
+  {
+    user: null,
+    loggingOut: false,
+  },
+)
 
 const emit = defineEmits<{ logout: [] }>()
 const menuOpen = ref(false)
@@ -16,7 +19,12 @@ const primaryRole = computed(() => {
   return role ? roleLabels[role] : ''
 })
 const route = useRoute()
-watch(() => route.fullPath, () => { menuOpen.value = false })
+watch(
+  () => route.fullPath,
+  () => {
+    menuOpen.value = false
+  },
+)
 </script>
 
 <template>
@@ -87,7 +95,12 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
   justify-content: space-between;
   gap: 24px;
 }
-.brand { display: inline-flex; min-width: 0; align-items: center; text-decoration: none; }
+.brand {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  text-decoration: none;
+}
 .app-header__navigation {
   display: flex;
   align-items: center;
@@ -98,12 +111,29 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
   background: rgb(248 250 252 / 78%);
   font-size: 14px;
 }
-.app-header__navigation a { color: var(--color-muted); font-weight: 650; text-decoration: none; }
-.app-header__navigation > a:not(.app-header__admin) { padding: 8px 11px; border-radius: 8px; }
+.app-header__navigation a {
+  color: var(--color-muted);
+  font-weight: 650;
+  text-decoration: none;
+}
+.app-header__navigation > a:not(.app-header__admin) {
+  padding: 8px 11px;
+  border-radius: 8px;
+}
 .app-header__navigation a:hover,
-.app-header__navigation a.router-link-active { color: var(--color-primary); background: #fff; }
-.app-header__identity { display: grid; padding: 0 12px; border-left: 1px solid var(--color-border); }
-.app-header__identity small { color: var(--color-muted); font-size: 12px; }
+.app-header__navigation a.router-link-active {
+  color: var(--color-primary);
+  background: #fff;
+}
+.app-header__identity {
+  display: grid;
+  padding: 0 12px;
+  border-left: 1px solid var(--color-border);
+}
+.app-header__identity small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
 .app-header__logout,
 .app-header__admin {
   min-height: 40px;
@@ -112,7 +142,11 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
   border-radius: 9px;
   background: var(--color-surface);
 }
-.app-header__logout { color: var(--color-muted); cursor: pointer; font-weight: 650; }
+.app-header__logout {
+  color: var(--color-muted);
+  cursor: pointer;
+  font-weight: 650;
+}
 .app-header__admin {
   color: #fff !important;
   border-color: var(--color-admin) !important;
@@ -130,7 +164,10 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
   font-size: 22px;
 }
 @media (max-width: 820px) {
-  .app-header__menu-button { display: grid; place-items: center; }
+  .app-header__menu-button {
+    display: grid;
+    place-items: center;
+  }
   .app-header__navigation {
     position: absolute;
     top: calc(100% + 1px);
@@ -147,12 +184,24 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
     background: var(--color-surface);
     box-shadow: var(--shadow-card);
   }
-  .app-header__navigation--open { display: flex; }
+  .app-header__navigation--open {
+    display: flex;
+  }
   .app-header__navigation a,
-  .app-header__logout { display: flex; min-height: 44px; align-items: center; }
-  .app-header__identity { padding: 12px 0; border-top: 1px solid var(--color-border); border-left: 0; }
+  .app-header__logout {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+  }
+  .app-header__identity {
+    padding: 12px 0;
+    border-top: 1px solid var(--color-border);
+    border-left: 0;
+  }
 }
 @media (max-width: 440px) {
-  .brand { max-width: calc(100% - 58px); }
+  .brand {
+    max-width: calc(100% - 58px);
+  }
 }
 </style>

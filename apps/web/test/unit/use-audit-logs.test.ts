@@ -1,30 +1,14 @@
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type {
-  AuditLogItem,
-  AuditLogListResponse,
-} from '../../app/types/audit-log'
-import {
-  type AuditLogFetcher,
-  useAuditLogs,
-} from '../../app/composables/useAuditLogs'
+import type { AuditLogItem, AuditLogListResponse } from '../../app/types/audit-log'
+import { type AuditLogFetcher, useAuditLogs } from '../../app/composables/useAuditLogs'
 
 const fetchMock = vi.fn()
 
-const fetcher: AuditLogFetcher =
-  async <Response>(url, options) =>
-    await fetchMock(url, options) as Response
+const fetcher: AuditLogFetcher = async <Response>(url, options) =>
+  (await fetchMock(url, options)) as Response
 
-function auditLog(
-  id: string,
-  occurredAt: string,
-): AuditLogItem {
+function auditLog(id: string, occurredAt: string): AuditLogItem {
   return {
     id,
     occurredAt,
@@ -44,9 +28,7 @@ function auditLog(
   }
 }
 
-function response(
-  auditLogs: AuditLogItem[],
-): AuditLogListResponse {
+function response(auditLogs: AuditLogItem[]): AuditLogListResponse {
   return { auditLogs }
 }
 
@@ -68,20 +50,15 @@ describe('useAuditLogs', () => {
     fetchMock.mockResolvedValueOnce(response([first]))
     const auditLogs = createAuditLogs()
 
-    await expect(
-      auditLogs.load('STUDENT_IMPORT_COMMIT'),
-    ).resolves.toBe(true)
+    await expect(auditLogs.load('STUDENT_IMPORT_COMMIT')).resolves.toBe(true)
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://api.test/api/v1/admin/audit-logs',
-      {
-        credentials: 'include',
-        query: {
-          limit: 2,
-          action: 'STUDENT_IMPORT_COMMIT',
-        },
+    expect(fetchMock).toHaveBeenCalledWith('http://api.test/api/v1/admin/audit-logs', {
+      credentials: 'include',
+      query: {
+        limit: 2,
+        action: 'STUDENT_IMPORT_COMMIT',
       },
-    )
+    })
     expect(auditLogs.auditLogs.value).toEqual([first])
     expect(auditLogs.pageNumber.value).toBe(1)
   })
@@ -91,9 +68,7 @@ describe('useAuditLogs', () => {
       auditLog('1', '2026-09-09T03:00:00.000Z'),
       auditLog('2', '2026-09-09T02:00:00.000Z'),
     ]
-    const secondPage = [
-      auditLog('3', '2026-09-09T01:00:00.000Z'),
-    ]
+    const secondPage = [auditLog('3', '2026-09-09T01:00:00.000Z')]
     fetchMock
       .mockResolvedValueOnce(response(firstPage))
       .mockResolvedValueOnce(response(secondPage))
@@ -101,8 +76,7 @@ describe('useAuditLogs', () => {
     const auditLogs = createAuditLogs()
 
     await auditLogs.load()
-    expect(auditLogs.nextCursorBefore.value)
-      .toBe('2026-09-09T02:00:00.000Z')
+    expect(auditLogs.nextCursorBefore.value).toBe('2026-09-09T02:00:00.000Z')
 
     await expect(auditLogs.nextPage()).resolves.toBe(true)
     expect(fetchMock.mock.calls[1]?.[1]).toEqual({
@@ -128,8 +102,7 @@ describe('useAuditLogs', () => {
 
     await expect(auditLogs.load()).resolves.toBe(false)
 
-    expect(auditLogs.errorMessage.value)
-      .toContain('chưa được cấp quyền')
+    expect(auditLogs.errorMessage.value).toContain('chưa được cấp quyền')
     expect(auditLogs.auditLogs.value).toEqual([])
   })
 })

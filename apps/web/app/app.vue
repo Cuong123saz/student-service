@@ -38,7 +38,7 @@ onMounted(() => {
             alt="Logo Học viện Quản lý Giáo dục"
             width="96"
             height="96"
-          >
+          />
         </span>
 
         <div class="academy-loading__identity">
@@ -107,16 +107,16 @@ onMounted(() => {
 }
 
 .academy-loading__identity strong {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(1.35rem, 3.2vw, 2rem);
   line-height: 1.18;
-  letter-spacing: .015em;
+  letter-spacing: 0.015em;
 }
 
 .academy-loading__identity span {
-  font-size: clamp(.7rem, 1.7vw, .95rem);
+  font-size: clamp(0.7rem, 1.7vw, 0.95rem);
   font-weight: 750;
-  letter-spacing: .055em;
+  letter-spacing: 0.055em;
 }
 
 .academy-loading__progress {
@@ -141,7 +141,7 @@ onMounted(() => {
   color: rgb(20 45 111 / 68%);
   font-size: 13px;
   font-weight: 650;
-  letter-spacing: .03em;
+  letter-spacing: 0.03em;
 }
 
 .academy-loader-enter-active,
@@ -155,13 +155,22 @@ onMounted(() => {
 }
 
 @keyframes academy-logo-pulse {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 @keyframes academy-progress {
-  0% { transform: translateX(-110%); }
-  100% { transform: translateX(240%); }
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(240%);
+  }
 }
 
 @media (max-width: 620px) {

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
-  dark?: boolean
-  compact?: boolean
-}>(), {
-  dark: false,
-  compact: false,
-})
+withDefaults(
+  defineProps<{
+    dark?: boolean
+    compact?: boolean
+  }>(),
+  {
+    dark: false,
+    compact: false,
+  },
+)
 </script>
 
 <template>
@@ -22,7 +25,7 @@ withDefaults(defineProps<{
       alt="Logo Học viện Quản lý Giáo dục"
       width="52"
       height="52"
-    >
+    />
     <span class="academy-brand__text">
       <strong>HỌC VIỆN QUẢN LÝ GIÁO DỤC</strong>
       <small>NATIONAL ACADEMY OF EDUCATION MANAGEMENT</small>
@@ -57,10 +60,10 @@ withDefaults(defineProps<{
 .academy-brand__text strong {
   overflow: hidden;
   color: var(--color-text);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: 15px;
   font-weight: 700;
-  letter-spacing: .015em;
+  letter-spacing: 0.015em;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -70,22 +73,44 @@ withDefaults(defineProps<{
   color: var(--color-muted);
   font-size: 9px;
   font-weight: 750;
-  letter-spacing: .045em;
+  letter-spacing: 0.045em;
   line-height: 1.3;
 }
 
-.academy-brand--dark .academy-brand__text strong { color: #fff; }
-.academy-brand--dark .academy-brand__text small { color: rgb(255 255 255 / 56%); }
-.academy-brand--dark .academy-brand__logo { box-shadow: 0 9px 24px rgb(0 0 0 / 25%); }
+.academy-brand--dark .academy-brand__text strong {
+  color: #fff;
+}
+.academy-brand--dark .academy-brand__text small {
+  color: rgb(255 255 255 / 56%);
+}
+.academy-brand--dark .academy-brand__logo {
+  box-shadow: 0 9px 24px rgb(0 0 0 / 25%);
+}
 
-.academy-brand--compact { gap: 10px; }
-.academy-brand--compact .academy-brand__logo { width: 42px; height: 42px; }
-.academy-brand--compact .academy-brand__text strong { font-size: 12px; }
-.academy-brand--compact .academy-brand__text small { font-size: 8px; }
+.academy-brand--compact {
+  gap: 10px;
+}
+.academy-brand--compact .academy-brand__logo {
+  width: 42px;
+  height: 42px;
+}
+.academy-brand--compact .academy-brand__text strong {
+  font-size: 12px;
+}
+.academy-brand--compact .academy-brand__text small {
+  font-size: 8px;
+}
 
 @media (max-width: 460px) {
-  .academy-brand__logo { width: 42px; height: 42px; }
-  .academy-brand__text strong { font-size: 11px; }
-  .academy-brand__text small { display: none; }
+  .academy-brand__logo {
+    width: 42px;
+    height: 42px;
+  }
+  .academy-brand__text strong {
+    font-size: 11px;
+  }
+  .academy-brand__text small {
+    display: none;
+  }
 }
 </style>

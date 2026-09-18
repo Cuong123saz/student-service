@@ -12,28 +12,17 @@ export interface AcademicCatalogFaculty {
 }
 
 export interface AcademicCatalogRepository {
-  listVisibleTo(
-    actorUserId: string,
-  ): Promise<AcademicCatalogFaculty[]>
+  listVisibleTo(actorUserId: string): Promise<AcademicCatalogFaculty[]>
 }
 
 export interface AcademicCatalogUseCase {
-  listVisibleCatalog(
-    actorUserId: string,
-  ): Promise<AcademicCatalogFaculty[]>
+  listVisibleCatalog(actorUserId: string): Promise<AcademicCatalogFaculty[]>
 }
 
-export class AcademicCatalogService
-implements AcademicCatalogUseCase {
-  constructor(
-    private readonly repository:
-      AcademicCatalogRepository,
-  ) {}
+export class AcademicCatalogService implements AcademicCatalogUseCase {
+  constructor(private readonly repository: AcademicCatalogRepository) {}
 
-  listVisibleCatalog(
-    actorUserId: string,
-  ): Promise<AcademicCatalogFaculty[]> {
-    return this.repository
-      .listVisibleTo(actorUserId)
+  listVisibleCatalog(actorUserId: string): Promise<AcademicCatalogFaculty[]> {
+    return this.repository.listVisibleTo(actorUserId)
   }
 }

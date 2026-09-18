@@ -1,20 +1,11 @@
-import type {
-  FastifyReply,
-  FastifyRequest,
-} from 'fastify'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 
-import {
-  ADMIN_JWT_AUDIENCE,
-  JWT_ISSUER,
-} from './auth.constants.js'
+import { ADMIN_JWT_AUDIENCE, JWT_ISSUER } from './auth.constants.js'
 import { isAdminSession } from './auth-session.js'
-export async function requireAdminSession(
-  request: FastifyRequest,
-  reply: FastifyReply,
-) { 
-     let decoded: unknown
-   try {
-   decoded = await request.jwtVerify({
+export async function requireAdminSession(request: FastifyRequest, reply: FastifyReply) {
+  let decoded: unknown
+  try {
+    decoded = await request.jwtVerify({
       onlyCookie: true,
       allowedAud: ADMIN_JWT_AUDIENCE,
       allowedIss: JWT_ISSUER,
@@ -31,11 +22,7 @@ export async function requireAdminSession(
     })
   }
 
-  const hasAdminRole = decoded.roles.some(
-    (role) =>
-      role === 'ADMIN' ||
-      role === 'SYSTEM_ADMIN',
-  )
+  const hasAdminRole = decoded.roles.some((role) => role === 'ADMIN' || role === 'SYSTEM_ADMIN')
 
   if (!hasAdminRole) {
     return reply.code(403).send({
@@ -44,12 +31,8 @@ export async function requireAdminSession(
   }
   request.adminSession = decoded
 }
-export async function requireAdminReadySession(
-  request: FastifyRequest,
-  reply: FastifyReply,
-) {
-  const session =
-    request.adminSession
+export async function requireAdminReadySession(request: FastifyRequest, reply: FastifyReply) {
+  const session = request.adminSession
 
   if (!session) {
     return reply.code(401).send({
@@ -59,16 +42,12 @@ export async function requireAdminReadySession(
 
   if (session.mustChangePassword) {
     return reply.code(403).send({
-      message:
-        'Password change required',
+      message: 'Password change required',
     })
   }
 }
 
-export async function requireSystemAdminSession(
-  request: FastifyRequest,
-  reply: FastifyReply,
-) {
+export async function requireSystemAdminSession(request: FastifyRequest, reply: FastifyReply) {
   const session = request.adminSession
 
   if (!session) {
@@ -77,10 +56,7 @@ export async function requireSystemAdminSession(
     })
   }
 
-  if (
-    !session.roles
-      .includes('SYSTEM_ADMIN')
-  ) {
+  if (!session.roles.includes('SYSTEM_ADMIN')) {
     return reply.code(403).send({
       message: 'Forbidden',
     })

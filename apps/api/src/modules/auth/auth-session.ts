@@ -1,26 +1,18 @@
 import { Type, type Static } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
 
-import {
-  ADMIN_JWT_AUDIENCE,
-  JWT_ISSUER,
-  USER_JWT_AUDIENCE,
-} from './auth.constants.js'
+import { ADMIN_JWT_AUDIENCE, JWT_ISSUER, USER_JWT_AUDIENCE } from './auth.constants.js'
 export const sessionTokenPayloadSchema = Type.Object({
   sub: Type.String({ minLength: 1 }),
   username: Type.String({ minLength: 1 }),
   roles: Type.Array(Type.String({ minLength: 1 })),
-  portal: Type.Union([
-    Type.Literal('admin'),
-    Type.Literal('user'),
-  ]),
+  portal: Type.Union([Type.Literal('admin'), Type.Literal('user')]),
   mustChangePassword: Type.Boolean(),
   aud: Type.String({ minLength: 1 }),
   iss: Type.String({ minLength: 1 }),
 })
 
-export type SessionTokenPayload =
-  Static<typeof sessionTokenPayloadSchema>
+export type SessionTokenPayload = Static<typeof sessionTokenPayloadSchema>
 
 export const adminSessionSchema = Type.Object({
   sub: Type.String({ minLength: 1 }),
@@ -36,57 +28,42 @@ export const adminSessionSchema = Type.Object({
 
 export type AdminSession = Static<typeof adminSessionSchema>
 
-export function isAdminSession(
-  value: unknown,
-): value is AdminSession {
+export function isAdminSession(value: unknown): value is AdminSession {
   return Value.Check(adminSessionSchema, value)
 }
-export function isUserSession(
-  value: unknown,
-): value is UserSession {
-  return Value.Check(
-    userSessionSchema,
-    value,
-  )
+export function isUserSession(value: unknown): value is UserSession {
+  return Value.Check(userSessionSchema, value)
 }
-export const userSessionSchema =
-  Type.Object({
-    sub: Type.String({
+export const userSessionSchema = Type.Object({
+  sub: Type.String({
+    minLength: 1,
+  }),
+
+  username: Type.String({
+    minLength: 1,
+  }),
+
+  mustChangePassword: Type.Boolean(),
+
+  roles: Type.Array(
+    Type.String({
       minLength: 1,
     }),
+  ),
 
-    username: Type.String({
-      minLength: 1,
-    }),
+  portal: Type.Literal('user'),
 
-    mustChangePassword:
-      Type.Boolean(),
+  aud: Type.Literal(USER_JWT_AUDIENCE),
 
-    roles: Type.Array(
-      Type.String({
-        minLength: 1,
-      }),
-    ),
+  iss: Type.Literal(JWT_ISSUER),
 
-    portal:
-      Type.Literal('user'),
+  iat: Type.Integer({
+    minimum: 0,
+  }),
 
-    aud:
-      Type.Literal(
-        USER_JWT_AUDIENCE,
-      ),
+  exp: Type.Integer({
+    minimum: 0,
+  }),
+})
 
-    iss:
-      Type.Literal(JWT_ISSUER),
-
-    iat: Type.Integer({
-      minimum: 0,
-    }),
-
-    exp: Type.Integer({
-      minimum: 0,
-    }),
-  })
-
-export type UserSession =
-  Static<typeof userSessionSchema>
+export type UserSession = Static<typeof userSessionSchema>

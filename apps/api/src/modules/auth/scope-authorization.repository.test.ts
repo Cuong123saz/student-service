@@ -1,45 +1,26 @@
 import assert from 'node:assert/strict'
-import {
-  after,
-  beforeEach,
-  test,
-} from 'node:test'
+import { after, beforeEach, test } from 'node:test'
 
-import {
-  databaseClient,
-  db,
-} from '../../db/client.js'
+import { databaseClient, db } from '../../db/client.js'
 import {
   academicClasses,
   faculties,
   organizationalUnits,
   studentProfiles,
 } from '../organizations/organization.schema.js'
-import {
-  roles,
-  userRoles,
-  users,
-} from './auth.schema.js'
+import { roles, userRoles, users } from './auth.schema.js'
 import {
   authorizationScopes,
   permissions,
   rolePermissions,
   userRoleScopes,
 } from './authorization.schema.js'
-import {
-  DrizzleScopeAuthorizationRepository,
-} from './scope-authorization.repository.js'
+import { DrizzleScopeAuthorizationRepository } from './scope-authorization.repository.js'
 
 const databaseUrl = process.env.DATABASE_URL
 
-if (
-  !databaseUrl
-  || new URL(databaseUrl).pathname
-    !== '/student_service_test'
-) {
-  throw new Error(
-    'Integration tests must use the student_service_test database',
-  )
+if (!databaseUrl || new URL(databaseUrl).pathname !== '/student_service_test') {
+  throw new Error('Integration tests must use the student_service_test database')
 }
 
 beforeEach(async () => {
@@ -70,9 +51,7 @@ interface Fixture {
   otherFacultyStudentId: string
 }
 
-async function createFixture(
-  actorStatus = 'ACTIVE',
-): Promise<Fixture> {
+async function createFixture(actorStatus = 'ACTIVE'): Promise<Fixture> {
   const facultyRows = await db
     .insert(faculties)
     .values([
@@ -209,10 +188,8 @@ async function createFixture(
     firstFacultyId: firstFaculty.id,
     firstClassId: firstClass.id,
     firstClassStudentId: firstClassStudent.id,
-    siblingClassStudentId:
-      siblingClassStudent.id,
-    otherFacultyStudentId:
-      otherFacultyStudent.id,
+    siblingClassStudentId: siblingClassStudent.id,
+    otherFacultyStudentId: otherFacultyStudent.id,
   }
 }
 
@@ -246,150 +223,79 @@ async function grantScope(
   })
 }
 
-function canReadStudent(
-  fixture: Fixture,
-  studentUserId: string,
-) {
-  return new DrizzleScopeAuthorizationRepository()
-    .canAccessStudent({
-      actorUserId: fixture.actorUserId,
-      permission: 'student.read',
-      studentUserId,
-    })
+function canReadStudent(fixture: Fixture, studentUserId: string) {
+  return new DrizzleScopeAuthorizationRepository().canAccessStudent({
+    actorUserId: fixture.actorUserId,
+    permission: 'student.read',
+    studentUserId,
+  })
 }
 
-test(
-  'GLOBAL scope đọc được sinh viên ở mọi khoa',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'GLOBAL',
+test('GLOBAL scope đọc được sinh viên ở mọi khoa', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'GLOBAL',
+  })
+
+  assert.equal(await canReadStudent(fixture, fixture.otherFacultyStudentId), true)
+})
+
+test('FACULTY scope chỉ đọc sinh viên trong cùng khoa', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'FACULTY',
+    facultyId: fixture.firstFacultyId,
+  })
+
+  assert.equal(await canReadStudent(fixture, fixture.siblingClassStudentId), true)
+  assert.equal(await canReadStudent(fixture, fixture.otherFacultyStudentId), false)
+})
+
+test('CLASS scope chỉ đọc sinh viên trong đúng lớp', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'CLASS',
+    classId: fixture.firstClassId,
+  })
+
+  assert.equal(await canReadStudent(fixture, fixture.firstClassStudentId), true)
+  assert.equal(await canReadStudent(fixture, fixture.siblingClassStudentId), false)
+})
+
+test('ORGANIZATION scope không tự cấp quyền đọc sinh viên', async () => {
+  const fixture = await createFixture()
+  const [unit] = await db
+    .insert(organizationalUnits)
+    .values({
+      code: 'FINANCE',
+      name: 'Phòng Kế hoạch và Tài chính',
     })
+    .returning({ id: organizationalUnits.id })
+  assert.ok(unit)
 
-    assert.equal(
-      await canReadStudent(
-        fixture,
-        fixture.otherFacultyStudentId,
-      ),
-      true,
-    )
-  },
-)
+  await grantScope(fixture, {
+    scopeType: 'ORGANIZATION',
+    organizationalUnitId: unit.id,
+  })
 
-test(
-  'FACULTY scope chỉ đọc sinh viên trong cùng khoa',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'FACULTY',
-      facultyId: fixture.firstFacultyId,
-    })
+  assert.equal(await canReadStudent(fixture, fixture.firstClassStudentId), false)
+})
 
-    assert.equal(
-      await canReadStudent(
-        fixture,
-        fixture.siblingClassStudentId,
-      ),
-      true,
-    )
-    assert.equal(
-      await canReadStudent(
-        fixture,
-        fixture.otherFacultyStudentId,
-      ),
-      false,
-    )
-  },
-)
+test('scope không thay thế permission còn thiếu', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'GLOBAL',
+  })
+  await db.delete(rolePermissions)
 
-test(
-  'CLASS scope chỉ đọc sinh viên trong đúng lớp',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'CLASS',
-      classId: fixture.firstClassId,
-    })
+  assert.equal(await canReadStudent(fixture, fixture.firstClassStudentId), false)
+})
 
-    assert.equal(
-      await canReadStudent(
-        fixture,
-        fixture.firstClassStudentId,
-      ),
-      true,
-    )
-    assert.equal(
-      await canReadStudent(
-        fixture,
-        fixture.siblingClassStudentId,
-      ),
-      false,
-    )
-  },
-)
+test('scope không cho tài khoản actor INACTIVE truy cập', async () => {
+  const fixture = await createFixture('INACTIVE')
+  await grantScope(fixture, {
+    scopeType: 'GLOBAL',
+  })
 
-test(
-  'ORGANIZATION scope không tự cấp quyền đọc sinh viên',
-  async () => {
-    const fixture = await createFixture()
-    const [unit] = await db
-      .insert(organizationalUnits)
-      .values({
-        code: 'FINANCE',
-        name: 'Phòng Kế hoạch và Tài chính',
-      })
-      .returning({ id: organizationalUnits.id })
-    assert.ok(unit)
-
-    await grantScope(fixture, {
-      scopeType: 'ORGANIZATION',
-      organizationalUnitId: unit.id,
-    })
-
-    assert.equal(
-      await canReadStudent(
-        fixture,
-        fixture.firstClassStudentId,
-      ),
-      false,
-    )
-  },
-)
-
-test(
-  'scope không thay thế permission còn thiếu',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'GLOBAL',
-    })
-    await db.delete(rolePermissions)
-
-    assert.equal(
-      await canReadStudent(
-        fixture,
-        fixture.firstClassStudentId,
-      ),
-      false,
-    )
-  },
-)
-
-test(
-  'scope không cho tài khoản actor INACTIVE truy cập',
-  async () => {
-    const fixture =
-      await createFixture('INACTIVE')
-    await grantScope(fixture, {
-      scopeType: 'GLOBAL',
-    })
-
-    assert.equal(
-      await canReadStudent(
-        fixture,
-        fixture.firstClassStudentId,
-      ),
-      false,
-    )
-  },
-)
+  assert.equal(await canReadStudent(fixture, fixture.firstClassStudentId), false)
+})

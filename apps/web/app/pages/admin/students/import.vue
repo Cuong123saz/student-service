@@ -12,13 +12,12 @@ definePageMeta({
   layout: 'admin',
   middleware: 'admin-auth',
 })
-const importFieldLabels:
-  Record<StudentImportColumn, string> = {
-    studentCode: 'Mã sinh viên',
-    fullName: 'Họ và tên',
-    email: 'Email',
-    classCode: 'Mã lớp',
-  }
+const importFieldLabels: Record<StudentImportColumn, string> = {
+  studentCode: 'Mã sinh viên',
+  fullName: 'Họ và tên',
+  email: 'Email',
+  classCode: 'Mã lớp',
+}
 
 // Mirror giới hạn phía client của composable (MAX_IMPORT_FILE_BYTES nội bộ
 // trong useStudentImport chưa được export). Đây chỉ là kiểm tra sớm để
@@ -39,20 +38,17 @@ const {
 } = useStudentImport()
 
 const selectedFile = ref<File | null>(null)
-const duplicateStrategy =
-  ref<StudentImportDuplicateStrategy>('FAIL')
+const duplicateStrategy = ref<StudentImportDuplicateStrategy>('FAIL')
 const clientError = ref('')
 
-const displayedError = computed(
-  () => clientError.value || errorMessage.value,
-)
+const displayedError = computed(() => clientError.value || errorMessage.value)
 
-const canConfirm = computed(
-  () => Boolean(
-    preview.value
-    && preview.value.errorRecords.length === 0
-    && !isPreviewing.value
-    && !isConfirming.value,
+const canConfirm = computed(() =>
+  Boolean(
+    preview.value &&
+    preview.value.errorRecords.length === 0 &&
+    !isPreviewing.value &&
+    !isConfirming.value,
   ),
 )
 
@@ -68,11 +64,8 @@ const previewExpiresAt = computed(() => {
   }).format(new Date(preview.value.expiresAt))
 })
 
-function getIssueMessage(
-  issue: StudentImportRowIssue,
-): string {
-  const fieldLabel =
-    importFieldLabels[issue.field]
+function getIssueMessage(issue: StudentImportRowIssue): string {
+  const fieldLabel = importFieldLabels[issue.field]
 
   switch (issue.code) {
     case 'REQUIRED':
@@ -95,18 +88,15 @@ function getIssueMessage(
   }
 }
 
-const cellKindLabels:
-  Record<StudentImportCellKind, string> = {
-    EMPTY: 'Để trống',
-    TEXT: '',
-    NUMBER: 'Giá trị dạng số',
-    BOOLEAN: 'Giá trị đúng hoặc sai',
-    DATE: 'Giá trị ngày tháng',
-  }
+const cellKindLabels: Record<StudentImportCellKind, string> = {
+  EMPTY: 'Để trống',
+  TEXT: '',
+  NUMBER: 'Giá trị dạng số',
+  BOOLEAN: 'Giá trị đúng hoặc sai',
+  DATE: 'Giá trị ngày tháng',
+}
 
-function formatErrorCell(
-  cell: StudentImportErrorCell,
-): string {
+function formatErrorCell(cell: StudentImportErrorCell): string {
   if (cell.kind === 'TEXT') {
     return cell.text?.trim() || 'Để trống'
   }
@@ -114,12 +104,8 @@ function formatErrorCell(
   return cellKindLabels[cell.kind]
 }
 
-function formatDuplicateReason(
-  duplicate: StudentImportDuplicateReason,
-): string {
-  const field = duplicate.field === 'studentCode'
-    ? 'mã sinh viên'
-    : 'email'
+function formatDuplicateReason(duplicate: StudentImportDuplicateReason): string {
+  const field = duplicate.field === 'studentCode' ? 'mã sinh viên' : 'email'
 
   if (duplicate.source === 'FILE') {
     return duplicate.matchedSourceRow
@@ -139,15 +125,11 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / 1024).toFixed(1)} KB`
   }
 
-  return `${(
-    bytes
-    / (1024 * 1024)
-  ).toFixed(2)} MB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 }
 
 function handleFileSelected(event: Event) {
-  const input =
-    event.currentTarget as HTMLInputElement
+  const input = event.currentTarget as HTMLInputElement
   const file = input.files?.item(0) ?? null
 
   clientError.value = ''
@@ -160,16 +142,14 @@ function handleFileSelected(event: Event) {
   duplicateStrategy.value = 'FAIL'
 
   if (file && !SUPPORTED_EXTENSIONS.test(file.name)) {
-    clientError.value =
-      'Chỉ hỗ trợ file .csv hoặc .xlsx.'
+    clientError.value = 'Chỉ hỗ trợ file .csv hoặc .xlsx.'
     selectedFile.value = null
     input.value = ''
     return
   }
 
   if (file && file.size > MAX_CLIENT_FILE_BYTES) {
-    clientError.value =
-      'File vượt quá 5 MB. Vui lòng chọn file khác.'
+    clientError.value = 'File vượt quá 5 MB. Vui lòng chọn file khác.'
     selectedFile.value = null
     input.value = ''
     return
@@ -183,8 +163,7 @@ async function handlePreview() {
     return
   }
 
-  const succeeded =
-    await previewImport(selectedFile.value)
+  const succeeded = await previewImport(selectedFile.value)
 
   if (succeeded) {
     duplicateStrategy.value = 'FAIL'
@@ -213,24 +192,17 @@ function startAnotherImport() {
 <template>
   <section class="student-import">
     <header>
-      <p class="page-eyebrow">
-        Quản lý sinh viên
-      </p>
+      <p class="page-eyebrow">Quản lý sinh viên</p>
 
-      <h1 class="page-title">
-        Import danh sách sinh viên
-      </h1>
+      <h1 class="page-title">Import danh sách sinh viên</h1>
 
       <p class="page-description">
-        Tải file Excel hoặc CSV, kiểm tra dữ liệu
-        trước khi xác nhận ghi vào hệ thống.
+        Tải file Excel hoặc CSV, kiểm tra dữ liệu trước khi xác nhận ghi vào hệ thống.
       </p>
     </header>
 
     <div class="student-import__actions">
-      <NuxtLink to="/admin/students">
-        ← Quay lại danh sách sinh viên
-      </NuxtLink>
+      <NuxtLink to="/admin/students"> ← Quay lại danh sách sinh viên </NuxtLink>
     </div>
 
     <form
@@ -239,29 +211,21 @@ function startAnotherImport() {
       @submit.prevent="handlePreview"
     >
       <div>
-        <p class="page-eyebrow">
-          Bước 1
-        </p>
+        <p class="page-eyebrow">Bước 1</p>
 
         <h2>Chọn file dữ liệu</h2>
 
         <p id="student-import-help">
-          Hỗ trợ file CSV hoặc XLSX, tối đa 5 MB
-          và không quá 1.000 dòng dữ liệu. Mã sinh viên chỉ gồm chữ số;
-          nếu có số 0 ở đầu, hãy đặt cột này ở định dạng Text trong Excel.
-          Khoa được xác định và đồng bộ tự động theo mã lớp hành chính.
+          Hỗ trợ file CSV hoặc XLSX, tối đa 5 MB và không quá 1.000 dòng dữ liệu. Mã sinh viên chỉ
+          gồm chữ số; nếu có số 0 ở đầu, hãy đặt cột này ở định dạng Text trong Excel. Khoa được xác
+          định và đồng bộ tự động theo mã lớp hành chính.
         </p>
       </div>
 
-      <label
-        class="student-import__file-picker"
-        for="student-import-file"
-      >
+      <label class="student-import__file-picker" for="student-import-file">
         <strong>Chọn file từ máy tính</strong>
 
-        <span>
-          Nhấn vào đây để chọn file CSV hoặc Excel
-        </span>
+        <span> Nhấn vào đây để chọn file CSV hoặc Excel </span>
       </label>
 
       <input
@@ -272,13 +236,9 @@ function startAnotherImport() {
         aria-describedby="student-import-help"
         :disabled="isPreviewing || isConfirming"
         @change="handleFileSelected"
-      >
+      />
 
-      <article
-        v-if="selectedFile"
-        class="student-import__selected-file"
-        aria-live="polite"
-      >
+      <article v-if="selectedFile" class="student-import__selected-file" aria-live="polite">
         <div>
           <strong>{{ selectedFile.name }}</strong>
 
@@ -287,9 +247,7 @@ function startAnotherImport() {
           </span>
         </div>
 
-        <span class="student-import__file-ready">
-          Đã chọn
-        </span>
+        <span class="student-import__file-ready"> Đã chọn </span>
       </article>
 
       <BaseAlert
@@ -299,9 +257,7 @@ function startAnotherImport() {
       >
         <p>{{ displayedError }}</p>
 
-        <small v-if="errorRequestId">
-          Mã tra cứu: {{ errorRequestId }}
-        </small>
+        <small v-if="errorRequestId"> Mã tra cứu: {{ errorRequestId }} </small>
       </BaseAlert>
 
       <div class="student-import__submit">
@@ -310,23 +266,13 @@ function startAnotherImport() {
           :loading="isPreviewing"
           :disabled="!selectedFile || isPreviewing || isConfirming"
         >
-          {{
-            isPreviewing
-              ? 'Đang kiểm tra dữ liệu...'
-              : 'Kiểm tra và xem trước'
-          }}
+          {{ isPreviewing ? 'Đang kiểm tra dữ liệu...' : 'Kiểm tra và xem trước' }}
         </BaseButton>
       </div>
     </form>
 
-    <section
-      v-if="preview"
-      class="surface-card student-import__preview-summary"
-      aria-live="polite"
-    >
-      <p class="page-eyebrow">
-        Bước 2
-      </p>
+    <section v-if="preview" class="surface-card student-import__preview-summary" aria-live="polite">
+      <p class="page-eyebrow">Bước 2</p>
 
       <h2>Đã kiểm tra file</h2>
 
@@ -355,7 +301,8 @@ function startAnotherImport() {
       <p class="student-import__expiry">
         File <strong>{{ preview.file.name }}</strong>
         đã được đọc. Bản xem trước có hiệu lực đến
-        <strong>{{ previewExpiresAt }}</strong>.
+        <strong>{{ previewExpiresAt }}</strong
+        >.
       </p>
 
       <section
@@ -363,22 +310,16 @@ function startAnotherImport() {
         class="student-import__errors"
         aria-labelledby="import-errors-title"
       >
-        <BaseAlert
-          variant="warning"
-          title="File còn dữ liệu cần sửa"
-        >
-          Bạn chưa thể xác nhận import. Hãy sửa những
-          dòng dưới đây rồi tải lại file.
+        <BaseAlert variant="warning" title="File còn dữ liệu cần sửa">
+          Bạn chưa thể xác nhận import. Hãy sửa những dòng dưới đây rồi tải lại file.
         </BaseAlert>
 
         <div class="student-import__section-heading">
-          <h3 id="import-errors-title">
-            Chi tiết {{ preview.errorRecords.length }} dòng lỗi
-          </h3>
+          <h3 id="import-errors-title">Chi tiết {{ preview.errorRecords.length }} dòng lỗi</h3>
 
           <p>
-            Giá trị không phải văn bản được hiển thị theo
-            loại dữ liệu để tránh tự chuyển đổi sai nội dung.
+            Giá trị không phải văn bản được hiển thị theo loại dữ liệu để tránh tự chuyển đổi sai
+            nội dung.
           </p>
         </div>
 
@@ -396,10 +337,7 @@ function startAnotherImport() {
             </thead>
 
             <tbody>
-              <tr
-                v-for="record in preview.errorRecords"
-                :key="record.sourceRow"
-              >
+              <tr v-for="record in preview.errorRecords" :key="record.sourceRow">
                 <td>Dòng {{ record.sourceRow }}</td>
                 <td>{{ formatErrorCell(record.values.studentCode) }}</td>
                 <td>{{ formatErrorCell(record.values.fullName) }}</td>
@@ -432,9 +370,7 @@ function startAnotherImport() {
             {{ preview.duplicateRecords.length }} dòng có dữ liệu trùng
           </h3>
 
-          <p>
-            Kiểm tra từng dòng trước khi chọn cách xử lý ở bước xác nhận.
-          </p>
+          <p>Kiểm tra từng dòng trước khi chọn cách xử lý ở bước xác nhận.</p>
         </div>
 
         <div class="student-import__table-wrap">
@@ -451,10 +387,7 @@ function startAnotherImport() {
             </thead>
 
             <tbody>
-              <tr
-                v-for="item in preview.duplicateRecords"
-                :key="item.record.sourceRow"
-              >
+              <tr v-for="item in preview.duplicateRecords" :key="item.record.sourceRow">
                 <td>Dòng {{ item.record.sourceRow }}</td>
                 <td>{{ item.record.studentCode }}</td>
                 <td>{{ item.record.fullName }}</td>
@@ -484,21 +417,14 @@ function startAnotherImport() {
         <div>
           <p class="page-eyebrow">Bước 3</p>
           <h3>Xác nhận ghi dữ liệu</h3>
-          <p>
-            Chọn cách xử lý khi gặp bản ghi trùng rồi xác nhận import.
-          </p>
+          <p>Chọn cách xử lý khi gặp bản ghi trùng rồi xác nhận import.</p>
         </div>
 
         <fieldset class="student-import__strategy-list">
           <legend>Cách xử lý dữ liệu trùng</legend>
 
           <label>
-            <input
-              v-model="duplicateStrategy"
-              type="radio"
-              value="FAIL"
-              :disabled="isConfirming"
-            >
+            <input v-model="duplicateStrategy" type="radio" value="FAIL" :disabled="isConfirming" />
             <span>
               <strong>Dừng khi có dữ liệu trùng</strong>
               <small>An toàn nhất. Không ghi dữ liệu nếu phát hiện trùng.</small>
@@ -506,12 +432,7 @@ function startAnotherImport() {
           </label>
 
           <label>
-            <input
-              v-model="duplicateStrategy"
-              type="radio"
-              value="SKIP"
-              :disabled="isConfirming"
-            >
+            <input v-model="duplicateStrategy" type="radio" value="SKIP" :disabled="isConfirming" />
             <span>
               <strong>Bỏ qua dòng trùng</strong>
               <small>Chỉ import những dòng không bị trùng.</small>
@@ -524,7 +445,7 @@ function startAnotherImport() {
               type="radio"
               value="OVERWRITE"
               :disabled="isConfirming"
-            >
+            />
             <span>
               <strong>Ghi đè dữ liệu hiện có</strong>
               <small>Chỉ dùng khi đã kiểm tra kỹ các bản ghi trùng.</small>
@@ -532,15 +453,9 @@ function startAnotherImport() {
           </label>
         </fieldset>
 
-        <BaseAlert
-          v-if="displayedError"
-          variant="error"
-          title="Không thể hoàn tất import"
-        >
+        <BaseAlert v-if="displayedError" variant="error" title="Không thể hoàn tất import">
           <p>{{ displayedError }}</p>
-          <small v-if="errorRequestId">
-            Mã tra cứu: {{ errorRequestId }}
-          </small>
+          <small v-if="errorRequestId"> Mã tra cứu: {{ errorRequestId }} </small>
         </BaseAlert>
 
         <div class="student-import__confirm-actions">
@@ -553,26 +468,15 @@ function startAnotherImport() {
             Chọn file khác
           </BaseButton>
 
-          <BaseButton
-            type="submit"
-            :loading="isConfirming"
-            :disabled="!canConfirm"
-          >
+          <BaseButton type="submit" :loading="isConfirming" :disabled="!canConfirm">
             {{ isConfirming ? 'Đang ghi dữ liệu...' : 'Xác nhận import' }}
           </BaseButton>
         </div>
       </form>
     </section>
 
-    <section
-      v-if="result"
-      class="surface-card student-import__result"
-      aria-live="polite"
-    >
-      <BaseAlert
-        variant="success"
-        title="Import sinh viên thành công"
-      >
+    <section v-if="result" class="surface-card student-import__result" aria-live="polite">
+      <BaseAlert variant="success" title="Import sinh viên thành công">
         Dữ liệu đã được ghi trong một transaction và bản xem trước đã được đóng.
       </BaseAlert>
 
@@ -592,18 +496,11 @@ function startAnotherImport() {
       </dl>
 
       <div class="student-import__confirm-actions">
-        <BaseButton
-          type="button"
-          variant="secondary"
-          @click="startAnotherImport"
-        >
+        <BaseButton type="button" variant="secondary" @click="startAnotherImport">
           Import file khác
         </BaseButton>
 
-        <NuxtLink
-          class="student-import__primary-link"
-          to="/admin/students"
-        >
+        <NuxtLink class="student-import__primary-link" to="/admin/students">
           Xem danh sách sinh viên
         </NuxtLink>
       </div>

@@ -7,14 +7,8 @@ import type {
 
 export function useUserAuth() {
   const config = useRuntimeConfig()
-  const user = useState<UserSessionUser | null>(
-    'user-session-user',
-    () => null,
-  )
-  const isResolved = useState(
-    'user-session-resolved',
-    () => false,
-  )
+  const user = useState<UserSessionUser | null>('user-session-user', () => null)
+  const isResolved = useState('user-session-resolved', () => false)
 
   async function login(input: UserLoginInput) {
     const response = await $fetch<UserLoginResponse>(
@@ -62,13 +56,10 @@ export function useUserAuth() {
 
   async function logout() {
     try {
-      await $fetch(
-        `${config.public.apiBase}/api/v1/user/auth/logout`,
-        {
-          method: 'POST',
-          credentials: 'include',
-        },
-      )
+      await $fetch(`${config.public.apiBase}/api/v1/user/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      })
     } finally {
       user.value = null
       isResolved.value = true

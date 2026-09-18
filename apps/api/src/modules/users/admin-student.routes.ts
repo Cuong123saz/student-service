@@ -1,26 +1,11 @@
-import {
-  type Static,
-  Type,
-} from '@sinclair/typebox'
-import type {
-  FastifyInstance,
-  FastifyPluginOptions,
-} from 'fastify'
+import { type Static, Type } from '@sinclair/typebox'
+import type { FastifyInstance, FastifyPluginOptions } from 'fastify'
 import { getAuditRequestContext } from '../audit/audit-request-context.js'
 
-import {
-  requireAdminReadySession,
-  requireAdminSession,
-} from '../auth/admin-auth.guard.js'
-import {
-  requireAdminPermission,
-} from '../auth/admin-permission.guard.js'
-import type {
-  AuthorizationUseCase,
-} from '../auth/authorization.service.js'
-import type {
-  AdminStudentUseCase,
-} from './admin-student.service.js'
+import { requireAdminReadySession, requireAdminSession } from '../auth/admin-auth.guard.js'
+import { requireAdminPermission } from '../auth/admin-permission.guard.js'
+import type { AuthorizationUseCase } from '../auth/authorization.service.js'
+import type { AdminStudentUseCase } from './admin-student.service.js'
 import { InvalidStudentUpdateError } from './admin-student.service.js'
 import {
   AdminStudentClassForbiddenError,
@@ -51,12 +36,8 @@ const listStudentsQuerySchema = Type.Object(
         Type.Literal('SUSPENDED'),
       ]),
     ),
-    facultyId: Type.Optional(
-      Type.String({ format: 'uuid' }),
-    ),
-    classId: Type.Optional(
-      Type.String({ format: 'uuid' }),
-    ),
+    facultyId: Type.Optional(Type.String({ format: 'uuid' })),
+    classId: Type.Optional(Type.String({ format: 'uuid' })),
     search: Type.Optional(
       Type.String({
         minLength: 1,
@@ -67,18 +48,13 @@ const listStudentsQuerySchema = Type.Object(
   { additionalProperties: false },
 )
 
-type ListStudentsQuery = Static<
-  typeof listStudentsQuerySchema
->
+type ListStudentsQuery = Static<typeof listStudentsQuerySchema>
 
 const studentSchema = Type.Object({
   userId: Type.String({ format: 'uuid' }),
   username: Type.String(),
   fullName: Type.String(),
-  email: Type.Union([
-    Type.String(),
-    Type.Null(),
-  ]),
+  email: Type.Union([Type.String(), Type.Null()]),
   status: Type.String(),
   studentCode: Type.String(),
   academicClass: Type.Object({
@@ -95,10 +71,7 @@ const studentSchema = Type.Object({
 
 const responseSchema = Type.Object({
   students: Type.Array(studentSchema),
-  nextCursor: Type.Union([
-    Type.String(),
-    Type.Null(),
-  ]),
+  nextCursor: Type.Union([Type.String(), Type.Null()]),
 })
 
 const errorResponseSchema = Type.Object({
@@ -126,17 +99,12 @@ const updateStudentBodySchema = Type.Object(
 type UpdateStudentParams = Static<typeof updateStudentParamsSchema>
 type UpdateStudentBody = Static<typeof updateStudentBodySchema>
 
-export interface AdminStudentRoutesOptions
-extends FastifyPluginOptions {
+export interface AdminStudentRoutesOptions extends FastifyPluginOptions {
   studentService: AdminStudentUseCase
-  authorizationService:
-    AuthorizationUseCase
+  authorizationService: AuthorizationUseCase
 }
 
-export async function adminStudentRoutes(
-  app: FastifyInstance,
-  options: AdminStudentRoutesOptions,
-) {
+export async function adminStudentRoutes(app: FastifyInstance, options: AdminStudentRoutesOptions) {
   app.get<{
     Querystring: ListStudentsQuery
   }>(
@@ -145,10 +113,7 @@ export async function adminStudentRoutes(
       preHandler: [
         requireAdminSession,
         requireAdminReadySession,
-        requireAdminPermission(
-          options.authorizationService,
-          'student.read',
-        ),
+        requireAdminPermission(options.authorizationService, 'student.read'),
       ],
       schema: {
         querystring: listStudentsQuerySchema,
@@ -169,35 +134,27 @@ export async function adminStudentRoutes(
         })
       }
 
-      return options.studentService
-        .listVisibleStudents({
-          actorUserId: session.sub,
-          limit: request.query.limit ?? 20,
-          ...(request.query.after
-            ? {
-                afterStudentCode:
-                  request.query.after,
-              }
-            : {}),
-          ...(request.query.status
-            ? { status: request.query.status }
-            : {}),
-          ...(request.query.facultyId
-            ? {
-                facultyId:
-                  request.query.facultyId,
-              }
-            : {}),
-          ...(request.query.classId
-            ? {
-                classId:
-                  request.query.classId,
-              }
-            : {}),
-          ...(request.query.search
-            ? { search: request.query.search }
-            : {}),
-        })
+      return options.studentService.listVisibleStudents({
+        actorUserId: session.sub,
+        limit: request.query.limit ?? 20,
+        ...(request.query.after
+          ? {
+              afterStudentCode: request.query.after,
+            }
+          : {}),
+        ...(request.query.status ? { status: request.query.status } : {}),
+        ...(request.query.facultyId
+          ? {
+              facultyId: request.query.facultyId,
+            }
+          : {}),
+        ...(request.query.classId
+          ? {
+              classId: request.query.classId,
+            }
+          : {}),
+        ...(request.query.search ? { search: request.query.search } : {}),
+      })
     },
   )
 
@@ -210,10 +167,7 @@ export async function adminStudentRoutes(
       preHandler: [
         requireAdminSession,
         requireAdminReadySession,
-        requireAdminPermission(
-          options.authorizationService,
-          'student.update',
-        ),
+        requireAdminPermission(options.authorizationService, 'student.update'),
       ],
       schema: {
         params: updateStudentParamsSchema,
@@ -249,10 +203,14 @@ export async function adminStudentRoutes(
           return reply.code(400).send({ message: error.message })
         }
         if (error instanceof AdminStudentNotFoundError) {
-          return reply.code(404).send({ message: 'Không tìm thấy sinh viên trong phạm vi quản lý.' })
+          return reply
+            .code(404)
+            .send({ message: 'Không tìm thấy sinh viên trong phạm vi quản lý.' })
         }
         if (error instanceof AdminStudentClassForbiddenError) {
-          return reply.code(403).send({ message: 'Khoa hoặc lớp không hợp lệ trong phạm vi quản lý.' })
+          return reply
+            .code(403)
+            .send({ message: 'Khoa hoặc lớp không hợp lệ trong phạm vi quản lý.' })
         }
         if (error instanceof AdminStudentCodeConflictError) {
           return reply.code(409).send({ message: 'Mã sinh viên đã tồn tại.' })

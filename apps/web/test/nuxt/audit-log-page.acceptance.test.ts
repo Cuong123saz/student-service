@@ -1,14 +1,5 @@
-import {
-  mountSuspended,
-  mockNuxtImport,
-} from '@nuxt/test-utils/runtime'
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest'
+import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 
 import type { AuditLogItem } from '../../app/types/audit-log'
@@ -30,9 +21,7 @@ function createAuditMock() {
 
 let auditMock = createAuditMock()
 
-mockNuxtImport('useAuditLogs', () => (
-  () => auditMock
-))
+mockNuxtImport('useAuditLogs', () => () => auditMock)
 
 const importAuditLog: AuditLogItem = {
   id: 'audit-1',
@@ -69,12 +58,8 @@ describe('trang audit log', () => {
   it('lọc import, xem metadata và chuyển trang', async () => {
     auditMock.load.mockImplementation(async (action?: string) => {
       auditMock.hasLoaded.value = true
-      auditMock.auditLogs.value = action
-        ? [importAuditLog]
-        : []
-      auditMock.nextCursorBefore.value = action
-        ? '2026-09-09T08:00:00.000Z'
-        : null
+      auditMock.auditLogs.value = action ? [importAuditLog] : []
+      auditMock.nextCursorBefore.value = action ? '2026-09-09T08:00:00.000Z' : null
       return true
     })
     auditMock.nextPage.mockImplementation(async () => {
@@ -86,21 +71,18 @@ describe('trang audit log', () => {
     const wrapper = await mountSuspended(AuditLogPage)
     await nextTick()
 
-    await wrapper.get('select')
-      .setValue('STUDENT_IMPORT_COMMIT')
+    await wrapper.get('select').setValue('STUDENT_IMPORT_COMMIT')
     await wrapper.get('form.filters').trigger('submit')
     await nextTick()
 
-    expect(auditMock.load)
-      .toHaveBeenLastCalledWith('STUDENT_IMPORT_COMMIT')
+    expect(auditMock.load).toHaveBeenLastCalledWith('STUDENT_IMPORT_COMMIT')
     expect(wrapper.text()).toContain('Nhập sinh viên')
     expect(wrapper.text()).toContain('system.admin')
     expect(wrapper.text()).toContain('req-import-1')
     expect(wrapper.text()).toContain('strategy')
     expect(wrapper.text()).toContain('FAIL')
 
-    const nextButton = wrapper.findAll('button')
-      .find(button => button.text() === 'Trang sau')
+    const nextButton = wrapper.findAll('button').find((button) => button.text() === 'Trang sau')
     expect(nextButton).toBeDefined()
     await nextButton!.trigger('click')
     await nextTick()
@@ -112,16 +94,14 @@ describe('trang audit log', () => {
   it('hiển thị trạng thái thiếu quyền audit.read', async () => {
     auditMock.load.mockImplementation(async () => {
       auditMock.hasLoaded.value = true
-      auditMock.errorMessage.value =
-        'Tài khoản chưa được cấp quyền audit.read.'
+      auditMock.errorMessage.value = 'Tài khoản chưa được cấp quyền audit.read.'
       return false
     })
 
     const wrapper = await mountSuspended(AuditLogPage)
     await nextTick()
 
-    expect(wrapper.text())
-      .toContain('Tài khoản chưa được cấp quyền audit.read.')
+    expect(wrapper.text()).toContain('Tài khoản chưa được cấp quyền audit.read.')
     expect(wrapper.text()).toContain('Thử lại')
   })
 })

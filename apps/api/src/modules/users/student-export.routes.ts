@@ -1,32 +1,15 @@
-import {
-  type Static,
-  Type,
-} from '@sinclair/typebox'
-import type {
-  FastifyInstance,
-  FastifyPluginOptions,
-} from 'fastify'
+import { type Static, Type } from '@sinclair/typebox'
+import type { FastifyInstance, FastifyPluginOptions } from 'fastify'
 
-import {
-  getAuditRequestContext,
-} from '../audit/audit-request-context.js'
-import {
-  requireAdminReadySession,
-  requireAdminSession,
-} from '../auth/admin-auth.guard.js'
-import {
-  requireAdminPermission,
-} from '../auth/admin-permission.guard.js'
-import type {
-  AuthorizationUseCase,
-} from '../auth/authorization.service.js'
+import { getAuditRequestContext } from '../audit/audit-request-context.js'
+import { requireAdminReadySession, requireAdminSession } from '../auth/admin-auth.guard.js'
+import { requireAdminPermission } from '../auth/admin-permission.guard.js'
+import type { AuthorizationUseCase } from '../auth/authorization.service.js'
 import {
   StudentExportForbiddenError,
   StudentExportRowLimitExceededError,
 } from './student-export.repository.js'
-import type {
-  StudentExportUseCase,
-} from './student-export.service.js'
+import type { StudentExportUseCase } from './student-export.service.js'
 
 const exportQuerySchema = Type.Object(
   {
@@ -38,12 +21,8 @@ const exportQuerySchema = Type.Object(
         Type.Literal('SUSPENDED'),
       ]),
     ),
-    facultyId: Type.Optional(
-      Type.String({ format: 'uuid' }),
-    ),
-    classId: Type.Optional(
-      Type.String({ format: 'uuid' }),
-    ),
+    facultyId: Type.Optional(Type.String({ format: 'uuid' })),
+    classId: Type.Optional(Type.String({ format: 'uuid' })),
     search: Type.Optional(
       Type.String({
         minLength: 1,
@@ -54,16 +33,13 @@ const exportQuerySchema = Type.Object(
   { additionalProperties: false },
 )
 
-type ExportQuery = Static<
-  typeof exportQuerySchema
->
+type ExportQuery = Static<typeof exportQuerySchema>
 
 const errorResponseSchema = Type.Object({
   message: Type.String(),
 })
 
-export interface StudentExportRoutesOptions
-extends FastifyPluginOptions {
+export interface StudentExportRoutesOptions extends FastifyPluginOptions {
   studentExportService: StudentExportUseCase
   authorizationService: AuthorizationUseCase
 }
@@ -80,10 +56,7 @@ export async function studentExportRoutes(
       preHandler: [
         requireAdminSession,
         requireAdminReadySession,
-        requireAdminPermission(
-          options.authorizationService,
-          'student.export',
-        ),
+        requireAdminPermission(options.authorizationService, 'student.export'),
       ],
       schema: {
         querystring: exportQuerySchema,
@@ -111,57 +84,37 @@ export async function studentExportRoutes(
       }
 
       try {
-        const file = await options
-          .studentExportService
-          .exportStudents({
-            actorUserId: session.sub,
-            actorUsername: session.username,
-            audit:
-              getAuditRequestContext(request),
-            ...(request.query.status
-              ? { status: request.query.status }
-              : {}),
-            ...(request.query.facultyId
-              ? {
-                  facultyId:
-                    request.query.facultyId,
-                }
-              : {}),
-            ...(request.query.classId
-              ? {
-                  classId:
-                    request.query.classId,
-                }
-              : {}),
-            ...(request.query.search
-              ? { search: request.query.search }
-              : {}),
-          })
+        const file = await options.studentExportService.exportStudents({
+          actorUserId: session.sub,
+          actorUsername: session.username,
+          audit: getAuditRequestContext(request),
+          ...(request.query.status ? { status: request.query.status } : {}),
+          ...(request.query.facultyId
+            ? {
+                facultyId: request.query.facultyId,
+              }
+            : {}),
+          ...(request.query.classId
+            ? {
+                classId: request.query.classId,
+              }
+            : {}),
+          ...(request.query.search ? { search: request.query.search } : {}),
+        })
 
         return reply
           .type(file.contentType)
-          .header(
-            'content-disposition',
-            `attachment; filename="${file.fileName}"`,
-          )
-          .header(
-            'x-export-row-count',
-            String(file.rowCount),
-          )
+          .header('content-disposition', `attachment; filename="${file.fileName}"`)
+          .header('x-export-row-count', String(file.rowCount))
           .send(file.buffer)
       } catch (error) {
-        if (
-          error instanceof StudentExportForbiddenError
-        ) {
+        if (error instanceof StudentExportForbiddenError) {
           return reply.code(403).send({
             message: 'Forbidden',
           })
         }
 
-        if (
-          error
-            instanceof StudentExportRowLimitExceededError
-        ) {
+        if (error instanceof StudentExportRowLimitExceededError) {
           return reply.code(413).send({
             message: error.message,
           })

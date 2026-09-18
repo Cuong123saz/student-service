@@ -1,15 +1,8 @@
 import assert from 'node:assert/strict'
 import { eq } from 'drizzle-orm'
-import {
-  after,
-  beforeEach,
-  test,
-} from 'node:test'
+import { after, beforeEach, test } from 'node:test'
 
-import {
-  databaseClient,
-  db,
-} from '../../db/client.js'
+import { databaseClient, db } from '../../db/client.js'
 import {
   academicAdvisorAssignments,
   academicClasses,
@@ -17,32 +10,20 @@ import {
   organizationalUnits,
   studentProfiles,
 } from '../organizations/organization.schema.js'
-import {
-  roles,
-  userRoles,
-  users,
-} from '../auth/auth.schema.js'
+import { roles, userRoles, users } from '../auth/auth.schema.js'
 import {
   authorizationScopes,
   permissions,
   rolePermissions,
   userRoleScopes,
 } from '../auth/authorization.schema.js'
-import {
-  DrizzleAdminStudentRepository,
-} from './admin-student.repository.js'
+import { DrizzleAdminStudentRepository } from './admin-student.repository.js'
 import { auditLogs } from '../audit/audit.schema.js'
 
 const databaseUrl = process.env.DATABASE_URL
 
-if (
-  !databaseUrl
-  || new URL(databaseUrl).pathname
-    !== '/student_service_test'
-) {
-  throw new Error(
-    'Integration tests must use the student_service_test database',
-  )
+if (!databaseUrl || new URL(databaseUrl).pathname !== '/student_service_test') {
+  throw new Error('Integration tests must use the student_service_test database')
 }
 
 beforeEach(async () => {
@@ -51,9 +32,7 @@ beforeEach(async () => {
   await db.delete(authorizationScopes)
   await db.delete(rolePermissions)
   await db.delete(permissions)
-  await db.delete(
-    academicAdvisorAssignments,
-  )
+  await db.delete(academicAdvisorAssignments)
   await db.delete(studentProfiles)
   await db.delete(academicClasses)
   await db.delete(faculties)
@@ -209,7 +188,7 @@ async function createFixture(): Promise<Fixture> {
     roleId: role.id,
   })
   await db.insert(rolePermissions).values(
-    permissionRows.map(permission => ({
+    permissionRows.map((permission) => ({
       roleId: role.id,
       permissionId: permission.id,
     })),
@@ -251,180 +230,145 @@ async function grantScope(
   })
 }
 
-test(
-  'CLASS scope chỉ liệt kê sinh viên trong đúng lớp',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'CLASS',
-      classId: fixture.firstClassId,
+test('CLASS scope chỉ liệt kê sinh viên trong đúng lớp', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'CLASS',
+    classId: fixture.firstClassId,
+  })
+
+  const result = await new DrizzleAdminStudentRepository().listVisibleTo({
+    actorUserId: fixture.actorUserId,
+    limit: 20,
+  })
+
+  assert.deepEqual(
+    result.students.map((student) => student.studentCode),
+    ['SV001'],
+  )
+  assert.equal(result.nextCursor, null)
+})
+
+test('FACULTY scope liệt kê mọi lớp trong khoa nhưng không vượt khoa', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'FACULTY',
+    facultyId: fixture.firstFacultyId,
+  })
+
+  const result = await new DrizzleAdminStudentRepository().listVisibleTo({
+    actorUserId: fixture.actorUserId,
+    limit: 20,
+  })
+
+  assert.deepEqual(
+    result.students.map((student) => student.studentCode),
+    ['SV001', 'SV002'],
+  )
+})
+
+test('GLOBAL scope hỗ trợ cursor, status và search', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'GLOBAL',
+  })
+  const repository = new DrizzleAdminStudentRepository()
+
+  const firstPage = await repository.listVisibleTo({
+    actorUserId: fixture.actorUserId,
+    limit: 1,
+  })
+  assert.deepEqual(
+    firstPage.students.map((student) => student.studentCode),
+    ['SV001'],
+  )
+  assert.equal(firstPage.nextCursor, 'SV001')
+
+  const secondPage = await repository.listVisibleTo({
+    actorUserId: fixture.actorUserId,
+    limit: 20,
+    afterStudentCode: firstPage.nextCursor ?? undefined,
+    status: 'INVITED',
+    search: 'Trần',
+  })
+  assert.deepEqual(
+    secondPage.students.map((student) => student.studentCode),
+    ['SV002'],
+  )
+  assert.equal(secondPage.nextCursor, null)
+})
+
+test('permission hoặc scope thiếu thì danh sách rỗng', async () => {
+  const fixture = await createFixture()
+  const repository = new DrizzleAdminStudentRepository()
+
+  const withoutScope = await repository.listVisibleTo({
+    actorUserId: fixture.actorUserId,
+    limit: 20,
+  })
+  assert.deepEqual(withoutScope.students, [])
+
+  await grantScope(fixture, {
+    scopeType: 'CLASS',
+    classId: fixture.siblingClassId,
+  })
+  await db.delete(rolePermissions)
+
+  const withoutPermission = await repository.listVisibleTo({
+    actorUserId: fixture.actorUserId,
+    limit: 20,
+  })
+  assert.deepEqual(withoutPermission.students, [])
+})
+
+test('cập nhật tên, mã số và lớp trong một transaction kèm audit', async () => {
+  const fixture = await createFixture()
+  await grantScope(fixture, {
+    scopeType: 'FACULTY',
+    facultyId: fixture.firstFacultyId,
+  })
+  const changedAt = new Date('2026-09-09T01:00:00.000Z')
+
+  await new DrizzleAdminStudentRepository().updateStudent({
+    actorUserId: fixture.actorUserId,
+    actorUsername: 'directory.actor',
+    userId: fixture.firstStudentUserId,
+    studentCode: '001234',
+    fullName: 'Nguyễn An mới',
+    facultyId: fixture.firstFacultyId,
+    classId: fixture.siblingClassId,
+    changedAt,
+    audit: {
+      requestId: 'request-update-student',
+      ipAddress: '127.0.0.1',
+      userAgent: 'node-test',
+    },
+  })
+
+  const [updated] = await db
+    .select({
+      fullName: users.fullName,
+      studentCode: studentProfiles.studentCode,
+      classId: studentProfiles.classId,
     })
+    .from(users)
+    .innerJoin(studentProfiles, eq(users.id, studentProfiles.userId))
+    .where(eq(users.id, fixture.firstStudentUserId))
+  assert.deepEqual(updated, {
+    fullName: 'Nguyễn An mới',
+    studentCode: '001234',
+    classId: fixture.siblingClassId,
+  })
 
-    const result = await new DrizzleAdminStudentRepository()
-      .listVisibleTo({
-        actorUserId: fixture.actorUserId,
-        limit: 20,
-      })
-
-    assert.deepEqual(
-      result.students.map(
-        (student) => student.studentCode,
-      ),
-      ['SV001'],
-    )
-    assert.equal(result.nextCursor, null)
-  },
-)
-
-test(
-  'FACULTY scope liệt kê mọi lớp trong khoa nhưng không vượt khoa',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'FACULTY',
-      facultyId: fixture.firstFacultyId,
+  const [audit] = await db
+    .select({
+      action: auditLogs.action,
+      before: auditLogs.before,
+      after: auditLogs.after,
     })
-
-    const result = await new DrizzleAdminStudentRepository()
-      .listVisibleTo({
-        actorUserId: fixture.actorUserId,
-        limit: 20,
-      })
-
-    assert.deepEqual(
-      result.students.map(
-        (student) => student.studentCode,
-      ),
-      ['SV001', 'SV002'],
-    )
-  },
-)
-
-test(
-  'GLOBAL scope hỗ trợ cursor, status và search',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'GLOBAL',
-    })
-    const repository =
-      new DrizzleAdminStudentRepository()
-
-    const firstPage = await repository
-      .listVisibleTo({
-        actorUserId: fixture.actorUserId,
-        limit: 1,
-      })
-    assert.deepEqual(
-      firstPage.students.map(
-        (student) => student.studentCode,
-      ),
-      ['SV001'],
-    )
-    assert.equal(firstPage.nextCursor, 'SV001')
-
-    const secondPage = await repository
-      .listVisibleTo({
-        actorUserId: fixture.actorUserId,
-        limit: 20,
-        afterStudentCode:
-          firstPage.nextCursor ?? undefined,
-        status: 'INVITED',
-        search: 'Trần',
-      })
-    assert.deepEqual(
-      secondPage.students.map(
-        (student) => student.studentCode,
-      ),
-      ['SV002'],
-    )
-    assert.equal(secondPage.nextCursor, null)
-  },
-)
-
-test(
-  'permission hoặc scope thiếu thì danh sách rỗng',
-  async () => {
-    const fixture = await createFixture()
-    const repository =
-      new DrizzleAdminStudentRepository()
-
-    const withoutScope = await repository
-      .listVisibleTo({
-        actorUserId: fixture.actorUserId,
-        limit: 20,
-      })
-    assert.deepEqual(withoutScope.students, [])
-
-    await grantScope(fixture, {
-      scopeType: 'CLASS',
-      classId: fixture.siblingClassId,
-    })
-    await db.delete(rolePermissions)
-
-    const withoutPermission = await repository
-      .listVisibleTo({
-        actorUserId: fixture.actorUserId,
-        limit: 20,
-      })
-    assert.deepEqual(
-      withoutPermission.students,
-      [],
-    )
-  },
-)
-
-test(
-  'cập nhật tên, mã số và lớp trong một transaction kèm audit',
-  async () => {
-    const fixture = await createFixture()
-    await grantScope(fixture, {
-      scopeType: 'FACULTY',
-      facultyId: fixture.firstFacultyId,
-    })
-    const changedAt = new Date('2026-09-09T01:00:00.000Z')
-
-    await new DrizzleAdminStudentRepository().updateStudent({
-      actorUserId: fixture.actorUserId,
-      actorUsername: 'directory.actor',
-      userId: fixture.firstStudentUserId,
-      studentCode: '001234',
-      fullName: 'Nguyễn An mới',
-      facultyId: fixture.firstFacultyId,
-      classId: fixture.siblingClassId,
-      changedAt,
-      audit: {
-        requestId: 'request-update-student',
-        ipAddress: '127.0.0.1',
-        userAgent: 'node-test',
-      },
-    })
-
-    const [updated] = await db
-      .select({
-        fullName: users.fullName,
-        studentCode: studentProfiles.studentCode,
-        classId: studentProfiles.classId,
-      })
-      .from(users)
-      .innerJoin(studentProfiles, eq(users.id, studentProfiles.userId))
-      .where(eq(users.id, fixture.firstStudentUserId))
-    assert.deepEqual(updated, {
-      fullName: 'Nguyễn An mới',
-      studentCode: '001234',
-      classId: fixture.siblingClassId,
-    })
-
-    const [audit] = await db
-      .select({
-        action: auditLogs.action,
-        before: auditLogs.before,
-        after: auditLogs.after,
-      })
-      .from(auditLogs)
-      .where(eq(auditLogs.resourceId, fixture.firstStudentUserId))
-    assert.equal(audit?.action, 'STUDENT_PROFILE_UPDATE')
-    assert.equal(audit?.before?.['studentCode'], 'SV001')
-    assert.equal(audit?.after?.['studentCode'], '001234')
-  },
-)
+    .from(auditLogs)
+    .where(eq(auditLogs.resourceId, fixture.firstStudentUserId))
+  assert.equal(audit?.action, 'STUDENT_PROFILE_UPDATE')
+  assert.equal(audit?.before?.['studentCode'], 'SV001')
+  assert.equal(audit?.after?.['studentCode'], '001234')
+})

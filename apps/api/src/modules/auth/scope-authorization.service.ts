@@ -1,6 +1,4 @@
-import type {
-  SystemPermissionCode,
-} from './authorization.constants.js'
+import type { SystemPermissionCode } from './authorization.constants.js'
 
 export interface StudentScopeCheckInput {
   actorUserId: string
@@ -9,28 +7,17 @@ export interface StudentScopeCheckInput {
 }
 
 export interface ScopeAuthorizationRepository {
-  canAccessStudent(
-    input: StudentScopeCheckInput,
-  ): Promise<boolean>
+  canAccessStudent(input: StudentScopeCheckInput): Promise<boolean>
 }
 
 export interface ScopeAuthorizationUseCase {
-  canAccessStudent(
-    input: StudentScopeCheckInput,
-  ): Promise<boolean>
+  canAccessStudent(input: StudentScopeCheckInput): Promise<boolean>
 }
 
-export class ScopeAuthorizationService
-implements ScopeAuthorizationUseCase {
-  constructor(
-    private readonly repository:
-      ScopeAuthorizationRepository,
-  ) {}
+export class ScopeAuthorizationService implements ScopeAuthorizationUseCase {
+  constructor(private readonly repository: ScopeAuthorizationRepository) {}
 
-  canAccessStudent(
-    input: StudentScopeCheckInput,
-  ): Promise<boolean> {
-    return this.repository
-      .canAccessStudent(input)
+  canAccessStudent(input: StudentScopeCheckInput): Promise<boolean> {
+    return this.repository.canAccessStudent(input)
   }
 }

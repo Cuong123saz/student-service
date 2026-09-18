@@ -1,9 +1,6 @@
 import 'dotenv/config'
 
-type AppEnvironment =
-  | 'development'
-  | 'test'
-  | 'production'
+type AppEnvironment = 'development' | 'test' | 'production'
 
 type RequiredEnvironmentVariable =
   | 'DATABASE_URL'
@@ -18,58 +15,33 @@ type RequiredEnvironmentVariable =
   | 'SMTP_SECURE'
   | 'MAIL_FROM'
 
-function readRequiredEnvironmentVariable(
-  name: RequiredEnvironmentVariable,
-): string {
-  const value =
-    process.env[name]?.trim()
+function readRequiredEnvironmentVariable(name: RequiredEnvironmentVariable): string {
+  const value = process.env[name]?.trim()
 
   if (!value) {
-    throw new Error(
-      `Missing required environment variable: ${name}`,
-    )
+    throw new Error(`Missing required environment variable: ${name}`)
   }
 
   return value
 }
-function readPort(
-  name: 'API_PORT' | 'SMTP_PORT',
-  value: string,
-): number {
+function readPort(name: 'API_PORT' | 'SMTP_PORT', value: string): number {
   const port = Number(value)
 
-  if (
-    !Number.isInteger(port)
-    || port < 1
-    || port > 65_535
-  ) {
-    throw new Error(
-      `${name} must be a valid port number, received: ${value}`,
-    )
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`${name} must be a valid port number, received: ${value}`)
   }
 
   return port
 }
 
-function readAppEnvironment(
-  value: string,
-): AppEnvironment {
-  if (
-    value !== 'development'
-    && value !== 'test'
-    && value !== 'production'
-  ) {
-    throw new Error(
-      `APP_ENV must be development, test or production; received: ${value}`,
-    )
+function readAppEnvironment(value: string): AppEnvironment {
+  if (value !== 'development' && value !== 'test' && value !== 'production') {
+    throw new Error(`APP_ENV must be development, test or production; received: ${value}`)
   }
 
   return value
 }
-function readBoolean(
-  name: 'SMTP_SECURE',
-  value: string,
-): boolean {
+function readBoolean(name: 'SMTP_SECURE', value: string): boolean {
   if (value === 'true') {
     return true
   }
@@ -78,87 +50,38 @@ function readBoolean(
     return false
   }
 
-  throw new Error(
-    `${name} must be true or false, received: ${value}`,
-  )
+  throw new Error(`${name} must be true or false, received: ${value}`)
 }
-function readJwtSecret(
-  value: string,
-): string {
+function readJwtSecret(value: string): string {
   if (value.length < 32) {
-    throw new Error(
-      'JWT_SECRET must contain at least 32 characters',
-    )
+    throw new Error('JWT_SECRET must contain at least 32 characters')
   }
 
   return value
 }
 
-const appEnvironment =
-  readAppEnvironment(
-    readRequiredEnvironmentVariable(
-      'APP_ENV',
-    ),
-  )
+const appEnvironment = readAppEnvironment(readRequiredEnvironmentVariable('APP_ENV'))
 
 export const env = Object.freeze({
-  databaseUrl:
-    readRequiredEnvironmentVariable(
-      'DATABASE_URL',
-    ),
+  databaseUrl: readRequiredEnvironmentVariable('DATABASE_URL'),
 
-  corsOrigin:
-    readRequiredEnvironmentVariable(
-      'CORS_ORIGIN',
-    ),
-webBaseUrl:
-  readRequiredEnvironmentVariable(
-    'WEB_BASE_URL',
-  ),
+  corsOrigin: readRequiredEnvironmentVariable('CORS_ORIGIN'),
+  webBaseUrl: readRequiredEnvironmentVariable('WEB_BASE_URL'),
 
-smtpHost:
-  readRequiredEnvironmentVariable(
-    'SMTP_HOST',
-  ),
+  smtpHost: readRequiredEnvironmentVariable('SMTP_HOST'),
 
-smtpPort: readPort(
-  'SMTP_PORT',
-  readRequiredEnvironmentVariable(
-    'SMTP_PORT',
-  ),
-),
+  smtpPort: readPort('SMTP_PORT', readRequiredEnvironmentVariable('SMTP_PORT')),
 
-smtpSecure: readBoolean(
-  'SMTP_SECURE',
-  readRequiredEnvironmentVariable(
-    'SMTP_SECURE',
-  ),
-),
+  smtpSecure: readBoolean('SMTP_SECURE', readRequiredEnvironmentVariable('SMTP_SECURE')),
 
-mailFrom:
-  readRequiredEnvironmentVariable(
-    'MAIL_FROM',
-  ),
-  apiHost:
-    readRequiredEnvironmentVariable(
-      'API_HOST',
-    ),
+  mailFrom: readRequiredEnvironmentVariable('MAIL_FROM'),
+  apiHost: readRequiredEnvironmentVariable('API_HOST'),
 
-  apiPort: readPort(
-  'API_PORT',
-  readRequiredEnvironmentVariable(
-    'API_PORT',
-  ),
-),
+  apiPort: readPort('API_PORT', readRequiredEnvironmentVariable('API_PORT')),
 
   appEnvironment,
 
-  jwtSecret: readJwtSecret(
-    readRequiredEnvironmentVariable(
-      'JWT_SECRET',
-    ),
-  ),
+  jwtSecret: readJwtSecret(readRequiredEnvironmentVariable('JWT_SECRET')),
 
-  isProduction:
-    appEnvironment === 'production',
+  isProduction: appEnvironment === 'production',
 })

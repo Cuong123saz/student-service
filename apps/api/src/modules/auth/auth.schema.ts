@@ -13,9 +13,7 @@ import {
 export const users = pgTable(
   'users',
   {
-    id: uuid('id')
-      .defaultRandom()
-      .primaryKey(),
+    id: uuid('id').defaultRandom().primaryKey(),
 
     username: varchar('username', {
       length: 100,
@@ -23,12 +21,9 @@ export const users = pgTable(
       .notNull()
       .unique(),
 
-    passwordHash: varchar(
-      'password_hash',
-      {
-        length: 255,
-      },
-    ),
+    passwordHash: varchar('password_hash', {
+      length: 255,
+    }),
 
     fullName: varchar('full_name', {
       length: 255,
@@ -44,68 +39,38 @@ export const users = pgTable(
       .notNull()
       .default('ACTIVE'),
 
-    mustChangePassword: boolean(
-      'must_change_password',
-    )
-      .notNull()
-      .default(true),
+    mustChangePassword: boolean('must_change_password').notNull().default(true),
 
-    invitedAt: timestamp(
-      'invited_at',
-      {
-        withTimezone: true,
-      },
-    ),
-    lastInvitationSentAt: timestamp(
-  'last_invitation_sent_at',
-  {
-    withTimezone: true,
-  },
-),
+    invitedAt: timestamp('invited_at', {
+      withTimezone: true,
+    }),
+    lastInvitationSentAt: timestamp('last_invitation_sent_at', {
+      withTimezone: true,
+    }),
 
-    activatedAt: timestamp(
-      'activated_at',
-      {
-        withTimezone: true,
-      },
-    ),
+    activatedAt: timestamp('activated_at', {
+      withTimezone: true,
+    }),
 
-    createdAt: timestamp(
-      'created_at',
-      {
-        withTimezone: true,
-      },
-    )
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
       .notNull()
       .defaultNow(),
 
-    updatedAt: timestamp(
-      'updated_at',
-      {
-        withTimezone: true,
-      },
-    )
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
       .notNull()
       .defaultNow(),
   },
 
   // Tham số thứ ba của pgTable
   (table) => [
-  index(
-    'users_status_invited_at_idx',
-  ).on(
-    table.status,
-    table.invitedAt,
-  ),
+    index('users_status_invited_at_idx').on(table.status, table.invitedAt),
 
-  index(
-    'users_status_last_invitation_sent_at_idx',
-  ).on(
-    table.status,
-    table.lastInvitationSentAt,
-  ),
-],
-  
+    index('users_status_last_invitation_sent_at_idx').on(table.status, table.lastInvitationSentAt),
+  ],
 )
 
 export const roles = pgTable('roles', {
@@ -125,9 +90,7 @@ export const roles = pgTable('roles', {
     length: 255,
   }),
 
-  isSystem: boolean('is_system')
-    .notNull()
-    .default(false),
+  isSystem: boolean('is_system').notNull().default(false),
 })
 
 export const userRoles = pgTable(
@@ -153,10 +116,7 @@ export const userRoles = pgTable(
   },
   (table) => [
     primaryKey({
-      columns: [
-        table.userId,
-        table.roleId,
-      ],
+      columns: [table.userId, table.roleId],
     }),
   ],
 )

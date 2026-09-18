@@ -1,13 +1,7 @@
-import type {
-  InvitationMailer,
-} from './invitation-mailer.js'
-import {
-  generateActionToken,
-  type GeneratedActionToken,
-} from './user-action-token.js'
+import type { InvitationMailer } from './invitation-mailer.js'
+import { generateActionToken, type GeneratedActionToken } from './user-action-token.js'
 
-const ACTIVATION_TTL_MS =
-  72 * 60 * 60 * 1000
+const ACTIVATION_TTL_MS = 72 * 60 * 60 * 1000
 const STALE_LOCK_MS = 5 * 60 * 1000
 
 export interface ClaimedInvitationDeliveryJob {
@@ -39,29 +33,20 @@ export interface CompleteInvitationJobInput {
   now: Date
 }
 
-export interface FailInvitationJobInput
-extends CompleteInvitationJobInput {
+export interface FailInvitationJobInput extends CompleteInvitationJobInput {
   errorCode: string
   retryAt: Date
   permanent: boolean
 }
 
 export interface InvitationDeliveryJobRepository {
-  claimNext(
-    input: ClaimInvitationJobInput,
-  ): Promise<ClaimedInvitationDeliveryJob | null>
+  claimNext(input: ClaimInvitationJobInput): Promise<ClaimedInvitationDeliveryJob | null>
 
-  prepareActivationToken(
-    input: PrepareInvitationJobInput,
-  ): Promise<boolean>
+  prepareActivationToken(input: PrepareInvitationJobInput): Promise<boolean>
 
-  markSent(
-    input: CompleteInvitationJobInput,
-  ): Promise<boolean>
+  markSent(input: CompleteInvitationJobInput): Promise<boolean>
 
-  markFailed(
-    input: FailInvitationJobInput,
-  ): Promise<boolean>
+  markFailed(input: FailInvitationJobInput): Promise<boolean>
 }
 
 export interface InvitationDeliveryJobUseCase {
@@ -69,25 +54,18 @@ export interface InvitationDeliveryJobUseCase {
 }
 
 type Clock = () => Date
-type ActionTokenGenerator =
-  () => GeneratedActionToken
+type ActionTokenGenerator = () => GeneratedActionToken
 
 function retryDelayMs(attempt: number): number {
-  return Math.min(
-    60 * 60 * 1000,
-    60 * 1000 * (5 ** Math.max(0, attempt - 1)),
-  )
+  return Math.min(60 * 60 * 1000, 60 * 1000 * 5 ** Math.max(0, attempt - 1))
 }
 
-export class InvitationDeliveryJobService
-implements InvitationDeliveryJobUseCase {
+export class InvitationDeliveryJobService implements InvitationDeliveryJobUseCase {
   constructor(
-    private readonly repository:
-      InvitationDeliveryJobRepository,
+    private readonly repository: InvitationDeliveryJobRepository,
     private readonly mailer: InvitationMailer,
     private readonly webBaseUrl: string,
-    private readonly tokenGenerator:
-      ActionTokenGenerator = generateActionToken,
+    private readonly tokenGenerator: ActionTokenGenerator = generateActionToken,
     private readonly clock: Clock = () => new Date(),
   ) {}
 
@@ -96,9 +74,7 @@ implements InvitationDeliveryJobUseCase {
     const job = await this.repository.claimNext({
       workerId,
       now: claimTime,
-      staleBefore: new Date(
-        claimTime.getTime() - STALE_LOCK_MS,
-      ),
+      staleBefore: new Date(claimTime.getTime() - STALE_LOCK_MS),
     })
 
     if (!job) {
@@ -106,47 +82,27 @@ implements InvitationDeliveryJobUseCase {
     }
 
     if (!job.recipientEmail) {
-      await this.fail(
-        job,
-        workerId,
-        'RECIPIENT_EMAIL_MISSING',
-        true,
-      )
+      await this.fail(job, workerId, 'RECIPIENT_EMAIL_MISSING', true)
       return true
     }
 
     const token = this.tokenGenerator()
     const tokenCreatedAt = this.clock()
-    const prepared = await this.repository
-      .prepareActivationToken({
-        jobId: job.id,
-        workerId,
-        tokenHash: token.tokenHash,
-        tokenExpiresAt: new Date(
-          tokenCreatedAt.getTime()
-          + ACTIVATION_TTL_MS,
-        ),
-        now: tokenCreatedAt,
-      })
+    const prepared = await this.repository.prepareActivationToken({
+      jobId: job.id,
+      workerId,
+      tokenHash: token.tokenHash,
+      tokenExpiresAt: new Date(tokenCreatedAt.getTime() + ACTIVATION_TTL_MS),
+      now: tokenCreatedAt,
+    })
 
     if (!prepared) {
-      await this.fail(
-        job,
-        workerId,
-        'ACCOUNT_NOT_INVITABLE',
-        true,
-      )
+      await this.fail(job, workerId, 'ACCOUNT_NOT_INVITABLE', true)
       return true
     }
 
-    const activationUrl = new URL(
-      '/activate',
-      this.webBaseUrl,
-    )
-    activationUrl.searchParams.set(
-      'token',
-      token.rawToken,
-    )
+    const activationUrl = new URL('/activate', this.webBaseUrl)
+    activationUrl.searchParams.set('token', token.rawToken)
 
     try {
       await this.mailer.sendActivationEmail({
@@ -160,12 +116,7 @@ implements InvitationDeliveryJobUseCase {
         now: this.clock(),
       })
     } catch {
-      await this.fail(
-        job,
-        workerId,
-        'MAIL_DELIVERY_FAILED',
-        false,
-      )
+      await this.fail(job, workerId, 'MAIL_DELIVERY_FAILED', false)
     }
 
     return true
@@ -183,13 +134,8 @@ implements InvitationDeliveryJobUseCase {
       workerId,
       now: failedAt,
       errorCode,
-      permanent:
-        permanent
-        || job.attempt >= job.maxAttempts,
-      retryAt: new Date(
-        failedAt.getTime()
-        + retryDelayMs(job.attempt),
-      ),
+      permanent: permanent || job.attempt >= job.maxAttempts,
+      retryAt: new Date(failedAt.getTime() + retryDelayMs(job.attempt)),
     })
   }
 }

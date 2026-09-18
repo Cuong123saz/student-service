@@ -5,7 +5,9 @@ const props = defineProps<{ role: SystemRoleCode }>()
 const label = computed(() => roleLabels[props.role])
 </script>
 
-<template><span class="role-badge">{{ label }}</span></template>
+<template>
+  <span class="role-badge">{{ label }}</span>
+</template>
 
 <style scoped>
 .role-badge {

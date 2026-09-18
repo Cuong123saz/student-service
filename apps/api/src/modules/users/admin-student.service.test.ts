@@ -53,11 +53,12 @@ test('từ chối mã sinh viên chứa ký tự không phải số', () => {
   const service = new AdminStudentService(new FakeRepository())
 
   assert.throws(
-    () => service.updateStudent({
-      ...baseInput,
-      studentCode: 'SV001',
-      fullName: 'Nguyễn Văn A',
-    }),
+    () =>
+      service.updateStudent({
+        ...baseInput,
+        studentCode: 'SV001',
+        fullName: 'Nguyễn Văn A',
+      }),
     InvalidStudentUpdateError,
   )
 })

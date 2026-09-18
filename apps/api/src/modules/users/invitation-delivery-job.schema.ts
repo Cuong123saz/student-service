@@ -15,18 +15,15 @@ import { users } from '../auth/auth.schema.js'
 export const invitationDeliveryJobs = pgTable(
   'invitation_delivery_jobs',
   {
-    id: uuid('id')
-      .defaultRandom()
-      .primaryKey(),
+    id: uuid('id').defaultRandom().primaryKey(),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, {
         onDelete: 'cascade',
       }),
-    createdByUserId: uuid('created_by_user_id')
-      .references(() => users.id, {
-        onDelete: 'set null',
-      }),
+    createdByUserId: uuid('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     actorUsername: varchar('actor_username', {
       length: 100,
     }),
@@ -35,12 +32,8 @@ export const invitationDeliveryJobs = pgTable(
     })
       .notNull()
       .default('PENDING'),
-    attempts: integer('attempts')
-      .notNull()
-      .default(0),
-    maxAttempts: integer('max_attempts')
-      .notNull()
-      .default(3),
+    attempts: integer('attempts').notNull().default(0),
+    maxAttempts: integer('max_attempts').notNull().default(3),
     nextAttemptAt: timestamp('next_attempt_at', {
       withTimezone: true,
     })
@@ -68,17 +61,11 @@ export const invitationDeliveryJobs = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex(
-      'invitation_delivery_jobs_one_open_per_user_idx',
-    )
+    uniqueIndex('invitation_delivery_jobs_one_open_per_user_idx')
       .on(table.userId)
       .where(sql`${table.status} IN ('PENDING', 'PROCESSING')`),
-    index(
-      'invitation_delivery_jobs_ready_idx',
-    ).on(table.status, table.nextAttemptAt),
-    index(
-      'invitation_delivery_jobs_locked_at_idx',
-    ).on(table.lockedAt),
+    index('invitation_delivery_jobs_ready_idx').on(table.status, table.nextAttemptAt),
+    index('invitation_delivery_jobs_locked_at_idx').on(table.lockedAt),
     check(
       'invitation_delivery_jobs_status_check',
       sql`${table.status} IN ('PENDING', 'PROCESSING', 'SENT', 'FAILED')`,

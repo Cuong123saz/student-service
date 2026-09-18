@@ -1,8 +1,4 @@
-import {
-  describe,
-  expect,
-  it,
-} from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 describe('Vitest infrastructure', () => {
   it('runs unit tests in the web workspace', () => {

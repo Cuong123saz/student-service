@@ -1,10 +1,6 @@
 import type { SystemRoleCode } from '~/types/auth'
 
-export type AuthorizationScopeType =
-  | 'GLOBAL'
-  | 'FACULTY'
-  | 'CLASS'
-  | 'ORGANIZATION'
+export type AuthorizationScopeType = 'GLOBAL' | 'FACULTY' | 'CLASS' | 'ORGANIZATION'
 
 export interface AccessScope {
   id: string

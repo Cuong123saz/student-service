@@ -1,10 +1,4 @@
-import {
-  integer,
-  pgTable,
-  serial,
-  text,
-  varchar,
-} from 'drizzle-orm/pg-core'
+import { integer, pgTable, serial, text, varchar } from 'drizzle-orm/pg-core'
 
 export const services = pgTable('services', {
   id: serial('id').primaryKey(),

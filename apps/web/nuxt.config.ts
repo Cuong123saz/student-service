@@ -12,8 +12,7 @@ export default defineNuxtConfig({
       meta: [
         {
           name: 'description',
-          content:
-            'Cổng tra cứu và thực hiện dịch vụ sinh viên của Học viện Quản lý Giáo dục.',
+          content: 'Cổng tra cứu và thực hiện dịch vụ sinh viên của Học viện Quản lý Giáo dục.',
         },
         {
           name: 'theme-color',
@@ -27,9 +26,7 @@ export default defineNuxtConfig({
     enabled: true,
   },
 
-  css: [
-    '~/assets/css/main.css',
-  ],
+  css: ['~/assets/css/main.css'],
 
   // Admin auth is resolved from an HttpOnly cookie in client middleware.
   // Keeping this area client-rendered avoids rendering the protected layout

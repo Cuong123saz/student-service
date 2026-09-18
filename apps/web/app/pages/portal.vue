@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import {
-  roleLabels,
-  type SystemRoleCode,
-} from '~/types/auth'
+import { roleLabels, type SystemRoleCode } from '~/types/auth'
 
 definePageMeta({ middleware: 'user-auth' })
 
@@ -49,9 +46,11 @@ const allItems: PortalItem[] = [
   },
 ]
 
-const items = computed(() => allItems.filter(item => (
-  !item.roles || item.roles.some(role => user.value?.roles.includes(role))
-)))
+const items = computed(() =>
+  allItems.filter(
+    (item) => !item.roles || item.roles.some((role) => user.value?.roles.includes(role)),
+  ),
+)
 </script>
 
 <template>
@@ -73,24 +72,33 @@ const items = computed(() => allItems.filter(item => (
       <template v-for="item in items" :key="item.label">
         <NuxtLink v-if="item.to" class="portal-card portal-card--active" :to="item.to">
           <span class="portal-card__icon" aria-hidden="true">→</span>
-          <div><h2>{{ item.label }}</h2><p>{{ item.description }}</p></div>
+          <div>
+            <h2>{{ item.label }}</h2>
+            <p>{{ item.description }}</p>
+          </div>
           <strong>Truy cập</strong>
         </NuxtLink>
         <article v-else class="portal-card" aria-disabled="true">
           <span class="portal-card__status">Sắp triển khai</span>
-          <div><h2>{{ item.label }}</h2><p>{{ item.description }}</p></div>
+          <div>
+            <h2>{{ item.label }}</h2>
+            <p>{{ item.description }}</p>
+          </div>
         </article>
       </template>
     </div>
 
     <p class="portal__identity">
-      Quyền hiện tại: {{ user.roles.map(role => roleLabels[role]).join(', ') }}
+      Quyền hiện tại: {{ user.roles.map((role) => roleLabels[role]).join(', ') }}
     </p>
   </section>
 </template>
 
 <style scoped>
-.portal { max-width: 920px; margin: 0 auto; }
+.portal {
+  max-width: 920px;
+  margin: 0 auto;
+}
 .portal__header {
   position: relative;
   display: flex;
@@ -117,27 +125,116 @@ const items = computed(() => allItems.filter(item => (
   border: 1px solid rgb(255 255 255 / 9%);
   border-radius: 50%;
   box-shadow: 0 0 0 48px rgb(255 255 255 / 2.5%);
-  content: "";
+  content: '';
 }
-.portal__header > div { position: relative; z-index: 1; }
-.portal__header .page-eyebrow { color: #e2bd70; }
-.portal__header .page-title { color: #fff; }
-.portal__header .page-description { color: rgb(255 255 255 / 62%); }
-.portal__roles { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
-.portal__roles :deep(.role-badge) { border: 1px solid rgb(226 189 112 / 25%); color: #f5dfb3; background: rgb(255 255 255 / 8%); }
-.portal__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.portal-card { position: relative; display: flex; min-height: 184px; flex-direction: column; justify-content: space-between; gap: 18px; padding: 23px; border: 1px solid rgb(220 228 239 / 85%); border-radius: 18px; color: var(--color-muted); background: rgb(255 255 255 / 94%); box-shadow: 0 8px 26px rgb(15 33 60 / 5%); text-decoration: none; }
-.portal-card--active { color: var(--color-text); cursor: pointer; transition: border-color 160ms ease, box-shadow 160ms ease; }
-.portal-card--active:hover { border-color: #a8c6ff; box-shadow: 0 16px 36px rgb(15 33 60 / 11%); transform: translateY(-3px); }
-.portal-card__icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 11px; color: var(--color-primary); background: var(--color-primary-soft); font-weight: 800; }
-.portal-card__status { align-self: flex-start; padding: 4px 7px; border-radius: 6px; color: #92400e; background: #fef3c7; font-size: 11px; font-weight: 700; }
-.portal-card h2 { margin-bottom: 7px; color: var(--color-text); font-size: 18px; letter-spacing: -.015em; }
-.portal-card p { margin: 0; color: var(--color-muted); font-size: 14px; line-height: 1.55; }
-.portal-card strong { color: var(--color-primary); font-size: 14px; }
-.portal__identity { margin: 22px 0 0; color: var(--color-muted); font-size: 13px; }
+.portal__header > div {
+  position: relative;
+  z-index: 1;
+}
+.portal__header .page-eyebrow {
+  color: #e2bd70;
+}
+.portal__header .page-title {
+  color: #fff;
+}
+.portal__header .page-description {
+  color: rgb(255 255 255 / 62%);
+}
+.portal__roles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+.portal__roles :deep(.role-badge) {
+  border: 1px solid rgb(226 189 112 / 25%);
+  color: #f5dfb3;
+  background: rgb(255 255 255 / 8%);
+}
+.portal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.portal-card {
+  position: relative;
+  display: flex;
+  min-height: 184px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 23px;
+  border: 1px solid rgb(220 228 239 / 85%);
+  border-radius: 18px;
+  color: var(--color-muted);
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 8px 26px rgb(15 33 60 / 5%);
+  text-decoration: none;
+}
+.portal-card--active {
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.portal-card--active:hover {
+  border-color: #a8c6ff;
+  box-shadow: 0 16px 36px rgb(15 33 60 / 11%);
+  transform: translateY(-3px);
+}
+.portal-card__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-weight: 800;
+}
+.portal-card__status {
+  align-self: flex-start;
+  padding: 4px 7px;
+  border-radius: 6px;
+  color: #92400e;
+  background: #fef3c7;
+  font-size: 11px;
+  font-weight: 700;
+}
+.portal-card h2 {
+  margin-bottom: 7px;
+  color: var(--color-text);
+  font-size: 18px;
+  letter-spacing: -0.015em;
+}
+.portal-card p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.portal-card strong {
+  color: var(--color-primary);
+  font-size: 14px;
+}
+.portal__identity {
+  margin: 22px 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
 @media (max-width: 680px) {
-  .portal__header { min-height: 230px; align-items: flex-start; flex-direction: column; padding: 28px 24px; }
-  .portal__roles { justify-content: flex-start; }
-  .portal__grid { grid-template-columns: 1fr; }
+  .portal__header {
+    min-height: 230px;
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 28px 24px;
+  }
+  .portal__roles {
+    justify-content: flex-start;
+  }
+  .portal__grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

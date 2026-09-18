@@ -1,26 +1,14 @@
 import assert from 'node:assert/strict'
-import {
-  after,
-  beforeEach,
-  test,
-} from 'node:test'
+import { after, beforeEach, test } from 'node:test'
 
 import { buildApp } from '../../app.js'
-import {
-  databaseClient,
-  db,
-} from '../../db/client.js'
+import { databaseClient, db } from '../../db/client.js'
 import { services } from '../../db/schema.js'
 
 const databaseUrl = process.env.DATABASE_URL
 
-if (
-  !databaseUrl
-  || new URL(databaseUrl).pathname !== '/student_service_test'
-) {
-  throw new Error(
-    'Integration tests must use the student_service_test database',
-  )
+if (!databaseUrl || new URL(databaseUrl).pathname !== '/student_service_test') {
+  throw new Error('Integration tests must use the student_service_test database')
 }
 
 beforeEach(async () => {
@@ -128,9 +116,7 @@ test('GET /services lọc dịch vụ theo status', async (context) => {
     ])
     .returning()
 
-  const activeService = insertedServices.find(
-    service => service.status === 'ACTIVE',
-  )
+  const activeService = insertedServices.find((service) => service.status === 'ACTIVE')
 
   assert.ok(activeService)
 
@@ -141,9 +127,7 @@ test('GET /services lọc dịch vụ theo status', async (context) => {
 
   assert.equal(response.statusCode, 200)
 
-  assert.deepEqual(response.json(), [
-    activeService,
-  ])
+  assert.deepEqual(response.json(), [activeService])
 })
 test('GET /services trả 400 khi status không hợp lệ', async (context) => {
   const app = buildApp()

@@ -1,6 +1,4 @@
-export type OrganizationStatus =
-  | 'ACTIVE'
-  | 'INACTIVE'
+export type OrganizationStatus = 'ACTIVE' | 'INACTIVE'
 
 export interface OrganizationActor {
   userId: string
@@ -20,8 +18,7 @@ export interface ManagedAdvisor {
   email: string | null
 }
 
-export interface CurrentAdvisor
-extends ManagedAdvisor {
+export interface CurrentAdvisor extends ManagedAdvisor {
   assignmentId: string
   validFrom: Date
 }
@@ -69,43 +66,37 @@ export interface OrganizationMutationContext {
   changedAt: Date
 }
 
-export interface CreateFacultyInput
-extends OrganizationMutationContext {
+export interface CreateFacultyInput extends OrganizationMutationContext {
   code: string
   name: string
 }
 
-export interface UpdateFacultyInput
-extends OrganizationMutationContext {
+export interface UpdateFacultyInput extends OrganizationMutationContext {
   facultyId: string
   code?: string
   name?: string
   status?: OrganizationStatus
 }
 
-export interface CreateOrganizationalUnitInput
-extends OrganizationMutationContext {
+export interface CreateOrganizationalUnitInput extends OrganizationMutationContext {
   code: string
   name: string
 }
 
-export interface UpdateOrganizationalUnitInput
-extends OrganizationMutationContext {
+export interface UpdateOrganizationalUnitInput extends OrganizationMutationContext {
   organizationalUnitId: string
   code?: string
   name?: string
   status?: OrganizationStatus
 }
 
-export interface CreateAcademicClassInput
-extends OrganizationMutationContext {
+export interface CreateAcademicClassInput extends OrganizationMutationContext {
   facultyId: string
   code: string
   name: string
 }
 
-export interface UpdateAcademicClassInput
-extends OrganizationMutationContext {
+export interface UpdateAcademicClassInput extends OrganizationMutationContext {
   classId: string
   facultyId?: string
   code?: string
@@ -113,112 +104,68 @@ extends OrganizationMutationContext {
   status?: OrganizationStatus
 }
 
-export interface SetAcademicAdvisorInput
-extends OrganizationMutationContext {
+export interface SetAcademicAdvisorInput extends OrganizationMutationContext {
   classId: string
   advisorUserId: string | null
   effectiveAt: Date
 }
 
 export interface OrganizationManagementRepository {
-  getSnapshot(
-    actorUserId: string,
-    at: Date,
-  ): Promise<OrganizationManagementSnapshot>
+  getSnapshot(actorUserId: string, at: Date): Promise<OrganizationManagementSnapshot>
 
-  createFaculty(
-    input: CreateFacultyInput,
-  ): Promise<{ id: string }>
+  createFaculty(input: CreateFacultyInput): Promise<{ id: string }>
 
-  updateFaculty(
-    input: UpdateFacultyInput,
-  ): Promise<void>
+  updateFaculty(input: UpdateFacultyInput): Promise<void>
 
-  createOrganizationalUnit(
-    input: CreateOrganizationalUnitInput,
-  ): Promise<{ id: string }>
+  createOrganizationalUnit(input: CreateOrganizationalUnitInput): Promise<{ id: string }>
 
-  updateOrganizationalUnit(
-    input: UpdateOrganizationalUnitInput,
-  ): Promise<void>
+  updateOrganizationalUnit(input: UpdateOrganizationalUnitInput): Promise<void>
 
-  createAcademicClass(
-    input: CreateAcademicClassInput,
-  ): Promise<{ id: string }>
+  createAcademicClass(input: CreateAcademicClassInput): Promise<{ id: string }>
 
-  updateAcademicClass(
-    input: UpdateAcademicClassInput,
-  ): Promise<void>
+  updateAcademicClass(input: UpdateAcademicClassInput): Promise<void>
 
-  setAcademicAdvisor(
-    input: SetAcademicAdvisorInput,
-  ): Promise<void>
+  setAcademicAdvisor(input: SetAcademicAdvisorInput): Promise<void>
 }
 
 export interface OrganizationManagementUseCase {
-  getSnapshot(
-    actorUserId: string,
-  ): Promise<OrganizationManagementSnapshot>
+  getSnapshot(actorUserId: string): Promise<OrganizationManagementSnapshot>
 
-  createFaculty(
-    input: Omit<CreateFacultyInput, 'changedAt'>,
-  ): Promise<{ id: string }>
+  createFaculty(input: Omit<CreateFacultyInput, 'changedAt'>): Promise<{ id: string }>
 
-  updateFaculty(
-    input: Omit<UpdateFacultyInput, 'changedAt'>,
-  ): Promise<void>
+  updateFaculty(input: Omit<UpdateFacultyInput, 'changedAt'>): Promise<void>
 
   createOrganizationalUnit(
     input: Omit<CreateOrganizationalUnitInput, 'changedAt'>,
   ): Promise<{ id: string }>
 
-  updateOrganizationalUnit(
-    input: Omit<UpdateOrganizationalUnitInput, 'changedAt'>,
-  ): Promise<void>
+  updateOrganizationalUnit(input: Omit<UpdateOrganizationalUnitInput, 'changedAt'>): Promise<void>
 
-  createAcademicClass(
-    input: Omit<CreateAcademicClassInput, 'changedAt'>,
-  ): Promise<{ id: string }>
+  createAcademicClass(input: Omit<CreateAcademicClassInput, 'changedAt'>): Promise<{ id: string }>
 
-  updateAcademicClass(
-    input: Omit<UpdateAcademicClassInput, 'changedAt'>,
-  ): Promise<void>
+  updateAcademicClass(input: Omit<UpdateAcademicClassInput, 'changedAt'>): Promise<void>
 
-  setAcademicAdvisor(
-    input: Omit<SetAcademicAdvisorInput, 'changedAt'>,
-  ): Promise<void>
+  setAcademicAdvisor(input: Omit<SetAcademicAdvisorInput, 'changedAt'>): Promise<void>
 }
 
-export class OrganizationManagementService
-implements OrganizationManagementUseCase {
+export class OrganizationManagementService implements OrganizationManagementUseCase {
   constructor(
-    private readonly repository:
-      OrganizationManagementRepository,
-    private readonly clock: () => Date =
-      () => new Date(),
+    private readonly repository: OrganizationManagementRepository,
+    private readonly clock: () => Date = () => new Date(),
   ) {}
 
-  getSnapshot(
-    actorUserId: string,
-  ): Promise<OrganizationManagementSnapshot> {
-    return this.repository.getSnapshot(
-      actorUserId,
-      this.clock(),
-    )
+  getSnapshot(actorUserId: string): Promise<OrganizationManagementSnapshot> {
+    return this.repository.getSnapshot(actorUserId, this.clock())
   }
 
-  createFaculty(
-    input: Omit<CreateFacultyInput, 'changedAt'>,
-  ): Promise<{ id: string }> {
+  createFaculty(input: Omit<CreateFacultyInput, 'changedAt'>): Promise<{ id: string }> {
     return this.repository.createFaculty({
       ...input,
       changedAt: this.clock(),
     })
   }
 
-  updateFaculty(
-    input: Omit<UpdateFacultyInput, 'changedAt'>,
-  ): Promise<void> {
+  updateFaculty(input: Omit<UpdateFacultyInput, 'changedAt'>): Promise<void> {
     return this.repository.updateFaculty({
       ...input,
       changedAt: this.clock(),
@@ -234,36 +181,28 @@ implements OrganizationManagementUseCase {
     })
   }
 
-  updateOrganizationalUnit(
-    input: Omit<UpdateOrganizationalUnitInput, 'changedAt'>,
-  ): Promise<void> {
+  updateOrganizationalUnit(input: Omit<UpdateOrganizationalUnitInput, 'changedAt'>): Promise<void> {
     return this.repository.updateOrganizationalUnit({
       ...input,
       changedAt: this.clock(),
     })
   }
 
-  createAcademicClass(
-    input: Omit<CreateAcademicClassInput, 'changedAt'>,
-  ): Promise<{ id: string }> {
+  createAcademicClass(input: Omit<CreateAcademicClassInput, 'changedAt'>): Promise<{ id: string }> {
     return this.repository.createAcademicClass({
       ...input,
       changedAt: this.clock(),
     })
   }
 
-  updateAcademicClass(
-    input: Omit<UpdateAcademicClassInput, 'changedAt'>,
-  ): Promise<void> {
+  updateAcademicClass(input: Omit<UpdateAcademicClassInput, 'changedAt'>): Promise<void> {
     return this.repository.updateAcademicClass({
       ...input,
       changedAt: this.clock(),
     })
   }
 
-  setAcademicAdvisor(
-    input: Omit<SetAcademicAdvisorInput, 'changedAt'>,
-  ): Promise<void> {
+  setAcademicAdvisor(input: Omit<SetAcademicAdvisorInput, 'changedAt'>): Promise<void> {
     return this.repository.setAcademicAdvisor({
       ...input,
       changedAt: this.clock(),

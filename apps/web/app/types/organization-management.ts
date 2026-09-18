@@ -1,6 +1,4 @@
-export type OrganizationStatus =
-  | 'ACTIVE'
-  | 'INACTIVE'
+export type OrganizationStatus = 'ACTIVE' | 'INACTIVE'
 
 export interface ManagedAdvisor {
   userId: string
@@ -9,8 +7,7 @@ export interface ManagedAdvisor {
   email: string | null
 }
 
-export interface CurrentAdvisor
-extends ManagedAdvisor {
+export interface CurrentAdvisor extends ManagedAdvisor {
   assignmentId: string
   validFrom: string
 }

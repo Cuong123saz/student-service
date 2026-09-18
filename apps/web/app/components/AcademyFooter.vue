@@ -7,7 +7,7 @@
           alt="Logo Học viện Quản lý Giáo dục"
           width="86"
           height="86"
-        >
+        />
         <div>
           <p>Bộ Giáo dục và Đào tạo</p>
           <h2 id="academy-footer-title">Học viện Quản lý Giáo dục</h2>
@@ -68,14 +68,14 @@
   height: 330px;
   border: 48px solid rgb(255 255 255 / 2.5%);
   border-radius: 50%;
-  content: "";
+  content: '';
 }
 
 .academy-footer__main {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(300px, .9fr) minmax(420px, 1.1fr);
+  grid-template-columns: minmax(300px, 0.9fr) minmax(420px, 1.1fr);
   gap: 72px;
   padding-top: 46px;
   padding-bottom: 40px;
@@ -102,13 +102,13 @@
   color: #e2bd70;
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: .09em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
 .academy-footer__identity h2 {
   margin-bottom: 7px;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(1.25rem, 2.2vw, 1.65rem);
   line-height: 1.25;
 }
@@ -135,7 +135,7 @@
 .academy-footer__contact strong {
   color: #e2bd70;
   font-size: 12px;
-  letter-spacing: .06em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -147,7 +147,10 @@
   text-decoration: none;
 }
 
-.academy-footer__contact a:hover { color: #fff; text-decoration: underline; }
+.academy-footer__contact a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
 
 .academy-footer__bottom {
   position: relative;
@@ -162,7 +165,11 @@
   font-size: 12px;
 }
 
-.academy-footer__bottom div { display: flex; align-items: center; gap: 10px; }
+.academy-footer__bottom div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .academy-footer__bottom a {
   display: inline-flex;
   min-height: 36px;
@@ -174,18 +181,43 @@
   color: rgb(255 255 255 / 72%);
   text-decoration: none;
 }
-.academy-footer__bottom a:hover { border-color: rgb(226 189 112 / 45%); color: #fff; background: rgb(255 255 255 / 5%); }
+.academy-footer__bottom a:hover {
+  border-color: rgb(226 189 112 / 45%);
+  color: #fff;
+  background: rgb(255 255 255 / 5%);
+}
 
 @media (max-width: 820px) {
-  .academy-footer__main { grid-template-columns: 1fr; gap: 34px; }
+  .academy-footer__main {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
 }
 
 @media (max-width: 560px) {
-  .academy-footer__main { padding-top: 36px; padding-bottom: 30px; }
-  .academy-footer__identity { align-items: flex-start; }
-  .academy-footer__identity img { width: 68px; height: 68px; }
-  .academy-footer__contact { grid-template-columns: 1fr; gap: 18px; }
-  .academy-footer__bottom { align-items: flex-start; flex-direction: column; padding-top: 20px; padding-bottom: 22px; }
-  .academy-footer__bottom div { flex-wrap: wrap; }
+  .academy-footer__main {
+    padding-top: 36px;
+    padding-bottom: 30px;
+  }
+  .academy-footer__identity {
+    align-items: flex-start;
+  }
+  .academy-footer__identity img {
+    width: 68px;
+    height: 68px;
+  }
+  .academy-footer__contact {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .academy-footer__bottom {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-top: 20px;
+    padding-bottom: 22px;
+  }
+  .academy-footer__bottom div {
+    flex-wrap: wrap;
+  }
 }
 </style>

@@ -1,7 +1,4 @@
-import type {
-  CurrentAdvisorResponse,
-  StudentProfile,
-} from '~/types/student-profile'
+import type { CurrentAdvisorResponse, StudentProfile } from '~/types/student-profile'
 
 export function useStudentProfile() {
   const config = useRuntimeConfig()
@@ -14,24 +11,20 @@ export function useStudentProfile() {
     isLoading.value = true
     errorMessage.value = ''
 
-    const [profileResult, advisorResult] =
-      await Promise.allSettled([
-        $fetch<{ profile: StudentProfile }>(
-          `${config.public.apiBase}/api/v1/user/profile`,
-          { credentials: 'include' },
-        ),
-        $fetch<CurrentAdvisorResponse>(
-          `${config.public.apiBase}/api/v1/user/advisor`,
-          { credentials: 'include' },
-        ),
-      ])
+    const [profileResult, advisorResult] = await Promise.allSettled([
+      $fetch<{ profile: StudentProfile }>(`${config.public.apiBase}/api/v1/user/profile`, {
+        credentials: 'include',
+      }),
+      $fetch<CurrentAdvisorResponse>(`${config.public.apiBase}/api/v1/user/advisor`, {
+        credentials: 'include',
+      }),
+    ])
 
     if (profileResult.status === 'fulfilled') {
       profile.value = profileResult.value.profile
     } else {
       profile.value = null
-      errorMessage.value =
-        'Chưa có hồ sơ học vụ được cấu hình cho tài khoản này.'
+      errorMessage.value = 'Chưa có hồ sơ học vụ được cấu hình cho tài khoản này.'
     }
 
     if (advisorResult.status === 'fulfilled') {
@@ -39,8 +32,7 @@ export function useStudentProfile() {
     } else {
       advisor.value = null
       if (!errorMessage.value) {
-        errorMessage.value =
-          'Không thể tải thông tin cố vấn. Vui lòng thử lại sau.'
+        errorMessage.value = 'Không thể tải thông tin cố vấn. Vui lòng thử lại sau.'
       }
     }
 

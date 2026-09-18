@@ -1,7 +1,4 @@
-import type {
-  InvitationMailer,
-  SendActivationEmailInput,
-} from './invitation-mailer.js'
+import type { InvitationMailer, SendActivationEmailInput } from './invitation-mailer.js'
 
 export interface MailMessage {
   from: string
@@ -11,29 +8,21 @@ export interface MailMessage {
 }
 
 export interface MailTransport {
-  sendMail(
-    message: MailMessage,
-  ): Promise<unknown>
+  sendMail(message: MailMessage): Promise<unknown>
 }
 
-export class SmtpInvitationMailer
-implements InvitationMailer {
+export class SmtpInvitationMailer implements InvitationMailer {
   constructor(
-    private readonly transport:
-      MailTransport,
+    private readonly transport: MailTransport,
 
-    private readonly fromAddress:
-      string,
+    private readonly fromAddress: string,
   ) {}
 
-  async sendActivationEmail(
-    input: SendActivationEmailInput,
-  ): Promise<void> {
+  async sendActivationEmail(input: SendActivationEmailInput): Promise<void> {
     await this.transport.sendMail({
       from: this.fromAddress,
       to: input.recipientEmail,
-      subject:
-        'Kích hoạt tài khoản Cổng Dịch vụ Sinh viên',
+      subject: 'Kích hoạt tài khoản Cổng Dịch vụ Sinh viên',
       text: [
         `Xin chào ${input.recipientName},`,
         '',

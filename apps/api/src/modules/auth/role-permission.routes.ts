@@ -1,18 +1,8 @@
-import {
-  type Static,
-  Type,
-} from '@sinclair/typebox'
-import type {
-  FastifyInstance,
-  FastifyPluginOptions,
-  FastifyReply,
-} from 'fastify'
+import { type Static, Type } from '@sinclair/typebox'
+import type { FastifyInstance, FastifyPluginOptions, FastifyReply } from 'fastify'
 
 import { getAuditRequestContext } from '../audit/audit-request-context.js'
-import {
-  requireAdminReadySession,
-  requireAdminSession,
-} from './admin-auth.guard.js'
+import { requireAdminReadySession, requireAdminSession } from './admin-auth.guard.js'
 import { requireAdminPermission } from './admin-permission.guard.js'
 import type { AuthorizationUseCase } from './authorization.service.js'
 import {
@@ -28,29 +18,33 @@ const roleParamsSchema = Type.Object({
 
 const replacePermissionsBodySchema = Type.Object(
   {
-    permissionCodes: Type.Array(
-      Type.String({ minLength: 1, maxLength: 100 }),
-      { maxItems: 100, uniqueItems: true },
-    ),
+    permissionCodes: Type.Array(Type.String({ minLength: 1, maxLength: 100 }), {
+      maxItems: 100,
+      uniqueItems: true,
+    }),
   },
   { additionalProperties: false },
 )
 
 const snapshotResponseSchema = Type.Object({
-  roles: Type.Array(Type.Object({
-    id: Type.Integer(),
-    code: Type.String(),
-    name: Type.String(),
-    description: Type.Union([Type.String(), Type.Null()]),
-    permissionCodes: Type.Array(Type.String()),
-    canManage: Type.Boolean(),
-  })),
-  permissions: Type.Array(Type.Object({
-    id: Type.Integer(),
-    code: Type.String(),
-    name: Type.String(),
-    description: Type.Union([Type.String(), Type.Null()]),
-  })),
+  roles: Type.Array(
+    Type.Object({
+      id: Type.Integer(),
+      code: Type.String(),
+      name: Type.String(),
+      description: Type.Union([Type.String(), Type.Null()]),
+      permissionCodes: Type.Array(Type.String()),
+      canManage: Type.Boolean(),
+    }),
+  ),
+  permissions: Type.Array(
+    Type.Object({
+      id: Type.Integer(),
+      code: Type.String(),
+      name: Type.String(),
+      description: Type.Union([Type.String(), Type.Null()]),
+    }),
+  ),
 })
 
 const errorResponseSchema = Type.Object({ message: Type.String() })
@@ -107,7 +101,7 @@ export async function rolePermissionRoutes(
     },
   )
 
-  app.put<{ Params: RoleParams, Body: ReplacePermissionsBody }>(
+  app.put<{ Params: RoleParams; Body: ReplacePermissionsBody }>(
     '/roles/:id/permissions',
     {
       preHandler: guards,
@@ -148,11 +142,7 @@ export async function rolePermissionRoutes(
   )
 }
 
-function sendRolePermissionError(
-  error: unknown,
-  requestId: string,
-  reply: FastifyReply,
-) {
+function sendRolePermissionError(error: unknown, requestId: string, reply: FastifyReply) {
   if (error instanceof RolePermissionForbiddenError) {
     return reply.code(403).send({ message: 'Forbidden' })
   }

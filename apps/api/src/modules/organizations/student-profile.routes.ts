@@ -1,13 +1,7 @@
 import { Type } from '@sinclair/typebox'
-import type {
-  FastifyInstance,
-  FastifyPluginOptions,
-} from 'fastify'
+import type { FastifyInstance, FastifyPluginOptions } from 'fastify'
 
-import {
-  requireStudentRole,
-  requireUserSession,
-} from '../auth/user-auth.guard.js'
+import { requireStudentRole, requireUserSession } from '../auth/user-auth.guard.js'
 import {
   StudentProfileNotFoundError,
   type StudentProfileUseCase,
@@ -28,10 +22,7 @@ const profileResponseSchema = Type.Object({
     userId: Type.String({ format: 'uuid' }),
     username: Type.String(),
     fullName: Type.String(),
-    email: Type.Union([
-      Type.String({ format: 'email' }),
-      Type.Null(),
-    ]),
+    email: Type.Union([Type.String({ format: 'email' }), Type.Null()]),
     studentCode: Type.String(),
     class: identitySchema,
     faculty: identitySchema,
@@ -39,34 +30,23 @@ const profileResponseSchema = Type.Object({
 })
 
 const advisorResponseSchema = Type.Object({
-  assignmentStatus: Type.Union([
-    Type.Literal('ASSIGNED'),
-    Type.Literal('UNASSIGNED'),
-  ]),
+  assignmentStatus: Type.Union([Type.Literal('ASSIGNED'), Type.Literal('UNASSIGNED')]),
   advisor: Type.Union([
     Type.Object({
       userId: Type.String({ format: 'uuid' }),
       username: Type.String(),
       fullName: Type.String(),
-      email: Type.Union([
-        Type.String({ format: 'email' }),
-        Type.Null(),
-      ]),
+      email: Type.Union([Type.String({ format: 'email' }), Type.Null()]),
       class: identitySchema,
       validFrom: Type.String({ format: 'date-time' }),
-      validTo: Type.Union([
-        Type.String({ format: 'date-time' }),
-        Type.Null(),
-      ]),
+      validTo: Type.Union([Type.String({ format: 'date-time' }), Type.Null()]),
     }),
     Type.Null(),
   ]),
 })
 
-export interface StudentProfileRoutesOptions
-extends FastifyPluginOptions {
-  studentProfileService:
-    StudentProfileUseCase
+export interface StudentProfileRoutesOptions extends FastifyPluginOptions {
+  studentProfileService: StudentProfileUseCase
 }
 
 export async function studentProfileRoutes(
@@ -76,10 +56,7 @@ export async function studentProfileRoutes(
   app.get(
     '/profile',
     {
-      preHandler: [
-        requireUserSession,
-        requireStudentRole,
-      ],
+      preHandler: [requireUserSession, requireStudentRole],
       schema: {
         response: {
           200: profileResponseSchema,
@@ -91,18 +68,11 @@ export async function studentProfileRoutes(
     },
     async (request, reply) => {
       try {
-        const profile = await options
-          .studentProfileService
-          .getProfile(
-            request.userSession!.sub,
-          )
+        const profile = await options.studentProfileService.getProfile(request.userSession!.sub)
 
         return { profile }
       } catch (error: unknown) {
-        if (
-          error
-          instanceof StudentProfileNotFoundError
-        ) {
+        if (error instanceof StudentProfileNotFoundError) {
           return reply.code(404).send({
             message: error.message,
           })
@@ -116,10 +86,7 @@ export async function studentProfileRoutes(
   app.get(
     '/advisor',
     {
-      preHandler: [
-        requireUserSession,
-        requireStudentRole,
-      ],
+      preHandler: [requireUserSession, requireStudentRole],
       schema: {
         response: {
           200: advisorResponseSchema,
@@ -131,30 +98,22 @@ export async function studentProfileRoutes(
     },
     async (request, reply) => {
       try {
-        const advisor = await options
-          .studentProfileService
-          .getCurrentAdvisor(
-            request.userSession!.sub,
-          )
+        const advisor = await options.studentProfileService.getCurrentAdvisor(
+          request.userSession!.sub,
+        )
 
         return {
-          assignmentStatus:
-            advisor ? 'ASSIGNED' : 'UNASSIGNED',
+          assignmentStatus: advisor ? 'ASSIGNED' : 'UNASSIGNED',
           advisor: advisor
             ? {
                 ...advisor,
-                validFrom:
-                  advisor.validFrom.toISOString(),
-                validTo:
-                  advisor.validTo?.toISOString()
-                  ?? null,
+                validFrom: advisor.validFrom.toISOString(),
+                validTo: advisor.validTo?.toISOString() ?? null,
               }
             : null,
         }
       } catch (error: unknown) {
-        if (
-          error instanceof StudentProfileNotFoundError
-        ) {
+        if (error instanceof StudentProfileNotFoundError) {
           return reply.code(404).send({
             message: error.message,
           })

@@ -8,9 +8,7 @@ const isSubmitting = ref(false)
 const errorMessage = ref('')
 
 function safeRedirect(value: unknown) {
-  return typeof value === 'string'
-    && value.startsWith('/')
-    && !value.startsWith('//')
+  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
     ? value
     : '/portal'
 }
@@ -38,9 +36,10 @@ async function handleSubmit() {
     })
     await navigateTo(safeRedirect(route.query.redirect))
   } catch (error) {
-    errorMessage.value = getStatusCode(error) === 429
-      ? 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng chờ một phút rồi thử lại.'
-      : 'Tên đăng nhập hoặc mật khẩu không đúng.'
+    errorMessage.value =
+      getStatusCode(error) === 429
+        ? 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng chờ một phút rồi thử lại.'
+        : 'Tên đăng nhập hoặc mật khẩu không đúng.'
   } finally {
     isSubmitting.value = false
   }
@@ -59,13 +58,13 @@ async function handleSubmit() {
         </span>
 
         <h1 id="login-experience-title">
-          Một tài khoản.<br>
+          Một tài khoản.<br />
           <span>Kết nối mọi dịch vụ học viện.</span>
         </h1>
 
         <p>
-          Truy cập đúng chức năng theo vai trò được cấp và xử lý
-          công việc trong một cổng thống nhất.
+          Truy cập đúng chức năng theo vai trò được cấp và xử lý công việc trong một cổng thống
+          nhất.
         </p>
 
         <ul>
@@ -108,16 +107,14 @@ async function handleSubmit() {
           alt="Logo Học viện Quản lý Giáo dục"
           width="50"
           height="50"
-        >
+        />
         <div>
           <p>CỔNG NGƯỜI DÙNG</p>
           <h2 id="login-title">Chào mừng trở lại</h2>
         </div>
       </div>
 
-      <p class="login-panel__description">
-        Đăng nhập bằng tài khoản đã được nhà trường cấp.
-      </p>
+      <p class="login-panel__description">Đăng nhập bằng tài khoản đã được nhà trường cấp.</p>
 
       <form novalidate @submit.prevent="handleSubmit">
         <BaseAlert v-if="errorMessage" variant="error">
@@ -151,9 +148,7 @@ async function handleSubmit() {
 
         <div class="login-panel__form-meta">
           <span>Phiên đăng nhập được bảo mật</span>
-          <span class="login-panel__future" aria-disabled="true">
-            Quên mật khẩu · Sắp có
-          </span>
+          <span class="login-panel__future" aria-disabled="true"> Quên mật khẩu · Sắp có </span>
         </div>
 
         <BaseButton
@@ -182,7 +177,7 @@ async function handleSubmit() {
 <style scoped>
 .login-page {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(390px, .88fr);
+  grid-template-columns: minmax(0, 1.12fr) minmax(390px, 0.88fr);
   width: min(1180px, calc(100% - 56px));
   min-height: 680px;
   margin: 38px auto;
@@ -203,8 +198,7 @@ async function handleSubmit() {
   padding: 58px 58px 34px;
   color: #fff;
   background:
-    linear-gradient(145deg, rgb(14 35 65 / 97%), rgb(22 61 104 / 95%)),
-    var(--color-admin);
+    linear-gradient(145deg, rgb(14 35 65 / 97%), rgb(22 61 104 / 95%)), var(--color-admin);
 }
 
 .login-experience::before {
@@ -218,7 +212,7 @@ async function handleSubmit() {
   box-shadow:
     0 0 0 70px rgb(255 255 255 / 2.5%),
     0 0 0 140px rgb(255 255 255 / 1.5%);
-  content: "";
+  content: '';
 }
 
 .login-experience__glow {
@@ -250,7 +244,7 @@ async function handleSubmit() {
   background: rgb(255 255 255 / 6%);
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
 
 .login-experience__badge > span {
@@ -267,7 +261,7 @@ async function handleSubmit() {
   font-size: clamp(2.55rem, 4.2vw, 4.15rem);
   font-weight: 760;
   line-height: 1.04;
-  letter-spacing: -.052em;
+  letter-spacing: -0.052em;
 }
 
 .login-experience h1 span {
@@ -344,9 +338,7 @@ async function handleSubmit() {
   flex-direction: column;
   justify-content: center;
   padding: 54px 52px;
-  background:
-    radial-gradient(circle at 100% 0%, rgb(21 94 239 / 6%), transparent 18rem),
-    #fff;
+  background: radial-gradient(circle at 100% 0%, rgb(21 94 239 / 6%), transparent 18rem), #fff;
 }
 
 .login-panel__heading {
@@ -371,13 +363,13 @@ async function handleSubmit() {
   color: var(--color-primary);
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: .11em;
+  letter-spacing: 0.11em;
 }
 
 .login-panel h2 {
   margin: 0;
   font-size: 26px;
-  letter-spacing: -.025em;
+  letter-spacing: -0.025em;
 }
 
 .login-panel__description {
@@ -412,7 +404,7 @@ async function handleSubmit() {
   height: 7px;
   border-radius: 50%;
   background: var(--color-success);
-  content: "";
+  content: '';
 }
 
 .login-panel__future {

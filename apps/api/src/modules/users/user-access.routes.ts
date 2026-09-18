@@ -1,18 +1,8 @@
-import {
-  type Static,
-  Type,
-} from '@sinclair/typebox'
-import type {
-  FastifyInstance,
-  FastifyPluginOptions,
-  FastifyReply,
-} from 'fastify'
+import { type Static, Type } from '@sinclair/typebox'
+import type { FastifyInstance, FastifyPluginOptions, FastifyReply } from 'fastify'
 
 import { getAuditRequestContext } from '../audit/audit-request-context.js'
-import {
-  requireAdminReadySession,
-  requireAdminSession,
-} from '../auth/admin-auth.guard.js'
+import { requireAdminReadySession, requireAdminSession } from '../auth/admin-auth.guard.js'
 import { requireAdminPermission } from '../auth/admin-permission.guard.js'
 import type { AuthorizationUseCase } from '../auth/authorization.service.js'
 import { ForbiddenRoleAssignmentError } from './role-assignment-policy.js'
@@ -40,26 +30,35 @@ const scopeTypeSchema = Type.Union([
   Type.Literal('ORGANIZATION'),
 ])
 
-const listQuerySchema = Type.Object({
-  search: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
-}, { additionalProperties: false })
+const listQuerySchema = Type.Object(
+  {
+    search: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+  },
+  { additionalProperties: false },
+)
 
 const userParamsSchema = Type.Object({
   userId: Type.String({ format: 'uuid' }),
 })
 
-const replaceAssignmentsBodySchema = Type.Object({
-  assignments: Type.Array(
-    Type.Object({
-      roleCode: systemRoleSchema,
-      scopeIds: Type.Array(
-        Type.String({ format: 'uuid' }),
-        { maxItems: 100, uniqueItems: true },
+const replaceAssignmentsBodySchema = Type.Object(
+  {
+    assignments: Type.Array(
+      Type.Object(
+        {
+          roleCode: systemRoleSchema,
+          scopeIds: Type.Array(Type.String({ format: 'uuid' }), {
+            maxItems: 100,
+            uniqueItems: true,
+          }),
+        },
+        { additionalProperties: false },
       ),
-    }, { additionalProperties: false }),
-    { minItems: 1, maxItems: 6 },
-  ),
-}, { additionalProperties: false })
+      { minItems: 1, maxItems: 6 },
+    ),
+  },
+  { additionalProperties: false },
+)
 
 const assignmentSchema = Type.Object({
   roleCode: systemRoleSchema,
@@ -68,33 +67,36 @@ const assignmentSchema = Type.Object({
 })
 
 const snapshotSchema = Type.Object({
-  users: Type.Array(Type.Object({
-    id: Type.String({ format: 'uuid' }),
-    username: Type.String(),
-    fullName: Type.String(),
-    email: Type.Union([Type.String(), Type.Null()]),
-    status: Type.String(),
-    studentCode: Type.Union([Type.String(), Type.Null()]),
-    assignments: Type.Array(assignmentSchema),
-    canManage: Type.Boolean(),
-  })),
-  roles: Type.Array(Type.Object({
-    id: Type.Integer(),
-    code: systemRoleSchema,
-    name: Type.String(),
-    description: Type.Union([Type.String(), Type.Null()]),
-    allowedScopeTypes: Type.Array(scopeTypeSchema),
-    permissions: Type.Array(Type.String()),
-  })),
-  scopes: Type.Array(Type.Object({
-    id: Type.String({ format: 'uuid' }),
-    type: scopeTypeSchema,
-    label: Type.String(),
-    targetId: Type.Union([
-      Type.String({ format: 'uuid' }),
-      Type.Null(),
-    ]),
-  })),
+  users: Type.Array(
+    Type.Object({
+      id: Type.String({ format: 'uuid' }),
+      username: Type.String(),
+      fullName: Type.String(),
+      email: Type.Union([Type.String(), Type.Null()]),
+      status: Type.String(),
+      studentCode: Type.Union([Type.String(), Type.Null()]),
+      assignments: Type.Array(assignmentSchema),
+      canManage: Type.Boolean(),
+    }),
+  ),
+  roles: Type.Array(
+    Type.Object({
+      id: Type.Integer(),
+      code: systemRoleSchema,
+      name: Type.String(),
+      description: Type.Union([Type.String(), Type.Null()]),
+      allowedScopeTypes: Type.Array(scopeTypeSchema),
+      permissions: Type.Array(Type.String()),
+    }),
+  ),
+  scopes: Type.Array(
+    Type.Object({
+      id: Type.String({ format: 'uuid' }),
+      type: scopeTypeSchema,
+      label: Type.String(),
+      targetId: Type.Union([Type.String({ format: 'uuid' }), Type.Null()]),
+    }),
+  ),
 })
 
 const errorSchema = Type.Object({ message: Type.String() })
@@ -116,17 +118,11 @@ export interface UserAccessRoutesOptions extends FastifyPluginOptions {
   authorizationService: AuthorizationUseCase
 }
 
-export async function userAccessRoutes(
-  app: FastifyInstance,
-  options: UserAccessRoutesOptions,
-) {
+export async function userAccessRoutes(app: FastifyInstance, options: UserAccessRoutesOptions) {
   const guards = [
     requireAdminSession,
     requireAdminReadySession,
-    requireAdminPermission(
-      options.authorizationService,
-      'role.manage',
-    ),
+    requireAdminPermission(options.authorizationService, 'role.manage'),
   ]
 
   app.get<{ Querystring: ListQuery }>(
@@ -150,9 +146,7 @@ export async function userAccessRoutes(
       }
       return options.userAccessService.getSnapshot({
         actorUserId: session.sub,
-        ...(request.query.search
-          ? { search: request.query.search }
-          : {}),
+        ...(request.query.search ? { search: request.query.search } : {}),
       })
     },
   )
@@ -192,7 +186,7 @@ export async function userAccessRoutes(
           },
           audit: getAuditRequestContext(request),
           targetUserId: request.params.userId,
-          assignments: request.body.assignments.map(assignment => ({
+          assignments: request.body.assignments.map((assignment) => ({
             roleCode: assignment.roleCode,
             scopeIds: [...assignment.scopeIds],
           })),
@@ -205,15 +199,9 @@ export async function userAccessRoutes(
   )
 }
 
-function sendUserAccessError(
-  error: unknown,
-  requestId: string,
-  reply: FastifyReply,
-) {
-  if (
-    error instanceof UserAccessForbiddenError
-    || error instanceof ForbiddenRoleAssignmentError
-  ) return reply.code(403).send({ message: 'Forbidden' })
+function sendUserAccessError(error: unknown, requestId: string, reply: FastifyReply) {
+  if (error instanceof UserAccessForbiddenError || error instanceof ForbiddenRoleAssignmentError)
+    return reply.code(403).send({ message: 'Forbidden' })
 
   if (error instanceof UserAccessNotFoundError) {
     return reply.code(404).send({

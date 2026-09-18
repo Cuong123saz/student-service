@@ -29,7 +29,13 @@ defineProps<{ service: Service }>()
 </template>
 
 <style scoped>
-.service-card { display: block; height: 100%; border-radius: 16px; color: inherit; text-decoration: none; }
+.service-card {
+  display: block;
+  height: 100%;
+  border-radius: 16px;
+  color: inherit;
+  text-decoration: none;
+}
 .service-card article {
   position: relative;
   display: flex;
@@ -42,7 +48,10 @@ defineProps<{ service: Service }>()
   border-radius: 18px;
   background: rgb(255 255 255 / 94%);
   box-shadow: 0 10px 30px rgb(15 33 60 / 6%);
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 .service-card article::before {
   position: absolute;
@@ -51,20 +60,69 @@ defineProps<{ service: Service }>()
   left: 0;
   height: 3px;
   background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
-  content: "";
-  opacity: .75;
+  content: '';
+  opacity: 0.75;
 }
-.service-card:hover article { border-color: #a8c6ff; box-shadow: 0 18px 42px rgb(15 33 60 / 12%); transform: translateY(-4px); }
+.service-card:hover article {
+  border-color: #a8c6ff;
+  box-shadow: 0 18px 42px rgb(15 33 60 / 12%);
+  transform: translateY(-4px);
+}
 .service-card__header,
-.service-card__footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.service-card__code { color: var(--color-muted); font-size: 12px; font-weight: 800; letter-spacing: 0.06em; overflow-wrap: anywhere; }
-.service-card__status { flex: none; padding: 5px 9px; border-radius: 999px; color: var(--color-success); background: var(--color-success-background); font-size: 12px; font-weight: 700; }
-.service-card__status--inactive { color: var(--color-warning); background: var(--color-warning-background); }
-.service-card__content { margin-top: 28px; }
-.service-card__content h2 { margin-bottom: 10px; font-size: 20px; line-height: 1.35; letter-spacing: -.018em; }
-.service-card__content p { margin-bottom: 0; color: var(--color-muted); line-height: 1.65; }
-.service-card__footer { align-items: center; margin-top: auto; padding-top: 24px; border-top: 1px solid var(--color-border); color: var(--color-muted); font-size: 14px; }
-.service-card__footer strong { display: inline-flex; align-items: center; gap: 7px; color: var(--color-primary); }
+.service-card__footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.service-card__code {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+}
+.service-card__status {
+  flex: none;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: var(--color-success);
+  background: var(--color-success-background);
+  font-size: 12px;
+  font-weight: 700;
+}
+.service-card__status--inactive {
+  color: var(--color-warning);
+  background: var(--color-warning-background);
+}
+.service-card__content {
+  margin-top: 28px;
+}
+.service-card__content h2 {
+  margin-bottom: 10px;
+  font-size: 20px;
+  line-height: 1.35;
+  letter-spacing: -0.018em;
+}
+.service-card__content p {
+  margin-bottom: 0;
+  color: var(--color-muted);
+  line-height: 1.65;
+}
+.service-card__footer {
+  align-items: center;
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 14px;
+}
+.service-card__footer strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-primary);
+}
 .service-card__footer strong span {
   display: grid;
   width: 26px;
@@ -74,9 +132,17 @@ defineProps<{ service: Service }>()
   background: var(--color-primary-soft);
   transition: transform 160ms ease;
 }
-.service-card:hover .service-card__footer strong span { transform: translateX(3px); }
+.service-card:hover .service-card__footer strong span {
+  transform: translateX(3px);
+}
 @media (max-width: 420px) {
-  .service-card article { min-height: auto; padding: 20px; }
-  .service-card__footer { align-items: flex-start; flex-direction: column; }
+  .service-card article {
+    min-height: auto;
+    padding: 20px;
+  }
+  .service-card__footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>

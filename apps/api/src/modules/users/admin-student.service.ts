@@ -61,56 +61,37 @@ export class InvalidStudentUpdateError extends Error {
 }
 
 export interface AdminStudentRepository {
-  listVisibleTo(
-    input: ListVisibleStudentsInput,
-  ): Promise<StudentDirectoryPage>
+  listVisibleTo(input: ListVisibleStudentsInput): Promise<StudentDirectoryPage>
 
   updateStudent(input: UpdateStudentInput): Promise<void>
 }
 
 export interface AdminStudentUseCase {
-  listVisibleStudents(
-    input: ListVisibleStudentsInput,
-  ): Promise<StudentDirectoryPage>
+  listVisibleStudents(input: ListVisibleStudentsInput): Promise<StudentDirectoryPage>
 
-  updateStudent(
-    input: Omit<UpdateStudentInput, 'changedAt'>,
-  ): Promise<void>
+  updateStudent(input: Omit<UpdateStudentInput, 'changedAt'>): Promise<void>
 }
 
-export class AdminStudentService
-implements AdminStudentUseCase {
+export class AdminStudentService implements AdminStudentUseCase {
   constructor(
-    private readonly repository:
-      AdminStudentRepository,
+    private readonly repository: AdminStudentRepository,
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
-  listVisibleStudents(
-    input: ListVisibleStudentsInput,
-  ): Promise<StudentDirectoryPage> {
-    return this.repository
-      .listVisibleTo(input)
+  listVisibleStudents(input: ListVisibleStudentsInput): Promise<StudentDirectoryPage> {
+    return this.repository.listVisibleTo(input)
   }
 
-  updateStudent(
-    input: Omit<UpdateStudentInput, 'changedAt'>,
-  ): Promise<void> {
+  updateStudent(input: Omit<UpdateStudentInput, 'changedAt'>): Promise<void> {
     const studentCode = input.studentCode.trim()
     const fullName = input.fullName.trim().replace(/\s+/g, ' ')
 
     if (!/^\d{1,50}$/.test(studentCode)) {
-      throw new InvalidStudentUpdateError(
-        'studentCode',
-        'Mã sinh viên chỉ được chứa chữ số',
-      )
+      throw new InvalidStudentUpdateError('studentCode', 'Mã sinh viên chỉ được chứa chữ số')
     }
 
     if (fullName.length < 2 || fullName.length > 255) {
-      throw new InvalidStudentUpdateError(
-        'fullName',
-        'Tên sinh viên phải có từ 2 đến 255 ký tự',
-      )
+      throw new InvalidStudentUpdateError('fullName', 'Tên sinh viên phải có từ 2 đến 255 ký tự')
     }
 
     return this.repository.updateStudent({

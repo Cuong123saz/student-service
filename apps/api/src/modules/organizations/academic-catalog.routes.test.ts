@@ -9,17 +9,10 @@ import {
   ADMIN_SESSION_TTL_SECONDS,
   JWT_ISSUER,
 } from '../auth/auth.constants.js'
-import type {
-  AuthorizationUseCase,
-  PermissionCheckInput,
-} from '../auth/authorization.service.js'
-import type {
-  AcademicCatalogFaculty,
-  AcademicCatalogUseCase,
-} from './academic-catalog.service.js'
+import type { AuthorizationUseCase, PermissionCheckInput } from '../auth/authorization.service.js'
+import type { AcademicCatalogFaculty, AcademicCatalogUseCase } from './academic-catalog.service.js'
 
-const actorUserId =
-  '2f230120-c001-4e71-a17d-f18541e64d87'
+const actorUserId = '2f230120-c001-4e71-a17d-f18541e64d87'
 
 const catalog: AcademicCatalogFaculty[] = [
   {
@@ -36,8 +29,7 @@ const catalog: AcademicCatalogFaculty[] = [
   },
 ]
 
-class FakeAcademicCatalogService
-implements AcademicCatalogUseCase {
+class FakeAcademicCatalogService implements AcademicCatalogUseCase {
   receivedActorUserId: string | undefined
 
   async listVisibleCatalog(actorUserId: string) {
@@ -46,8 +38,7 @@ implements AcademicCatalogUseCase {
   }
 }
 
-class FakeAuthorizationService
-implements AuthorizationUseCase {
+class FakeAuthorizationService implements AuthorizationUseCase {
   constructor(private readonly allowed: boolean) {}
 
   receivedChecks: PermissionCheckInput[] = []
@@ -58,9 +49,7 @@ implements AuthorizationUseCase {
   }
 }
 
-async function createAdminCookie(
-  app: FastifyInstance,
-) {
+async function createAdminCookie(app: FastifyInstance) {
   await app.ready()
   const token = app.jwt.sign(
     {
@@ -80,77 +69,58 @@ async function createAdminCookie(
   return `${ADMIN_SESSION_COOKIE_NAME}=${token}`
 }
 
-test(
-  'GET academic catalog yêu cầu session và student.read',
-  async (context) => {
-    const catalogService =
-      new FakeAcademicCatalogService()
-    const authorizationService =
-      new FakeAuthorizationService(false)
-    const app = buildApp({
-      academicCatalogService: catalogService,
-      authorizationService,
-    })
-    context.after(() => app.close())
+test('GET academic catalog yêu cầu session và student.read', async (context) => {
+  const catalogService = new FakeAcademicCatalogService()
+  const authorizationService = new FakeAuthorizationService(false)
+  const app = buildApp({
+    academicCatalogService: catalogService,
+    authorizationService,
+  })
+  context.after(() => app.close())
 
-    const unauthorized = await app.inject({
-      method: 'GET',
-      url: '/api/v1/admin/academic-catalog',
-    })
-    assert.equal(unauthorized.statusCode, 401)
+  const unauthorized = await app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/academic-catalog',
+  })
+  assert.equal(unauthorized.statusCode, 401)
 
-    const forbidden = await app.inject({
-      method: 'GET',
-      url: '/api/v1/admin/academic-catalog',
-      headers: {
-        cookie: await createAdminCookie(app),
-      },
-    })
-    assert.equal(forbidden.statusCode, 403)
-    assert.equal(
-      catalogService.receivedActorUserId,
-      undefined,
-    )
-    assert.deepEqual(
-      authorizationService.receivedChecks,
-      [
-        {
-          userId: actorUserId,
-          permission: 'student.read',
-        },
-      ],
-    )
-  },
-)
+  const forbidden = await app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/academic-catalog',
+    headers: {
+      cookie: await createAdminCookie(app),
+    },
+  })
+  assert.equal(forbidden.statusCode, 403)
+  assert.equal(catalogService.receivedActorUserId, undefined)
+  assert.deepEqual(authorizationService.receivedChecks, [
+    {
+      userId: actorUserId,
+      permission: 'student.read',
+    },
+  ])
+})
 
-test(
-  'GET academic catalog trả dữ liệu scope-limited từ use case',
-  async (context) => {
-    const catalogService =
-      new FakeAcademicCatalogService()
-    const authorizationService =
-      new FakeAuthorizationService(true)
-    const app = buildApp({
-      academicCatalogService: catalogService,
-      authorizationService,
-    })
-    context.after(() => app.close())
+test('GET academic catalog trả dữ liệu scope-limited từ use case', async (context) => {
+  const catalogService = new FakeAcademicCatalogService()
+  const authorizationService = new FakeAuthorizationService(true)
+  const app = buildApp({
+    academicCatalogService: catalogService,
+    authorizationService,
+  })
+  context.after(() => app.close())
 
-    const response = await app.inject({
-      method: 'GET',
-      url: '/api/v1/admin/academic-catalog',
-      headers: {
-        cookie: await createAdminCookie(app),
-      },
-    })
+  const response = await app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/academic-catalog',
+    headers: {
+      cookie: await createAdminCookie(app),
+    },
+  })
 
-    assert.equal(response.statusCode, 200)
-    assert.equal(
-      catalogService.receivedActorUserId,
-      actorUserId,
-    )
-    assert.deepEqual(response.json(), {
-      faculties: catalog,
-    })
-  },
-)
+  assert.equal(response.statusCode, 200)
+  assert.equal(catalogService.receivedActorUserId, actorUserId)
+  assert.deepEqual(response.json(), {
+    faculties: catalog,
+  })
+})

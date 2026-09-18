@@ -5,7 +5,5 @@ export interface SendActivationEmailInput {
 }
 
 export interface InvitationMailer {
-  sendActivationEmail(
-    input: SendActivationEmailInput,
-  ): Promise<void>
+  sendActivationEmail(input: SendActivationEmailInput): Promise<void>
 }

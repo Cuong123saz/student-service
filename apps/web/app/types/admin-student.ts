@@ -1,15 +1,8 @@
-export const studentAccountStatuses = [
-  'INVITED',
-  'ACTIVE',
-  'INACTIVE',
-  'SUSPENDED',
-] as const
+export const studentAccountStatuses = ['INVITED', 'ACTIVE', 'INACTIVE', 'SUSPENDED'] as const
 
-export type StudentAccountStatus =
-  (typeof studentAccountStatuses)[number]
+export type StudentAccountStatus = (typeof studentAccountStatuses)[number]
 
-export const studentAccountStatusLabels:
-Record<StudentAccountStatus, string> = {
+export const studentAccountStatusLabels: Record<StudentAccountStatus, string> = {
   INVITED: 'Chờ kích hoạt',
   ACTIVE: 'Đang hoạt động',
   INACTIVE: 'Ngừng hoạt động',

@@ -1,10 +1,6 @@
-import type {
-  AuditMetadataValue,
-  AuditState,
-} from '../types/audit-log'
+import type { AuditMetadataValue, AuditState } from '../types/audit-log'
 
-const SENSITIVE_FIELD_PATTERN =
-  /(password|token|secret|hash|stack|cookie)/i
+const SENSITIVE_FIELD_PATTERN = /(password|token|secret|hash|stack|cookie)/i
 
 /**
  * Lớp che chắn cuối ở UI. Backend vẫn phải tránh ghi
@@ -12,28 +8,20 @@ const SENSITIVE_FIELD_PATTERN =
  *
  * Chỉ xét tên field, không suy đoán dựa trên giá trị.
  */
-export function sanitizeAuditState(
-  state: AuditState | null,
-): AuditState | null {
+export function sanitizeAuditState(state: AuditState | null): AuditState | null {
   if (state === null) {
     return null
   }
 
   return Object.fromEntries(
-    Object.entries(state).map(
-      ([key, value]): [string, AuditMetadataValue] => [
-        key,
-        SENSITIVE_FIELD_PATTERN.test(key)
-          ? '***'
-          : value,
-      ],
-    ),
+    Object.entries(state).map(([key, value]): [string, AuditMetadataValue] => [
+      key,
+      SENSITIVE_FIELD_PATTERN.test(key) ? '***' : value,
+    ]),
   )
 }
 
-export function formatAuditValue(
-  value: AuditMetadataValue,
-): string {
+export function formatAuditValue(value: AuditMetadataValue): string {
   if (value === null) {
     return 'null'
   }

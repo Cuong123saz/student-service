@@ -1,13 +1,6 @@
 <script setup lang="ts">
-import type {
-  AuditActorType,
-  AuditLogItem,
-  AuditState,
-} from '~/types/audit-log'
-import {
-  formatAuditValue,
-  sanitizeAuditState,
-} from '~/utils/audit-log'
+import type { AuditActorType, AuditLogItem, AuditState } from '~/types/audit-log'
+import { formatAuditValue, sanitizeAuditState } from '~/utils/audit-log'
 
 definePageMeta({
   layout: 'admin',
@@ -89,9 +82,7 @@ function getActorLabel(log: AuditLogItem) {
 }
 
 function getResourceLabel(log: AuditLogItem) {
-  return log.resourceId
-    ? `${log.resourceType} · ${log.resourceId}`
-    : log.resourceType
+  return log.resourceId ? `${log.resourceType} · ${log.resourceId}` : log.resourceType
 }
 
 function formatOccurredAt(value: string) {
@@ -139,9 +130,9 @@ onMounted(async () => {
 
     <aside class="scope-note">
       <strong>Phạm vi hiện tại:</strong>
-      người có quyền <code>audit.read</code> xem log toàn hệ thống.
-      API hiện hỗ trợ lọc theo hành động và phân trang theo thời gian;
-      chưa hỗ trợ lọc người thực hiện, đối tượng hoặc khoảng ngày.
+      người có quyền <code>audit.read</code> xem log toàn hệ thống. API hiện hỗ trợ lọc theo hành
+      động và phân trang theo thời gian; chưa hỗ trợ lọc người thực hiện, đối tượng hoặc khoảng
+      ngày.
     </aside>
 
     <form class="filters" @submit.prevent="applyFilter">
@@ -149,19 +140,13 @@ onMounted(async () => {
         Hành động
         <select v-model="actionInput">
           <option value="">Tất cả hành động</option>
-          <option
-            v-for="action in auditActionOptions"
-            :key="action"
-            :value="action"
-          >
+          <option v-for="action in auditActionOptions" :key="action" :value="action">
             {{ getActionLabel(action) }}
           </option>
         </select>
       </label>
       <div class="filters__actions">
-        <button type="submit" class="button" :disabled="isLoading">
-          Áp dụng
-        </button>
+        <button type="submit" class="button" :disabled="isLoading">Áp dụng</button>
         <button
           type="button"
           class="button button--secondary"
@@ -173,18 +158,14 @@ onMounted(async () => {
       </div>
     </form>
 
-    <div v-if="isLoading && !hasLoaded" class="status-card">
-      Đang tải audit log...
-    </div>
+    <div v-if="isLoading && !hasLoaded" class="status-card">Đang tải audit log...</div>
 
     <div v-else-if="errorMessage" class="status-card status-card--error">
       <p>{{ errorMessage }}</p>
       <NuxtLink v-if="errorMessage.includes('đăng nhập')" to="/admin/login">
         Đi tới trang đăng nhập
       </NuxtLink>
-      <button v-else type="button" class="button" @click="load(actionInput)">
-        Thử lại
-      </button>
+      <button v-else type="button" class="button" @click="load(actionInput)">Thử lại</button>
     </div>
 
     <div v-else-if="hasLoaded && auditLogs.length === 0" class="status-card">
@@ -218,10 +199,7 @@ onMounted(async () => {
               <td>{{ getActionLabel(log.action) }}</td>
               <td>{{ getResourceLabel(log) }}</td>
               <td>
-                <span
-                  class="outcome"
-                  :class="`outcome--${log.outcome.toLowerCase()}`"
-                >
+                <span class="outcome" :class="`outcome--${log.outcome.toLowerCase()}`">
                   {{ log.outcome === 'SUCCESS' ? 'Thành công' : 'Thất bại' }}
                 </span>
               </td>
@@ -246,10 +224,7 @@ onMounted(async () => {
                   <section>
                     <h2>Metadata</h2>
                     <dl v-if="stateEntries(log.metadata).length > 0">
-                      <template
-                        v-for="entry in stateEntries(log.metadata)"
-                        :key="entry[0]"
-                      >
+                      <template v-for="entry in stateEntries(log.metadata)" :key="entry[0]">
                         <dt>{{ entry[0] }}</dt>
                         <dd>{{ formatAuditValue(entry[1]) }}</dd>
                       </template>
@@ -260,10 +235,7 @@ onMounted(async () => {
                   <section v-if="log.before !== null">
                     <h2>Trước thay đổi</h2>
                     <dl v-if="stateEntries(log.before).length > 0">
-                      <template
-                        v-for="entry in stateEntries(log.before)"
-                        :key="entry[0]"
-                      >
+                      <template v-for="entry in stateEntries(log.before)" :key="entry[0]">
                         <dt>{{ entry[0] }}</dt>
                         <dd>{{ formatAuditValue(entry[1]) }}</dd>
                       </template>
@@ -274,10 +246,7 @@ onMounted(async () => {
                   <section v-if="log.after !== null">
                     <h2>Sau thay đổi</h2>
                     <dl v-if="stateEntries(log.after).length > 0">
-                      <template
-                        v-for="entry in stateEntries(log.after)"
-                        :key="entry[0]"
-                      >
+                      <template v-for="entry in stateEntries(log.after)" :key="entry[0]">
                         <dt>{{ entry[0] }}</dt>
                         <dd>{{ formatAuditValue(entry[1]) }}</dd>
                       </template>
