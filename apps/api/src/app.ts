@@ -136,7 +136,18 @@ function createDefaultUserInvitationService(): UserInvitationUseCase {
 
 export function buildApp(options: BuildAppOptions = {}) {
   const app = Fastify({
-    logger: true,
+    logger: {
+      redact: {
+        paths: [
+          'req.headers.cookie',
+          'req.headers.authorization',
+          'body.password',
+          'body.currentPassword',
+          'body.newPassword',
+        ],
+        censor: '[REDACTED]',
+      },
+    },
   })
 
   const accountActivationService =
