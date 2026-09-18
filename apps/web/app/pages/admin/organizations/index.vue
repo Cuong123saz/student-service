@@ -366,6 +366,16 @@ async function saveAdvisor(academicClass: ManagedAcademicClass) {
   )
 }
 
+function openCreateFacultyForm() {
+  openForm.value = openForm.value === 'faculty' ? '' : 'faculty'
+  clearFeedback()
+}
+
+function openCreateUnitForm() {
+  openForm.value = openForm.value === 'unit' ? '' : 'unit'
+  clearFeedback()
+}
+
 function openCreateClassForm() {
   openForm.value = openForm.value === 'class' ? '' : 'class'
   if (!classForm.facultyId) {
@@ -395,7 +405,7 @@ onMounted(() => {
           type="button"
           variant="secondary"
           :disabled="Boolean(busyKey)"
-          @click="openForm = openForm === 'faculty' ? '' : 'faculty'; clearFeedback()"
+          @click="openCreateFacultyForm"
         >
           ＋ Thêm khoa
         </BaseButton>
@@ -404,7 +414,7 @@ onMounted(() => {
           type="button"
           variant="secondary"
           :disabled="Boolean(busyKey)"
-          @click="openForm = openForm === 'unit' ? '' : 'unit'; clearFeedback()"
+          @click="openCreateUnitForm"
         >
           ＋ Thêm đơn vị
         </BaseButton>

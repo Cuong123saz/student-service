@@ -32,6 +32,11 @@ function validate() {
   return !errors.newPassword && !errors.confirmPassword
 }
 
+function clearFieldError(field: keyof typeof errors) {
+  errors[field] = ''
+  requestError.value = ''
+}
+
 function getStatusCode(error: unknown) {
   if (typeof error !== 'object' || error === null) return undefined
   const response = (error as Record<string, unknown>).response
@@ -98,7 +103,7 @@ async function submitActivation() {
             required
             :disabled="isSubmitting"
             :error="errors.newPassword"
-            @update:model-value="errors.newPassword = ''; requestError = ''"
+            @update:model-value="clearFieldError('newPassword')"
           />
           <p class="activation-form__count" :class="{ valid: passwordLength >= 15 }">
             {{ passwordLength >= 15 ? 'Đã đủ độ dài tối thiểu' : `Cần thêm ${15 - passwordLength} ký tự` }} · {{ passwordLength }}/128
@@ -114,7 +119,7 @@ async function submitActivation() {
           required
           :disabled="isSubmitting"
           :error="errors.confirmPassword"
-          @update:model-value="errors.confirmPassword = ''; requestError = ''"
+          @update:model-value="clearFieldError('confirmPassword')"
         />
         <BaseAlert v-if="requestError" variant="error">{{ requestError }}</BaseAlert>
         <BaseButton type="submit" block :loading="isSubmitting">

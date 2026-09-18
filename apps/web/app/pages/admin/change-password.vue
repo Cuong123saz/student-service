@@ -7,6 +7,11 @@ const errors = reactive({ currentPassword: '', newPassword: '', confirmPassword:
 const isSubmitting = ref(false)
 const requestError = ref('')
 
+function clearFieldError(field: keyof typeof errors) {
+  errors[field] = ''
+  requestError.value = ''
+}
+
 function validate() {
   errors.currentPassword = form.currentPassword ? '' : 'Vui lòng nhập mật khẩu hiện tại.'
   const length = [...form.newPassword].length
@@ -54,7 +59,7 @@ async function handleSubmit() {
           required
           :disabled="isSubmitting"
           :error="errors.currentPassword"
-          @update:model-value="errors.currentPassword = ''; requestError = ''"
+          @update:model-value="clearFieldError('currentPassword')"
         />
         <BaseInput
           id="new-password"
@@ -66,7 +71,7 @@ async function handleSubmit() {
           required
           :disabled="isSubmitting"
           :error="errors.newPassword"
-          @update:model-value="errors.newPassword = ''; requestError = ''"
+          @update:model-value="clearFieldError('newPassword')"
         />
         <BaseInput
           id="confirm-password"
@@ -78,7 +83,7 @@ async function handleSubmit() {
           required
           :disabled="isSubmitting"
           :error="errors.confirmPassword"
-          @update:model-value="errors.confirmPassword = ''; requestError = ''"
+          @update:model-value="clearFieldError('confirmPassword')"
         />
         <BaseAlert v-if="requestError" variant="error">{{ requestError }}</BaseAlert>
         <BaseButton type="submit" block :loading="isSubmitting">

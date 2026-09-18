@@ -20,6 +20,12 @@ const lastInvitedUserId = ref('')
 const isResending = ref(false)
 const deliveryFailed = ref(false)
 
+function clearFieldError(field: keyof typeof errors) {
+  errors[field] = ''
+  successMessage.value = ''
+  requestError.value = ''
+}
+
 const standardRoles: { code: SystemRoleCode, label: string }[] = [
   { code: 'STUDENT', label: 'Sinh viên' },
   { code: 'ACADEMIC_ADVISOR', label: 'Giảng viên cố vấn' },
@@ -166,7 +172,7 @@ async function handleResend() {
         required
         :disabled="isSubmitting"
         :error="errors.fullName"
-        @update:model-value="errors.fullName = ''; successMessage = ''; requestError = ''"
+        @update:model-value="clearFieldError('fullName')"
       />
 
       <template v-if="isStudent">
@@ -179,7 +185,7 @@ async function handleResend() {
           required
           :disabled="isSubmitting"
           :error="errors.studentCode"
-          @update:model-value="errors.studentCode = ''; successMessage = ''; requestError = ''"
+          @update:model-value="clearFieldError('studentCode')"
         />
         <BaseAlert
           v-if="catalogErrorMessage"
@@ -203,7 +209,7 @@ async function handleResend() {
           required
           :disabled="isSubmitting || isCatalogLoading || Boolean(catalogErrorMessage)"
           :error="errors.classId"
-          @update:model-value="errors.classId = ''; successMessage = ''; requestError = ''"
+          @update:model-value="clearFieldError('classId')"
         >
           <option value="" disabled>
             {{ isCatalogLoading ? 'Đang tải danh mục…' : 'Chọn lớp học vụ' }}
@@ -233,7 +239,7 @@ async function handleResend() {
         hint="Chỉ dùng chữ thường, số, dấu chấm và gạch dưới."
         :disabled="isSubmitting"
         :error="errors.username"
-        @update:model-value="errors.username = ''; successMessage = ''; requestError = ''"
+        @update:model-value="clearFieldError('username')"
       />
       <BaseInput
         id="invite-email"
@@ -245,7 +251,7 @@ async function handleResend() {
         required
         :disabled="isSubmitting"
         :error="errors.email"
-        @update:model-value="errors.email = ''; successMessage = ''; requestError = ''"
+        @update:model-value="clearFieldError('email')"
       />
 
       <fieldset :aria-describedby="errors.roles ? 'invite-roles-error' : undefined">
