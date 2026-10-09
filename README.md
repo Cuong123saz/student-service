@@ -52,6 +52,14 @@ Ma trận quyền mặc định và các quyết định bảo mật của RBAC 
 Mô hình phạm vi dữ liệu được ghi tại [`docs/data-scope-model.md`](docs/data-scope-model.md).
 Kịch bản demo và biểu mẫu nghiệm thu được ghi tại [`docs/sprint-3-demo-runbook.md`](docs/sprint-3-demo-runbook.md).
 
+### Sprint 4 — Đang chuẩn bị thiết kế
+
+Sprint 4 tập trung cấu hình thủ tục: biểu mẫu động, yêu cầu minh chứng, workflow và phiên bản. Nộp hồ sơ thuộc Sprint 5; xét duyệt, sinh DOCX/PDF thuộc Sprint 6.
+
+ADR [cấu hình thủ tục và workflow](docs/adr/0001-submission-workflow.md) đang ở trạng thái `Proposed`; kế hoạch và tiêu chí nghiệm thu nằm tại [kế hoạch Sprint 4](docs/sprint-4-plan.md). Thủ tục pilot, trường biểu mẫu và người xử lý vẫn cần chủ dự án xác nhận.
+
+Migration chạm các bảng cấu hình Sprint 4 phải có ADR `Accepted` và trạng thái đóng Sprint 2+3 trong base commit. Duyệt ADR cùng PR migration không đáp ứng cổng CI. Chạy `npm run test:sprint4-adr` để kiểm tra các nhánh chặn và cho phép của cổng này.
+
 ## Luồng đã chạy được
 
 ### Admin
@@ -447,8 +455,6 @@ Trước khi migrate:
 Các mục dưới đây không làm mất giá trị increment Sprint 2 nhưng phải được theo dõi trong Sprint 3 hoặc các sprint gần nhất:
 
 - Route danh mục dịch vụ vẫn dùng `/services`; các module mới đã dùng `/api/v1`.
-- Root `package.json` hiện chỉ có lệnh chạy development; build, test và check vẫn chạy theo từng workspace.
-- Test integration vẫn liệt kê thủ công từng file test.
 - Một số repository vẫn import database client trực tiếp; chưa có Fastify database plugin dùng chung.
 - Chưa có refresh session và cơ chế thu hồi session theo từng thiết bị.
 - JWT tiếp tục chứa role; permission và scope được kiểm tra lại từ database để thay đổi quyền hoặc khóa tài khoản có hiệu lực ngay.
