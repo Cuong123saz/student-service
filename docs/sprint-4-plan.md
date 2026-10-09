@@ -8,6 +8,12 @@ Chủ dự án yêu cầu cấu hình biểu mẫu, đơn vị và người xử
 
 [ADR 0001](adr/0001-submission-workflow.md) đã Accepted trong commit 8df0347, trước migration mới. Sprint 2+3 có trạng thái CLOSED trong base. Nhánh triển khai: feat/procedure-configuration. Bản Word kế hoạch do người dùng cung cấp được giữ nguyên.
 
+## Quyết định cho hồ sơ điện tử
+
+Ngày 09/10/2026, chủ dự án chấp nhận [ADR 0002: Xác minh chữ ký và chấp nhận hồ sơ điện tử](adr/0002-electronic-document-validation.md). Kết quả xác minh kỹ thuật và quyết định xét hồ sơ phải được lưu riêng; ảnh chữ ký/dấu đỏ không thay cho xác minh chữ ký số. Quyền xét và quyền ký ban hành là hai quyền riêng.
+
+Giấy xác nhận sinh viên tiếp tục OFFLINE tại CTSV. Chức năng phát hành điện tử chỉ được triển khai sau khi có căn cứ về mẫu, thẩm quyền ký, loại chứng thư, chữ ký bắt buộc và quy trình của Học viện. Đây là quyết định thiết kế cho bước tiếp theo; chưa triển khai upload, xác minh, xét hoặc ký và không thay cho nghiệm thu đóng Sprint 4.
+
 ## Phần đã triển khai
 
 | Hạng mục              | Kết quả                                                                                                              |
