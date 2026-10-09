@@ -52,13 +52,15 @@ Ma trận quyền mặc định và các quyết định bảo mật của RBAC 
 Mô hình phạm vi dữ liệu được ghi tại [`docs/data-scope-model.md`](docs/data-scope-model.md).
 Kịch bản demo và biểu mẫu nghiệm thu được ghi tại [`docs/sprint-3-demo-runbook.md`](docs/sprint-3-demo-runbook.md).
 
-### Sprint 4 — Đang chuẩn bị thiết kế
+### Sprint 4 — Cấu hình biểu mẫu và nơi xử lý
 
-Sprint 4 tập trung cấu hình thủ tục: biểu mẫu động, yêu cầu minh chứng, workflow và phiên bản. Nộp hồ sơ thuộc Sprint 5; xét duyệt, sinh DOCX/PDF thuộc Sprint 6.
+Đã có cấu hình thủ tục có phiên bản: hình thức thực hiện, đơn vị/cán bộ xử lý, trường biểu mẫu, yêu cầu minh chứng, xem trước và áp dụng. Giấy xác nhận sinh viên mặc định xử lý trực tiếp tại Phòng CTSV.
 
-ADR [cấu hình thủ tục và workflow](docs/adr/0001-submission-workflow.md) đang ở trạng thái `Proposed`; kế hoạch và tiêu chí nghiệm thu nằm tại [kế hoạch Sprint 4](docs/sprint-4-plan.md). Thủ tục pilot, trường biểu mẫu và người xử lý vẫn cần chủ dự án xác nhận.
+Mở mục **Biểu mẫu và nơi xử lý** trong quản trị. [Hướng dẫn cấu hình](docs/procedure-configuration.md) mô tả các bước và quyền cần có. Nộp hồ sơ, upload thật và xét duyệt online sẽ được triển khai ở các bước tiếp theo.
 
-Migration chạm các bảng cấu hình Sprint 4 phải có ADR `Accepted` và trạng thái đóng Sprint 2+3 trong base commit. Duyệt ADR cùng PR migration không đáp ứng cổng CI. Chạy `npm run test:sprint4-adr` để kiểm tra các nhánh chặn và cho phép của cổng này.
+[ADR cấu hình thủ tục](docs/adr/0001-submission-workflow.md) đã Accepted trước migration; [kế hoạch và kết quả Sprint 4](docs/sprint-4-plan.md) ghi rõ phạm vi kiểm chứng local. Sprint 4 vẫn IN_PROGRESS, chưa có xác nhận đóng sprint.
+
+Migration chạm các bảng cấu hình phải có ADR Accepted và trạng thái đóng Sprint 2+3 trong base commit. Chạy npm run test:sprint4-adr để kiểm tra cổng này.
 
 ## Luồng đã chạy được
 

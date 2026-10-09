@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Service } from '~/types/service'
+import type { PublicProcedure } from '~/types/procedure'
 
 const route = useRoute()
 const config = useRuntimeConfig()
@@ -16,6 +17,15 @@ const {
   error,
   refresh,
 } = await useFetch<Service>(`${config.public.apiBase}/services/${serviceId}`)
+
+const { data: procedureData } = await useFetch<{ procedure: PublicProcedure | null }>(
+  String(config.public.apiBase) + '/services/' + serviceId + '/procedure',
+)
+const offlineProcedure = computed(() =>
+  procedureData.value?.procedure?.processingMode === 'OFFLINE'
+    ? procedureData.value.procedure
+    : null,
+)
 
 const loginTarget = computed(() => ({
   path: '/login',
@@ -71,19 +81,32 @@ const loginTarget = computed(() => ({
 
       <div class="service-detail__action">
         <div>
-          <strong>Sẵn sàng thực hiện thủ tục?</strong>
+          <strong>{{
+            offlineProcedure
+              ? 'Thực hiện trực tiếp tại ' + offlineProcedure.processingUnitName
+              : 'Sẵn sàng thực hiện thủ tục?'
+          }}</strong>
           <p v-if="service.status === 'INACTIVE'">Dịch vụ hiện đang tạm ngừng tiếp nhận.</p>
+          <p v-else-if="offlineProcedure" style="white-space: pre-wrap">
+            {{ offlineProcedure.contactInstructions }}
+          </p>
           <p v-else-if="user">
             Chức năng kê khai trực tuyến sẽ được triển khai ở sprint tiếp theo.
           </p>
           <p v-else>Bạn cần đăng nhập trước khi thực hiện thủ tục.</p>
         </div>
         <span
-          v-if="service.status === 'INACTIVE' || user"
+          v-if="service.status === 'INACTIVE' || user || offlineProcedure"
           class="service-detail__disabled"
           aria-disabled="true"
         >
-          {{ user ? 'Sắp triển khai' : 'Tạm ngừng' }}
+          {{
+            service.status === 'INACTIVE'
+              ? 'Tạm ngừng'
+              : offlineProcedure
+                ? 'Liên hệ đơn vị'
+                : 'Sắp triển khai'
+          }}
         </span>
         <NuxtLink v-else class="service-detail__login" :to="loginTarget"
           >Đăng nhập để tiếp tục</NuxtLink

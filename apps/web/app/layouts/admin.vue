@@ -13,6 +13,7 @@ const navigation = [
   { label: 'Vai trò và phạm vi', to: '/admin/access-control' },
   { label: 'Ma trận quyền', to: '/admin/role-permissions' },
   { label: 'Mời người dùng', to: '/admin/users/invite' },
+  { label: 'Biểu mẫu và nơi xử lý', to: '/admin/procedures' },
   { label: 'Audit log', to: '/admin/audit-logs' },
 ]
 
@@ -65,7 +66,6 @@ async function handleLogout() {
         >
           {{ item.label }}
         </NuxtLink>
-        <span aria-disabled="true">Quản lý dịch vụ <small>Sắp triển khai</small></span>
       </nav>
 
       <div class="admin-layout__account">

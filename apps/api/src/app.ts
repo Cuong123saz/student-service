@@ -93,7 +93,14 @@ import { DrizzleUserAccessRepository } from './modules/users/user-access.reposit
 import { userAccessRoutes } from './modules/users/user-access.routes.js'
 import { UserAccessService, type UserAccessUseCase } from './modules/users/user-access.service.js'
 
+import { DrizzleProcedureRepository } from './modules/procedures/procedure.repository.js'
+import { ProcedureService, type ProcedureUseCase } from './modules/procedures/procedure.service.js'
+import {
+  procedureAdminRoutes,
+  procedurePublicRoutes,
+} from './modules/procedures/procedure.routes.js'
 export interface BuildAppOptions {
+  procedureService?: ProcedureUseCase
   userInvitationService?: UserInvitationUseCase
 
   accountActivationService?: AccountActivationUseCase
@@ -213,6 +220,7 @@ export function buildApp(options: BuildAppOptions = {}) {
 
   app.register(cors, {
     origin: env.corsOrigin,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true,
   })
 
@@ -319,6 +327,14 @@ export function buildApp(options: BuildAppOptions = {}) {
     authorizationService,
   })
 
+  const procedureService =
+    options.procedureService ?? new ProcedureService(new DrizzleProcedureRepository())
+  app.register(procedureAdminRoutes, {
+    prefix: ADMIN_API_PREFIX,
+    procedureService,
+    authorizationService,
+  })
+  app.register(procedurePublicRoutes, { procedureService })
   app.register(serviceRoutes)
 
   return app

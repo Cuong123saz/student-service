@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { after, beforeEach, test } from 'node:test'
 
 import { databaseClient, db } from '../../db/client.js'
@@ -27,7 +27,8 @@ if (!databaseUrl || new URL(databaseUrl).pathname !== '/student_service_test') {
 }
 
 beforeEach(async () => {
-  await db.delete(auditLogs)
+  // This guarded test database preserves the production append-only trigger.
+  await db.execute(sql.raw('TRUNCATE audit_logs'))
   await db.delete(userRoleScopes)
   await db.delete(authorizationScopes)
   await db.delete(rolePermissions)
