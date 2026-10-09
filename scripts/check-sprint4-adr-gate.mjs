@@ -6,7 +6,8 @@ const tableAdrMap = new Map([
   ['attachment_requirements', 'docs/adr/0001-submission-workflow.md'],
   ['workflow_definitions', 'docs/adr/0001-submission-workflow.md'],
   ['workflow_steps', 'docs/adr/0001-submission-workflow.md'],
-  ['submissions', 'docs/adr/0001-submission-workflow.md'],
+  ['submissions', 'docs/adr/0003-student-drafts-and-evidence.md'],
+  ['submission_files', 'docs/adr/0003-student-drafts-and-evidence.md'],
   ['form_versions', 'docs/adr/0001-submission-workflow.md'],
   ['reviewer_queue', 'docs/adr/0001-submission-workflow.md'],
 ])

@@ -35,7 +35,7 @@ if (
   throw new Error('Tests require local student_service_test on port 5434')
 
 async function cleanup() {
-  await db.execute(sql.raw('TRUNCATE procedure_versions'))
+  await db.execute(sql.raw('TRUNCATE submission_files, submissions, procedure_versions'))
   // Dedicated test database only; production audit rows are append-only.
   await db.execute(sql.raw('TRUNCATE audit_logs'))
   await db.delete(users).where(like(users.username, 'p4t-%'))

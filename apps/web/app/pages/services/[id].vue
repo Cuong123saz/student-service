@@ -6,6 +6,26 @@ const route = useRoute()
 const config = useRuntimeConfig()
 const { user, ensureCurrentUser } = useUserAuth()
 const serviceId = String(route.params.id)
+const draftApi = useSubmissions()
+const starting = ref(false)
+const startError = ref('')
+const onlineProcedure = computed(() => {
+  const p = procedureData.value?.procedure
+  return p && p.processingMode !== 'OFFLINE' ? p : null
+})
+async function startDraft() {
+  if (!onlineProcedure.value) return
+  starting.value = true
+  startError.value = ''
+  try {
+    const draft = await draftApi.create(Number(serviceId), onlineProcedure.value.versionId)
+    await navigateTo('/submissions/' + draft.id)
+  } catch (error) {
+    startError.value = (error as { message?: string }).message ?? 'Không thể tạo bản nháp.'
+  } finally {
+    starting.value = false
+  }
+}
 
 onMounted(() => {
   void ensureCurrentUser()
@@ -90,33 +110,45 @@ const loginTarget = computed(() => ({
           <p v-else-if="offlineProcedure" style="white-space: pre-wrap">
             {{ offlineProcedure.contactInstructions }}
           </p>
-          <p v-else-if="user">
-            Chức năng kê khai trực tuyến sẽ được triển khai ở sprint tiếp theo.
+          <p v-else-if="!onlineProcedure">
+            Chưa có biểu mẫu trực tuyến được áp dụng cho dịch vụ này.
           </p>
+          <p v-else-if="user?.roles.includes('STUDENT')">
+            Kê khai, lưu bản nháp và tải minh chứng. Bản nháp chưa được gửi đến đơn vị xử lý.
+          </p>
+          <p v-else-if="user">Chức năng kê khai dành cho tài khoản sinh viên.</p>
           <p v-else>Bạn cần đăng nhập trước khi thực hiện thủ tục.</p>
         </div>
-        <span
-          v-if="service.status === 'INACTIVE' || user || offlineProcedure"
-          class="service-detail__disabled"
-          aria-disabled="true"
+        <BaseButton
+          v-if="service.status === 'ACTIVE' && onlineProcedure && user?.roles.includes('STUDENT')"
+          :loading="starting"
+          @click="startDraft"
+          >Kê khai / tiếp tục bản nháp</BaseButton
         >
-          {{
-            service.status === 'INACTIVE'
-              ? 'Tạm ngừng'
-              : offlineProcedure
-                ? 'Liên hệ đơn vị'
-                : 'Sắp triển khai'
-          }}
-        </span>
-        <NuxtLink v-else class="service-detail__login" :to="loginTarget"
+        <NuxtLink
+          v-else-if="service.status === 'ACTIVE' && onlineProcedure && !user"
+          class="service-detail__login"
+          :to="loginTarget"
           >Đăng nhập để tiếp tục</NuxtLink
         >
+        <span v-else class="service-detail__disabled" aria-disabled="true">{{
+          service.status === 'INACTIVE'
+            ? 'Tạm ngừng'
+            : offlineProcedure
+              ? 'Liên hệ đơn vị'
+              : 'Chưa thể kê khai'
+        }}</span>
       </div>
+      <p v-if="startError" role="alert" class="service-detail__start-error">{{ startError }}</p>
     </article>
   </section>
 </template>
 
 <style scoped>
+.service-detail__start-error {
+  color: var(--color-error);
+  padding: 0 36px 24px;
+}
 .service-detail {
   max-width: 880px;
   margin: 0 auto;

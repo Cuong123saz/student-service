@@ -6,3 +6,5 @@ run/
 !.env.example
 !.env.*.example
 /apps*.zip
+
+**/.local/

@@ -45,6 +45,10 @@ Chạy bằng Node 22.23.2 và PostgreSQL 17:
 
 Demo trình duyệt Web → API → PostgreSQL và trạng thái cuối được ghi tại [hướng dẫn cấu hình](procedure-configuration.md). Test có mock và demo toàn luồng là hai loại bằng chứng khác nhau.
 
+## Increment tiếp theo
+
+[Kê khai bản nháp và minh chứng Sprint 5](sprint-5-drafts.md) đã được triển khai tiếp theo theo yêu cầu chủ dự án. Các câu “chưa upload” và số liệu ở trên mô tả phạm vi Sprint 4 tại thời điểm nghiệm thu, không phải trạng thái chức năng toàn dự án hiện tại. Sprint 4 vẫn chờ nghiệm thu riêng.
+
 ## Điều kiện đóng sprint
 
 Đã có cấu hình và giao diện hoạt động local. Chưa triển khai production, chưa mở nộp hồ sơ/upload/review/ký. Không dùng số liệu nghiệm thu Sprint 3 để thay kết quả kiểm thử hiện tại. Chủ dự án xem increment rồi mới xác nhận đóng Sprint 4.

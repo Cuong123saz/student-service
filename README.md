@@ -56,11 +56,17 @@ Kịch bản demo và biểu mẫu nghiệm thu được ghi tại [`docs/sprint
 
 Đã có cấu hình thủ tục có phiên bản: hình thức thực hiện, đơn vị/cán bộ xử lý, trường biểu mẫu, yêu cầu minh chứng, xem trước và áp dụng. Giấy xác nhận sinh viên mặc định xử lý trực tiếp tại Phòng CTSV.
 
-Mở mục **Biểu mẫu và nơi xử lý** trong quản trị. [Hướng dẫn cấu hình](docs/procedure-configuration.md) mô tả các bước và quyền cần có. Nộp hồ sơ, upload thật và xét duyệt online sẽ được triển khai ở các bước tiếp theo.
+Mở mục **Biểu mẫu và nơi xử lý** trong quản trị. [Hướng dẫn cấu hình](docs/procedure-configuration.md) mô tả các bước và quyền cần có. Phần nộp hồ sơ và xét duyệt online thuộc các bước sau; kê khai nháp và upload minh chứng đã có ở increment Sprint 5 bên dưới.
 
 [ADR cấu hình thủ tục](docs/adr/0001-submission-workflow.md) đã Accepted trước migration; [kế hoạch và kết quả Sprint 4](docs/sprint-4-plan.md) ghi rõ phạm vi kiểm chứng local. Sprint 4 vẫn IN_PROGRESS, chưa có xác nhận đóng sprint.
 
 Migration chạm các bảng cấu hình phải có ADR Accepted và trạng thái đóng Sprint 2+3 trong base commit. Chạy npm run test:sprint4-adr để kiểm tra cổng này.
+
+### Sprint 5 — Kê khai bản nháp và minh chứng
+
+Sinh viên có thể bắt đầu/tiếp tục nháp của thủ tục ONLINE/HYBRID, nhận dữ liệu hồ sơ từ máy chủ, lưu thiếu thông tin, tải/gỡ minh chứng riêng và xem lại nội dung. **Thủ tục của tôi** nằm trong cổng sinh viên. Giấy xác nhận sinh viên tiếp tục OFFLINE tại CTSV.
+
+[Hướng dẫn và kiểm chứng Sprint 5](docs/sprint-5-drafts.md) ghi rõ cách thử, API, kho tệp riêng và giới hạn. Chưa mở gửi hồ sơ, xét duyệt hoặc ký; tệp tải lên luôn có trạng thái chữ ký chưa xác minh.
 
 ## Luồng đã chạy được
 

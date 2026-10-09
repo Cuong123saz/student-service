@@ -33,6 +33,7 @@ export default defineNuxtConfig({
   // on the server before the session check redirects an expired visitor.
   routeRules: {
     '/admin/**': { ssr: false },
+    '/submissions/**': { ssr: false },
   },
 
   runtimeConfig: {

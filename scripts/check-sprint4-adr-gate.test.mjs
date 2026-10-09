@@ -15,6 +15,7 @@ const protectedTables = [
   'workflow_definitions',
   'workflow_steps',
   'submissions',
+  'submission_files',
   'form_versions',
   'reviewer_queue',
 ]
@@ -74,7 +75,10 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
       typeof closure === 'string' ? closure : JSON.stringify(closure),
     )
   }
-  if (adr !== undefined) write(adrPath, '---\nstatus: ' + adr + '\n---\n')
+  if (adr !== undefined) {
+    write(adrPath, '---\nstatus: ' + adr + '\n---\n')
+    write('docs/adr/0003-student-drafts-and-evidence.md', '---\nstatus: ' + adr + '\n---\n')
+  }
   const base = commit()
   return { write, commit, run, base }
 }
@@ -192,4 +196,17 @@ test('invalid revisions fail instead of silently skipping the gate', (t) => {
   const result = repo.run('missing-revision')
   assert.equal(result.status, 1, result.output)
   assert.match(result.output, /cannot resolve revisions/u)
+})
+
+test('student evidence requires its own ADR before migration even when workflow ADR was accepted', (t) => {
+  const repo = fixture(t, { adr: 'Accepted' })
+  repo.write('docs/adr/0003-student-drafts-and-evidence.md', '---\nstatus: Proposed\n---\n')
+  const base = repo.commit()
+  repo.write('docs/adr/0003-student-drafts-and-evidence.md', '---\nstatus: Accepted\n---\n')
+  repo.write('apps/api/drizzle/0015_evidence.sql', 'CREATE TABLE submission_files (id integer);\n')
+  repo.commit()
+  const result = repo.run(base)
+  assert.equal(result.status, 1, result.output)
+  assert.match(result.output, /0003-student-drafts-and-evidence/u)
+  assert.match(result.output, /was not Accepted before/u)
 })

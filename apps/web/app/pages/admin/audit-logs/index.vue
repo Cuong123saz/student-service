@@ -10,6 +10,10 @@ definePageMeta({
 // API chưa có endpoint trả action catalog. Khi backend thêm action,
 // danh sách tĩnh này cũng phải được cập nhật.
 const auditActionOptions = [
+  'SUBMISSION_DRAFT_CREATE',
+  'SUBMISSION_DRAFT_SAVE',
+  'SUBMISSION_EVIDENCE_ADD',
+  'SUBMISSION_EVIDENCE_REMOVE',
   'ACADEMIC_CLASS_CREATE',
   'ACADEMIC_CLASS_UPDATE',
   'ADMIN_LOGIN',
@@ -30,6 +34,10 @@ const auditActionOptions = [
 ] as const
 
 const actionLabels: Record<string, string> = {
+  SUBMISSION_DRAFT_CREATE: 'Sinh viên tạo bản nháp',
+  SUBMISSION_DRAFT_SAVE: 'Sinh viên lưu bản nháp',
+  SUBMISSION_EVIDENCE_ADD: 'Sinh viên tải minh chứng',
+  SUBMISSION_EVIDENCE_REMOVE: 'Sinh viên gỡ minh chứng',
   ACADEMIC_CLASS_CREATE: 'Tạo lớp học',
   ACADEMIC_CLASS_UPDATE: 'Cập nhật lớp học',
   ADMIN_LOGIN: 'Đăng nhập quản trị',

@@ -99,7 +99,12 @@ import {
   procedureAdminRoutes,
   procedurePublicRoutes,
 } from './modules/procedures/procedure.routes.js'
+import { DrizzleSubmissionRepository } from './modules/submissions/submission.repository.js'
+import { SubmissionService } from './modules/submissions/submission.service.js'
+import { LocalEvidenceStorage } from './modules/submissions/submission.storage.js'
+import { submissionRoutes } from './modules/submissions/submission.routes.js'
 export interface BuildAppOptions {
+  submissionService?: SubmissionService
   procedureService?: ProcedureUseCase
   userInvitationService?: UserInvitationUseCase
 
@@ -335,6 +340,12 @@ export function buildApp(options: BuildAppOptions = {}) {
     authorizationService,
   })
   app.register(procedurePublicRoutes, { procedureService })
+  app.register(submissionRoutes, {
+    prefix: USER_API_PREFIX,
+    submissionService:
+      options.submissionService ??
+      new SubmissionService(new DrizzleSubmissionRepository(), new LocalEvidenceStorage()),
+  })
   app.register(serviceRoutes)
 
   return app

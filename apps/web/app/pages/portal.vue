@@ -14,6 +14,12 @@ interface PortalItem {
 
 const allItems: PortalItem[] = [
   {
+    label: 'Thủ tục của tôi',
+    description: 'Tiếp tục kê khai và xem các bản nháp chưa gửi.',
+    to: '/submissions',
+    roles: ['STUDENT'],
+  },
+  {
     label: 'Hồ sơ của tôi',
     description: 'Xem mã sinh viên, lớp, khoa và cố vấn học tập.',
     to: '/profile',
