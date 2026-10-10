@@ -1,6 +1,6 @@
 # Lưu bản sao riêng và đề xuất giữ bản cũ — dữ liệu giả
 
-Ngày 10/10/2026. Người dùng chọn hướng lưu dữ liệu thật trên **ổ cứng ngoài hoặc máy khác**. Increment này bổ sung công cụ kiểm chứng đường đi của bản sao; chưa có đường dẫn thiết bị thật, chưa triển khai sao lưu production hoặc lịch chạy.
+Ngày 10/10/2026. Người dùng chọn lưu thử trên **ổ D**, tại `D:\student-service-fake-backups`. Windows nhận D là ổ cố định (NTFS), và mã nguồn cũng trên D. Đây là kho cục bộ; chưa kiểm chứng ổ ngoài hoặc máy khác, chưa triển khai sao lưu production hoặc lịch chạy.
 
 ## Công cụ làm gì
 
@@ -42,7 +42,17 @@ Từ `D:\student-service`, dùng terminal không nạp `DATABASE_URL` hoặc `SU
 npm run rehearse:recovery --workspace @student-service/api
 ```
 
-Runner tự tạo kho dữ liệu giả riêng trong thư mục tạm hệ điều hành, ngoài repository. Nó chép gói tới đó, kiểm tra gói, **xóa container PostgreSQL nguồn giả**, tạo PostgreSQL mới và phục hồi database/tệp từ **bản đã chép**. Kho giả được giữ lại; đường dẫn cụ thể nằm ở `report.json` → `archive.root`. Thư mục tạm vẫn ở cùng máy và có thể bị hệ điều hành dọn; không phải kho sao lưu vận hành.
+Nếu không truyền nơi lưu, runner tự tạo kho dữ liệu giả riêng trong thư mục tạm hệ điều hành, ngoài repository. Nó chép gói tới đó, kiểm tra gói, **xóa container PostgreSQL nguồn giả**, tạo PostgreSQL mới và phục hồi database/tệp từ **bản đã chép**. Kho giả được giữ lại; đường dẫn cụ thể nằm ở `report.json` → `archive.root`. Thư mục tạm vẫn ở cùng máy và có thể bị hệ điều hành dọn; không phải kho sao lưu vận hành.
+
+Để các lượt mới lưu và phục hồi từ đúng kho trên D đã chọn:
+
+```powershell
+npm run rehearse:recovery --workspace @student-service/api -- --archive-root 'D:\student-service-fake-backups'
+```
+
+`--archive-root` nhận một đường dẫn tuyệt đối. Không hardcode D trong mã nguồn và không tự đọc cấu hình local hoặc `.env` để chuyển nơi lưu. Thiếu đường dẫn, đường dẫn tương đối, đối số thừa, nguồn cấu hình database/kho thật, nơi lưu trong repository, thư mục cha thiếu hoặc kho có sẵn không đúng dấu nhận diện đều bị từ chối trước khi tạo thư mục lượt chạy/gọi Docker. Kiểm tra trước chỉ đọc cấu trúc/đường dẫn/dấu nhận diện; lỗi ghi, mất kết nối hoặc hết dung lượng phát sinh khi chép vẫn làm lượt chạy thất bại và giữ phần chép dở.
+
+Có thể dùng lại cùng kho cho nhiều runId. Công cụ kiểm tra các bản có sẵn sau khi chép gói mới; gói mới phải được giữ theo chính sách mẫu. Nếu kiểm tra kho trả `ATTENTION`, dừng trước bước xóa PostgreSQL nguồn giả. Báo cáo ghi `archive.selection=EXPLICIT` khi chọn nơi lưu, hoặc `TEMPORARY` khi dùng thư mục tạm. Các lựa chọn này chỉ áp dụng cho dữ liệu giả, không bật lịch hay sao lưu dữ liệu thật.
 
 Để chép thủ công một gói diễn tập vào kho mới ngoài dự án:
 
@@ -74,15 +84,27 @@ Lượt `d2e33a24-bd8a-49f5-a718-84e012497e20` đạt, cleanup thành công. Bá
 | Toàn lượt                  | 20.797 ms; không dùng để cam kết RTO/RPO production                                  |
 | Kiểm tra kho sau thử       | Bản nguồn và bản ngoài dự án còn nguyên; không đề xuất dọn bản duy nhất              |
 
-Hai lệnh npm export/inspect cũng được chạy độc lập với một kho tạm giả khác và đạt: `run/archive-cli-export.log`, `run/archive-cli-inspect.log`. Không thử trên ổ cứng ngoài hoặc máy khác vì chưa có đường dẫn thiết bị thực tế.
+Hai lệnh npm export/inspect cũng được chạy độc lập với một kho tạm giả khác và đạt: `run/archive-cli-export.log`, `run/archive-cli-inspect.log`. Các lượt này dùng thư mục tạm. Lượt dùng ổ D được ghi riêng bên dưới; chưa thử trên ổ cứng ngoài hoặc máy khác.
 
 54 test gói/guard đạt, gồm 22 test trước đó và 32 test kho/retention mới: khôi phục sau khi xóa gói nguồn trong fixture, không ghi đè, giữ bản mới/đủ tuổi, đúng ranh giới tuổi, chặn đề xuất khi gói hỏng/dở/entry lạ, path/junction, nguồn không phải drill, cấu hình không hợp lệ, manifest null, kho trống và dấu nhận diện bị sửa. `npm run test` của API bao gồm bộ này; diễn tập Docker đầy đủ là lệnh riêng.
 
 22 test đối chiếu kho minh chứng có sẵn, typecheck, lint ứng dụng, lint script, build API và kiểm tra format/diff được chạy cho increment này. Không đổi schema/luồng ứng dụng/giao diện; không chạy lại toàn bộ hồi quy ứng dụng. Gói, báo cáo và log local không được commit.
 
+## Diễn tập toàn bộ từ ổ D
+
+Lượt `dbf51365-9a14-43ec-a1bf-97bdddf42d30` đạt, cleanup thành công; báo cáo `run/recovery-drills/dbf51365-9a14-43ec-a1bf-97bdddf42d30/report.json`, log `run/recovery-d-full.log`. Lượt này truyền `--archive-root D:\student-service-fake-backups`; `archive.selection=EXPLICIT`. Kho trên D có 2 gói hợp lệ: gói cũ giữ nguyên và gói mới được kiểm tra, không có ứng viên dọn.
+
+Sau khi chép, runner xóa PostgreSQL nguồn giả rồi dùng **database.dump và kho tệp trên D** phục hồi vào PostgreSQL mới. 26 bảng, 4 sequence, ràng buộc/chỉ mục/trigger/extension khớp; 42 yêu cầu HTTP kiểm chứng lịch sử, minh chứng, thông báo, quyền truy cập/thu hồi quyền và ghi tiếp đều đạt. Đây là lượt phục hồi database đầy đủ; lượt kiểm tra D trước đó chỉ khôi phục tệp.
+
+Gói mới có dump 111,843 byte và 2 tệp tổng 75 byte. Chép/kiểm tra kho mất 78 ms; dựng đích và phục hồi mất 4462 ms; toàn lượt 18289 ms. Các số đo chỉ cho dữ liệu giả nhỏ trên máy local, không cam kết thời gian phục hồi hồ sơ thật.
+
+63 test gói/guard đạt, tăng 9 test so với increment trước: tùy chọn hợp lệ/mặc định, thiếu/tương đối/thừa tham số, kho trong repository, thiếu thư mục cha, cấu hình database kế thừa khi chọn kho và kiểm tra trước không ghi vào thư mục mới/có sẵn/không thuộc kho/junction. 22 test đối chiếu kho minh chứng, lint các script đã đổi, build API và kiểm tra format/diff đạt. Không đổi source ứng dụng/schema/giao diện và không chạy lại toàn bộ hồi quy ứng dụng.
+
+Đường dẫn D là tùy chọn truyền khi chạy, không hardcode trong mã và không tự tạo lịch. Cấu hình ghi nhận lựa chọn local nằm ở `run/archive-d-configuration.json` (Git bỏ qua); runner không tự nạp file này. Để các lượt sau dùng D, chạy đúng lệnh có `--archive-root` ở trên. D là cùng ổ chứa mã nguồn, vì vậy chưa có bản sao độc lập khi ổ D hoặc máy hỏng.
+
 ## Trước khi dùng dữ liệu thật
 
-Bước tiếp theo cần đường dẫn ổ cứng ngoài hoặc máy khác thực tế, cơ chế xác nhận ổ đích đang sẵn sàng và quyền truy cập, mã hóa và quản lý khóa, lịch/RPO mong muốn, retention do học viện chốt, cảnh báo lỗi và diễn tập trên thiết bị/dung lượng đại diện. Không tự suy ra một thư mục khác trên máy là đã chống mất máy hoặc mất ổ đĩa.
+Đã có đường dẫn kho cục bộ trên D; trước dữ liệu thật vẫn cần kho trên thiết bị hoặc máy khác, cơ chế xác nhận ổ đích đang sẵn sàng và quyền truy cập, mã hóa và quản lý khóa, lịch/RPO mong muốn, retention do học viện chốt, cảnh báo lỗi và diễn tập trên thiết bị/dung lượng đại diện. Không tự suy ra một thư mục khác trên máy là đã chống mất máy hoặc mất ổ đĩa.
 
 Công cụ chỉ xử lý gói tự khai báo dữ liệu giả trong thư mục drill do người vận hành tin cậy kiểm soát. Cờ/manifest không phân loại được dữ liệu thật và không chống người có quyền sửa cả gói lẫn hash. Chưa có chữ ký manifest, mã hóa, quét mã độc, snapshot production, sync chống mất điện hoặc cơ chế kho bất biến. Giới hạn gói vẫn theo [runbook phục hồi](recovery-rehearsal.md); kho tối đa 10.000 entry. Việc kiểm tra nhiều gói phải đọc đầy đủ byte nên chưa có số đo dung lượng lớn.
 

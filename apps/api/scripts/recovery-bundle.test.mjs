@@ -7,6 +7,7 @@ import { isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import {
+  parseRehearsalOptions,
   assertDrillDatabase,
   assertOwnedContainer,
   assertEmptyTarget,
@@ -225,11 +226,41 @@ test('empty-target check rejects existing relations, functions, extensions and s
 const cli = fileURLToPath(new URL('./rehearse-recovery.mjs', import.meta.url))
 for (const [name, args, override, message] of [
   ['no flag', [], {}, 'REQUIRES_FAKE_DATA_ONLY_FLAG'],
+  ['unknown flag', ['--fake-data-only', '--target=development'], {}, 'INVALID_REHEARSAL_OPTIONS'],
+  ['missing archive path', ['--fake-data-only', '--archive-root'], {}, 'INVALID_REHEARSAL_OPTIONS'],
   [
-    'unknown flag',
-    ['--fake-data-only', '--target=development'],
+    'relative archive',
+    ['--fake-data-only', '--archive-root', './archive'],
     {},
-    'REQUIRES_FAKE_DATA_ONLY_FLAG',
+    'ABSOLUTE_PATH_REQUIRED',
+  ],
+  [
+    'extra archive flag',
+    ['--fake-data-only', '--archive-root', tmpdir(), '--archive-root', tmpdir()],
+    {},
+    'INVALID_REHEARSAL_OPTIONS',
+  ],
+  [
+    'archive inside project',
+    ['--fake-data-only', '--archive-root', fileURLToPath(new URL('../../../run', import.meta.url))],
+    {},
+    'ARCHIVE_MUST_BE_OUTSIDE_PROJECT',
+  ],
+  [
+    'missing archive parent',
+    [
+      '--fake-data-only',
+      '--archive-root',
+      join(tmpdir(), 'student-recovery-missing-' + randomUUID(), 'archive'),
+    ],
+    {},
+    'ARCHIVE_DESTINATION_UNAVAILABLE',
+  ],
+  [
+    'inherited database with archive option',
+    ['--fake-data-only', '--archive-root', tmpdir()],
+    { DATABASE_URL: 'postgres://fake:secret@localhost:5433/student_service' },
+    'EXTERNAL_DATABASE_OR_STORAGE_CONFIG_REFUSED',
   ],
   [
     'inherited database',
@@ -284,4 +315,11 @@ test('normalizes only PostgreSQL literal varchar array cast formatting and prese
     normalizeRecoveryDefinition(escaped),
     "ANY (ARRAY[('O''Brien, A'::character varying)::text])",
   )
+})
+
+test('rehearsal accepts an explicit absolute archive path and keeps default invocation portable', () => {
+  assert.deepEqual(parseRehearsalOptions(['--fake-data-only'], {}), {})
+  assert.deepEqual(parseRehearsalOptions(['--fake-data-only', '--archive-root', tmpdir()], {}), {
+    archiveRoot: tmpdir(),
+  })
 })

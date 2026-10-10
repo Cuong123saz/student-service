@@ -16,6 +16,13 @@ export function assertDrillInvocation(args, env) {
   if (env.DATABASE_URL || env.SUBMISSION_STORAGE_ROOT || env.APP_ENV === 'production')
     fail('EXTERNAL_DATABASE_OR_STORAGE_CONFIG_REFUSED')
 }
+export function parseRehearsalOptions(args, env) {
+  assertDrillInvocation([args[0]], env)
+  if (args.length === 1) return {}
+  if (args.length !== 3 || args[1] !== '--archive-root') fail('INVALID_REHEARSAL_OPTIONS')
+  if (typeof args[2] !== 'string' || !isAbsolute(args[2])) fail('ABSOLUTE_PATH_REQUIRED')
+  return { archiveRoot: resolve(args[2]) }
+}
 export function assertOwnedContainer(info, runId, containerId) {
   if (
     !uuid.test(runId) ||

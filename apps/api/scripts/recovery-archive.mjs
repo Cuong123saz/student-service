@@ -49,10 +49,23 @@ function validDate(value) {
   )
 }
 
+// Preflight is read-only: a failed destination cannot start a rehearsal or create a directory.
+export async function validateRecoveryArchiveDestination({ archiveRoot, projectRoot }) {
+  await location(archiveRoot, projectRoot)
+  try {
+    await lstat(archiveRoot)
+  } catch (error) {
+    if (error.code === 'ENOENT') return { exists: false }
+    throw error
+  }
+  await ownedArchive(archiveRoot)
+  return { exists: true }
+}
+
 // Only exports a verified fake bundle produced in this project's recovery-drills directory.
 // The archive is a dedicated directory, never a general-purpose folder or a deletion target.
 export async function exportRecoveryBundle({ bundleRoot, archiveRoot, projectRoot }) {
-  await location(archiveRoot, projectRoot)
+  const state = await validateRecoveryArchiveDestination({ archiveRoot, projectRoot })
   const manifest = await verifyRecoveryBundle(bundleRoot)
   const expected = resolve(projectRoot, 'run/recovery-drills', manifest.runId, 'bundle')
   if (!isAbsolute(bundleRoot) || comparable(resolve(bundleRoot)) !== comparable(expected))
@@ -60,10 +73,7 @@ export async function exportRecoveryBundle({ bundleRoot, archiveRoot, projectRoo
   if (!validDate(manifest.createdAt) || Date.parse(manifest.createdAt) > Date.now())
     fail('INVALID_BUNDLE_DATE')
   const originalManifestDigest = await fileDigest(join(bundleRoot, 'manifest.json'), 2097152)
-  try {
-    await lstat(archiveRoot)
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error
+  if (!state.exists) {
     await mkdir(archiveRoot)
     await safeDirectory(archiveRoot)
     await writeFile(join(archiveRoot, markerName), marker, { flag: 'wx' })

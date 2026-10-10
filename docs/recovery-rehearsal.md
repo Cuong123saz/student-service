@@ -51,11 +51,11 @@ Từ repository, dùng terminal không nạp cấu hình database/kho tệp củ
 npm run rehearse:recovery --workspace @student-service/api
 ```
 
-Lệnh chạy toàn bộ test gói/guard (hiện 54 test, gồm 22 test ban đầu và 32 test kho riêng), build API rồi gọi runner với cờ bắt buộc `--fake-data-only`. Runner từ chối đối số khác, biến `DATABASE_URL` hoặc `SUBMISSION_STORAGE_ROOT` kế thừa, và `APP_ENV=production` **trước khi tạo thư mục hoặc gọi Docker**. Không đọc `.env` của dự án. Các child API chỉ nhận cấu hình giả, khóa phiên sinh ngẫu nhiên và `fake.env` trống; không chạy worker/email.
+Lệnh chạy toàn bộ test gói/guard (hiện 63 test, gồm bộ gói/kho riêng và kiểm tra tùy chọn nơi lưu), build API rồi gọi runner với cờ bắt buộc `--fake-data-only`. Runner chỉ nhận thêm cặp tùy chọn `--archive-root <đường dẫn tuyệt đối>` cho kho dữ liệu giả; đối số khác bị từ chối. Runner từ chối biến `DATABASE_URL` hoặc `SUBMISSION_STORAGE_ROOT` kế thừa, và `APP_ENV=production` **trước khi tạo thư mục hoặc gọi Docker**. Không đọc `.env` của dự án. Các child API chỉ nhận cấu hình giả, khóa phiên sinh ngẫu nhiên và `fake.env` trống; không chạy worker/email.
 
 Runner tự tạo thư mục `run/recovery-drills/<runId>` mới và container có tên/label cùng runId. Chỉ publish PostgreSQL lên `127.0.0.1` với cổng tự cấp, không dùng 5433/5434. Data PostgreSQL ở tmpfs, không mount ổ đĩa/kho thật. Trước mỗi lần xóa, kiểm tra ID, tên, label, image và không có persistent mount; không xóa container khác hoặc dùng prune/reset.
 
-Database nguồn/đích có tên riêng cố định trong container mới của lượt chạy. Không nhận URL hoặc đường dẫn phục hồi do người chạy cung cấp. Runner hiện bổ sung bước chép và kiểm tra gói ngoài dự án rồi phục hồi từ bản đã chép; xem [kho riêng và đề xuất giữ bản cũ](recovery-archive.md) để biết kết quả mới và giới hạn. Nguồn API phải đóng sạch, không còn session khác và database mặc định READ ONLY trước khi đóng gói. Gói gồm:
+Database nguồn/đích có tên riêng cố định trong container mới của lượt chạy. Không nhận URL database hoặc đường dẫn đích phục hồi do người chạy cung cấp. Tùy chọn `--archive-root` chỉ chọn kho bản sao giả; đích database/tệp phục hồi vẫn do runner tạo mới và kiểm soát. Runner hiện bổ sung bước chép và kiểm tra gói ngoài dự án rồi phục hồi từ bản đã chép; xem [kho riêng và đề xuất giữ bản cũ](recovery-archive.md) để biết kết quả mới và giới hạn. Nguồn API phải đóng sạch, không còn session khác và database mặc định READ ONLY trước khi đóng gói. Gói gồm:
 
 ```text
 bundle/

@@ -4,7 +4,11 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createReadStream, createWriteStream } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { exportRecoveryBundle, inspectRecoveryArchive } from './recovery-archive.mjs'
+import {
+  exportRecoveryBundle,
+  inspectRecoveryArchive,
+  validateRecoveryArchiveDestination,
+} from './recovery-archive.mjs'
 import { resolve, join } from 'node:path'
 import { pipeline, finished } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
@@ -13,7 +17,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { auditEvidence, readEvidenceReferences } from './evidence-integrity.mjs'
 import {
-  assertDrillInvocation,
+  parseRehearsalOptions,
   assertOwnedContainer,
   assertDrillDatabase,
   assertEmptyTarget,
@@ -33,15 +37,18 @@ import {
   origin,
 } from './recovery-fixture.mjs'
 
-try {
-  assertDrillInvocation(process.argv.slice(2), process.env)
-} catch (error) {
-  console.error(error.message)
-  process.exit(1)
-}
 const repo = fileURLToPath(new URL('../../../', import.meta.url))
 const api = resolve(repo, 'apps/api'),
   runId = randomUUID()
+let options, archiveRoot
+try {
+  options = parseRehearsalOptions(process.argv.slice(2), process.env)
+  archiveRoot = options.archiveRoot || resolve(tmpdir(), 'student-service-fake-archive-' + runId)
+  await validateRecoveryArchiveDestination({ archiveRoot, projectRoot: repo })
+} catch (error) {
+  console.error(/^[A-Z_]+$/.test(error.message) ? error.message : 'ARCHIVE_DESTINATION_UNAVAILABLE')
+  process.exit(1)
+}
 const runRoot = resolve(repo, 'run/recovery-drills', runId)
 const sourceRoot = join(runRoot, 'source-files'),
   restoredRoot = join(runRoot, 'restored-files'),
@@ -388,7 +395,6 @@ try {
   report.checks.sourceStoppedAndReadOnly = true
   phaseEnd('backup-database-and-evidence', tick)
   tick = phaseStart('export-to-separate-fake-archive')
-  const archiveRoot = resolve(tmpdir(), 'student-service-fake-archive-' + runId)
   const exported = await exportRecoveryBundle({ bundleRoot, archiveRoot, projectRoot: repo })
   const archivedBundleRoot = exported.bundleRoot
   const archiveInspection = await inspectRecoveryArchive({
@@ -397,10 +403,11 @@ try {
     policy: { keepLatest: 3, minAgeDays: 30 },
   })
   assert.equal(archiveInspection.status, 'OK')
-  assert.equal(archiveInspection.verified, 1)
-  assert.equal(archiveInspection.candidates, 0)
+  assert.ok(archiveInspection.verified >= 1)
+  assert.equal(archiveInspection.entries.find((entry) => entry.runId === runId)?.proposal, 'KEEP')
   report.archive = {
     root: archiveRoot,
+    selection: options.archiveRoot ? 'EXPLICIT' : 'TEMPORARY',
     bundleRoot: archivedBundleRoot,
     inspection: archiveInspection,
   }

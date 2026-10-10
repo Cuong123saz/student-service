@@ -11,7 +11,11 @@ import {
   restoreRecoveryFiles,
   verifyRecoveryBundle,
 } from './recovery-bundle.mjs'
-import { exportRecoveryBundle, inspectRecoveryArchive } from './recovery-archive.mjs'
+import {
+  exportRecoveryBundle,
+  inspectRecoveryArchive,
+  validateRecoveryArchiveDestination,
+} from './recovery-archive.mjs'
 
 const policy = { keepLatest: 2, minAgeDays: 30 }
 const now = new Date('2026-10-10T00:00:00.000Z')
@@ -362,4 +366,30 @@ test('altered archive marker refuses inspection and additional exports', async (
   await assert.rejects(f.inspect(), /UNRECOGNIZED_ARCHIVE/)
   await assert.rejects(f.export(source.bundleRoot), /UNRECOGNIZED_ARCHIVE/)
   assert.deepEqual(await snapshot(f.archiveRoot), before)
+})
+
+test('destination preflight creates nothing and accepts an existing owned archive', async (t) => {
+  const f = await fixture(t)
+  const before = await snapshot(f.root)
+  assert.deepEqual(await validateRecoveryArchiveDestination(f), { exists: false })
+  assert.deepEqual(await snapshot(f.root), before)
+  await f.export((await f.bundle()).bundleRoot)
+  const saved = await snapshot(f.root)
+  assert.deepEqual(await validateRecoveryArchiveDestination(f), { exists: true })
+  assert.deepEqual(await snapshot(f.root), saved)
+})
+
+test('destination preflight rejects unrelated and linked folders without modifying them', async (t) => {
+  const f = await fixture(t)
+  await mkdir(f.archiveRoot)
+  await writeFile(join(f.archiveRoot, 'keep'), 'preserve')
+  await assert.rejects(validateRecoveryArchiveDestination(f))
+  assert.equal(await readFile(join(f.archiveRoot, 'keep'), 'utf8'), 'preserve')
+  const linked = join(f.root, 'linked')
+  await symlink(f.archiveRoot, linked, process.platform === 'win32' ? 'junction' : 'dir')
+  await assert.rejects(
+    validateRecoveryArchiveDestination({ ...f, archiveRoot: linked }),
+    /UNSAFE_ARCHIVE_DIRECTORY/,
+  )
+  assert.deepEqual(await readdir(f.archiveRoot), ['keep'])
 })
