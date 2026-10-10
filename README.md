@@ -56,7 +56,7 @@ Kịch bản demo và biểu mẫu nghiệm thu được ghi tại [`docs/sprint
 
 Đã có cấu hình thủ tục có phiên bản: hình thức thực hiện, đơn vị/cán bộ xử lý, trường biểu mẫu, yêu cầu minh chứng, xem trước và áp dụng. Giấy xác nhận sinh viên mặc định xử lý trực tiếp tại Phòng CTSV.
 
-Mở mục **Biểu mẫu và nơi xử lý** trong quản trị. [Hướng dẫn cấu hình](docs/procedure-configuration.md) mô tả các bước và quyền cần có. Kê khai nháp, upload minh chứng và gửi/tiếp nhận online đã có ở các increment Sprint 5 bên dưới; quyết định duyệt và ký thuộc bước sau.
+Mở mục **Biểu mẫu và nơi xử lý** trong quản trị. [Hướng dẫn cấu hình](docs/procedure-configuration.md) mô tả các bước và quyền cần có. Kê khai nháp, upload minh chứng và gửi/tiếp nhận online đã có ở các increment Sprint 5 bên dưới; bổ sung và quyết định nội dung đã có ở increment bên dưới; ký/cấp văn bản thuộc bước sau.
 
 [ADR cấu hình thủ tục](docs/adr/0001-submission-workflow.md) đã Accepted trước migration; [kế hoạch và kết quả Sprint 4](docs/sprint-4-plan.md) ghi rõ phạm vi kiểm chứng local. Sprint 4 vẫn IN_PROGRESS, chưa có xác nhận đóng sprint.
 
@@ -70,7 +70,7 @@ Sinh viên có thể bắt đầu/tiếp tục nháp của thủ tục ONLINE/HY
 
 ### Sprint 5 — Gửi hồ sơ và tiếp nhận xử lý
 
-Sinh viên gửi bản đã lưu sau khi xem lại và xác nhận; máy chủ kiểm tra đủ nội dung/minh chứng và chốt snapshot. Cán bộ xem hàng đợi đúng quyền/phạm vi, đọc tệp gốc và nhận xử lý. Trạng thái Bản nháp → Đã gửi → Đang xử lý; nội dung đã gửi được khóa. Chưa có quyết định duyệt, trả/bổ sung, ký hoặc phát hành.
+Sinh viên gửi bản đã lưu sau khi xem lại và xác nhận; máy chủ kiểm tra đủ nội dung/minh chứng và chốt snapshot. Cán bộ xem hàng đợi đúng quyền/phạm vi, đọc tệp gốc và nhận xử lý. Trạng thái Bản nháp → Đã gửi → Đang xử lý; nội dung đã gửi được khóa. Đây là phạm vi increment gửi/tiếp nhận; bổ sung và quyết định nội dung được triển khai tiếp bên dưới. Chưa ký hoặc phát hành.
 
 [Hướng dẫn gửi và tiếp nhận](docs/submission-intake.md) mô tả cách dùng, quyền, API và kiểm chứng. Giấy xác nhận sinh viên tiếp tục xử lý trực tiếp tại CTSV.
 
@@ -79,6 +79,12 @@ Sinh viên gửi bản đã lưu sau khi xem lại và xác nhận; máy chủ k
 Cán bộ đã nhận hồ sơ được yêu cầu bổ sung, duyệt nội dung hoặc không chấp thuận theo quyền hiện tại. Sinh viên bổ sung rồi gửi lại cho cùng cán bộ; mỗi lần gửi và minh chứng gốc được giữ riêng để đối chiếu. Quyết định nội dung chưa phải ký hoặc cấp văn bản.
 
 [Hướng dẫn bổ sung và quyết định](docs/submission-resolution.md) mô tả quyền, cách sử dụng, lịch sử và kiểm chứng. Giấy xác nhận sinh viên vẫn thực hiện trực tiếp tại CTSV.
+
+### Sprint 5 — Bàn giao và thông báo trong ứng dụng
+
+Supervisor đủ quyền/phạm vi bàn giao hồ sơ đang xử lý hoặc chờ bổ sung cho cán bộ đủ điều kiện, giữ nguyên nội dung và lịch sử. Sinh viên/cán bộ có hộp thông báo cá nhân, kiểm tra quyền hiện tại trước khi hiển thị hoặc mở hồ sơ.
+
+[Hướng dẫn bàn giao và thông báo](docs/submission-handover-and-notifications.md) ghi phạm vi và kiểm chứng theo ADR0006: 485 kiểm thử đạt, demo trình duyệt bốn vai trò đạt, migration0018 đã nâng cấp local và giữ nguyên dữ liệu/cấu hình cũ. Quyết định nội dung chưa phải ký/cấp; giấy xác nhận sinh viên tiếp tục trực tiếp tại CTSV.
 
 ## Luồng đã chạy được
 

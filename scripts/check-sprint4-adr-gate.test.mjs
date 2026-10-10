@@ -18,6 +18,7 @@ const protectedTables = [
   'submission_files',
   'submission_rounds',
   'submission_events',
+  'personal_notifications',
   'form_versions',
   'reviewer_queue',
 ]
@@ -82,6 +83,10 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
     write('docs/adr/0003-student-drafts-and-evidence.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0004-submission-and-intake.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0005-submission-resolution.md', '---\nstatus: ' + adr + '\n---\n')
+    write(
+      'docs/adr/0006-submission-reassignment-and-notifications.md',
+      '---\nstatus: ' + adr + '\n---\n',
+    )
   }
   const base = commit()
   return { write, commit, run, base }
@@ -245,6 +250,30 @@ for (const table of ['submissions', 'submission_files', 'submission_rounds', 'su
     const result = repo.run(base)
     assert.equal(result.status, 1, result.output)
     assert.match(result.output, /0005-submission-resolution/u)
+    assert.match(result.output, /was not Accepted before/u)
+  })
+}
+
+for (const table of ['submissions', 'submission_events', 'personal_notifications']) {
+  test('reassignment ADR must predate changes to ' + table, (t) => {
+    const repo = fixture(t, { adr: 'Accepted' })
+    repo.write(
+      'docs/adr/0006-submission-reassignment-and-notifications.md',
+      '---\nstatus: Proposed\n---\n',
+    )
+    const base = repo.commit()
+    repo.write(
+      'docs/adr/0006-submission-reassignment-and-notifications.md',
+      '---\nstatus: Accepted\n---\n',
+    )
+    repo.write(
+      'apps/api/drizzle/0018_handover.sql',
+      'ALTER TABLE ' + table + ' ADD COLUMN read_at timestamptz;\n',
+    )
+    repo.commit()
+    const result = repo.run(base)
+    assert.equal(result.status, 1, result.output)
+    assert.match(result.output, /0006-submission-reassignment-and-notifications/u)
     assert.match(result.output, /was not Accepted before/u)
   })
 }

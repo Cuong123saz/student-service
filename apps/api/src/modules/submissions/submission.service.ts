@@ -27,6 +27,8 @@ export type SubmissionRepository = Pick<
   | 'claim'
   | 'reviewFile'
   | 'resolve'
+  | 'assignees'
+  | 'reassign'
   | 'roundFile'
   | 'reviewRoundFile'
 >
@@ -73,6 +75,18 @@ export class SubmissionService {
     note: string,
   ) {
     return this.repository.resolve(actor, id, revision, action, note)
+  }
+  assignees(userId: string, id: string) {
+    return this.repository.assignees(userId, id)
+  }
+  reassign(
+    actor: SubmissionActor,
+    id: string,
+    revision: number,
+    reviewerUserId: string,
+    note: unknown,
+  ) {
+    return this.repository.reassign(actor, id, revision, reviewerUserId, note)
   }
   async upload(
     actor: SubmissionActor,

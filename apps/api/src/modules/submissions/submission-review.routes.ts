@@ -72,6 +72,44 @@ export async function submissionReviewRoutes(
         service.claim(submissionActor(request), request.params.id, request.body.expectedRevision),
       ),
   )
+  app.get<{ Params: { id: string } }>(
+    '/review-submissions/:id/assignees',
+    { preHandler: guards, schema: { params } },
+    async (request, reply) =>
+      executeSubmission(request, reply, () =>
+        service.assignees(submissionActor(request).userId, request.params.id),
+      ),
+  )
+  app.post<{
+    Params: { id: string }
+    Body: { expectedRevision: number; reviewerUserId: string; note: unknown }
+  }>(
+    '/review-submissions/:id/reassign',
+    {
+      preHandler: [...guards, submissionOrigin],
+      schema: {
+        params,
+        body: Type.Object(
+          {
+            expectedRevision: Type.Integer({ minimum: 1 }),
+            reviewerUserId: Type.String({ format: 'uuid' }),
+            note: Type.Unknown(),
+          },
+          { additionalProperties: false },
+        ),
+      },
+    },
+    async (request, reply) =>
+      executeSubmission(request, reply, () =>
+        service.reassign(
+          submissionActor(request),
+          request.params.id,
+          request.body.expectedRevision,
+          request.body.reviewerUserId,
+          request.body.note,
+        ),
+      ),
+  )
   app.post<{
     Params: { id: string }
     Body: { expectedRevision: number; action: ResolutionAction; note: string }

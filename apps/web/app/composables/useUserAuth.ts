@@ -1,3 +1,4 @@
+import { resetNotificationState } from './useNotifications'
 import type {
   CurrentUserResponse,
   UserLoginInput,
@@ -20,6 +21,7 @@ export function useUserAuth() {
       },
     )
 
+    resetNotificationState('user')
     user.value = response.user
     isResolved.value = true
     return response.user
@@ -35,6 +37,7 @@ export function useUserAuth() {
       user.value = response.user
       return response.user
     } catch (error) {
+      resetNotificationState('user')
       user.value = null
       throw error
     } finally {
@@ -61,6 +64,7 @@ export function useUserAuth() {
         credentials: 'include',
       })
     } finally {
+      resetNotificationState('user')
       user.value = null
       isResolved.value = true
     }

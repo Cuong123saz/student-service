@@ -28,6 +28,9 @@ defineProps<{
           {{ event.actorName }} ·
           <time :datetime="event.createdAt">{{ formatSubmissionTime(event.createdAt) }}</time>
         </p>
+        <p v-if="event.reassignment">
+          {{ event.reassignment.fromReviewerName }} → {{ event.reassignment.toReviewerName }}
+        </p>
         <p v-if="event.note" class="history-note">{{ event.note }}</p>
       </li>
     </ol>

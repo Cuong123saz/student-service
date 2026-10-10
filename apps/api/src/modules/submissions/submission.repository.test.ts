@@ -24,13 +24,20 @@ import { procedureVersions } from '../procedures/procedure.schema.js'
 import type { ProcedureConfig } from '../procedures/procedure.contract.js'
 import { DrizzleSubmissionRepository } from './submission.repository.js'
 import { SubmissionService } from './submission.service.js'
-import { SubmissionError, type SubmissionActor, type DraftView } from './submission.types.js'
+import {
+  SubmissionError,
+  type SubmissionActor,
+  type DraftView,
+  type ReviewDetail,
+} from './submission.types.js'
 import {
   submissionFiles,
   submissions,
   submissionRounds,
   submissionEvents,
 } from './submission.schema.js'
+import { DrizzleNotificationRepository } from '../notifications/notification.repository.js'
+import { personalNotifications } from '../notifications/notification.schema.js'
 import { buildApp } from '../../app.js'
 import { ADMIN_JWT_AUDIENCE, JWT_ISSUER, USER_JWT_AUDIENCE } from '../auth/auth.constants.js'
 const url = new URL(process.env.DATABASE_URL ?? 'http://invalid')
@@ -41,13 +48,17 @@ if (
 )
   throw new Error('Tests require local student_service_test on port 5434')
 async function cleanup() {
+  await db.execute(
+    sql.raw('DROP TRIGGER IF EXISTS s5t_fail_notification ON personal_notifications'),
+  )
+  await db.execute(sql.raw('DROP FUNCTION IF EXISTS s5t_fail_notification()'))
   await db.execute(sql.raw('DROP TRIGGER IF EXISTS s5t_fail_event ON submission_events'))
   await db.execute(sql.raw('DROP FUNCTION IF EXISTS s5t_fail_event()'))
   await db.execute(sql.raw('DROP TRIGGER IF EXISTS s5t_fail_audit ON audit_logs'))
   await db.execute(sql.raw('DROP FUNCTION IF EXISTS s5t_fail_audit()'))
   await db.execute(
     sql.raw(
-      'TRUNCATE submission_events, submission_rounds, submission_files, submissions, procedure_versions',
+      'TRUNCATE personal_notifications, submission_events, submission_rounds, submission_files, submissions, procedure_versions',
     ),
   )
   await db.execute(sql.raw('TRUNCATE audit_logs'))
@@ -2260,7 +2271,6 @@ test('SQL freezes bindings/routing/reviewer and round/event history while allowi
     sql`student_user_id = ${f.otherId}`,
     sql`processing_unit_id = NULL`,
     sql`designated_reviewer_id = NULL`,
-    sql`reviewer_user_id = ${f.otherId}`,
     sql`review_started_at = now()`,
     sql`student_snapshot = '{}'::jsonb`,
     sql`round_number = 2`,
@@ -2733,3 +2743,488 @@ test('HTTP failed decision hides private note and storage keys, returning unknow
   assert.equal(current.revision, claimed.revision)
   assert.equal(current.events.length, 2)
 })
+
+async function grantAssign(reviewer: { roleId: number }) {
+  await db
+    .insert(permissions)
+    .values({ code: 'submission.assign', name: 'Bàn giao hồ sơ' })
+    .onConflictDoNothing()
+  const [permission] = await db
+    .select()
+    .from(permissions)
+    .where(eq(permissions.code, 'submission.assign'))
+  await db
+    .insert(rolePermissions)
+    .values({ roleId: reviewer.roleId, permissionId: permission!.id })
+    .onConflictDoNothing()
+  return permission!.id
+}
+async function portalRole(userId: string, code = 'FACULTY_REVIEWER') {
+  await db.insert(roles).values({ code, name: 'Vai trò dùng cổng' }).onConflictDoNothing()
+  const [role] = await db.select().from(roles).where(eq(roles.code, code))
+  await db.insert(userRoles).values({ userId, roleId: role!.id }).onConflictDoNothing()
+}
+async function handoverFixture() {
+  const f = await resolutionFixture()
+  const supervisor = await addReviewer(f.unitId),
+    next = await addReviewer(f.unitId)
+  await grantAssign(supervisor)
+  await grantReject(next)
+  await portalRole(supervisor.userId, 'ADMIN')
+  await portalRole(next.userId)
+  await portalRole(f.reviewer.userId)
+  return { ...f, supervisor, next, notices: new DrizzleNotificationRepository() }
+}
+test('reassignment preserves designated routing, working copy and original rounds; old reviewer loses private access and supplement goes to new reviewer', async () => {
+  const f = await handoverFixture()
+  const pending = await f.service.resolve(
+    f.reviewer,
+    f.sent.id,
+    f.claimed.revision,
+    'REQUEST_SUPPLEMENT',
+    'Bổ sung riêng tư',
+  )
+  const working = await f.service.save(f.actor, pending.id, pending.revision, {
+    purpose: 'Đang sửa riêng tư',
+    amount: 0,
+    agreed: false,
+  })
+  const [before] = await db.select().from(submissions).where(eq(submissions.id, pending.id))
+  const candidates = await f.service.assignees(f.supervisor.userId, pending.id)
+  assert.ok(candidates.candidates.some((p) => p.id === f.next.userId))
+  assert.ok(!candidates.candidates.some((p) => [f.reviewer.userId, f.actor.userId].includes(p.id)))
+  const transferred = await f.service.reassign(
+    f.supervisor,
+    pending.id,
+    working.revision,
+    f.next.userId,
+    '  Cán bộ mới tiếp tục xử lý  ',
+  )
+  assert.equal(transferred.canReassign, true)
+  assert.deepEqual(transferred.allowedActions, [])
+  assert.equal(transferred.status, 'NEEDS_SUPPLEMENT')
+  assert.equal(transferred.values.purpose, 'Nội dung riêng tư')
+  const [afterRow] = await db.select().from(submissions).where(eq(submissions.id, pending.id))
+  const stable = (row: typeof submissions.$inferSelect) => {
+    const { reviewerUserId: _reviewer, revision: _revision, updatedAt: _updated, ...rest } = row
+    return rest
+  }
+  assert.deepEqual(stable(afterRow!), stable(before!))
+  assert.equal(afterRow!.reviewerUserId, f.next.userId)
+  assert.equal(afterRow!.designatedReviewerId, f.reviewer.userId)
+  assert.deepEqual(transferred.rounds, working.rounds)
+  assert.deepEqual(transferred.events.at(-1)!.reassignment, {
+    fromReviewerName: 'Cán bộ kiểm thử',
+    toReviewerName: 'Cán bộ kiểm thử',
+  })
+  assert.equal(JSON.stringify(transferred).includes(f.next.userId), false)
+  await assert.rejects(
+    () => f.service.reviewGet(f.reviewer.userId, pending.id),
+    (e: unknown) => e instanceof SubmissionError && e.statusCode === 404,
+  )
+  await assert.rejects(() =>
+    f.service.reviewDownload(f.reviewer.userId, pending.id, f.ready.files[0]!.id),
+  )
+  await assert.rejects(() =>
+    f.service.resolve(f.reviewer, pending.id, transferred.revision, 'APPROVE', 'Không được'),
+  )
+  await db.update(users).set({ status: 'INACTIVE' }).where(eq(users.id, f.reviewer.userId))
+  const sent = await f.service.submit(f.actor, pending.id, transferred.revision)
+  assert.equal(sent.status, 'IN_REVIEW')
+  assert.equal(sent.roundNumber, 2)
+  assert.equal(sent.values.purpose, 'Đang sửa riêng tư')
+  const review = await f.service.reviewGet(f.next.userId, pending.id)
+  assert.ok(review.allowedActions.includes('APPROVE'))
+  const approved = await f.service.resolve(
+    f.next,
+    pending.id,
+    sent.revision,
+    'APPROVE',
+    'Đủ điều kiện nội dung',
+  )
+  assert.equal(approved.canReassign, false)
+  await assert.rejects(() => f.service.reviewGet(f.supervisor.userId, pending.id))
+})
+test('assign/review/scope must be on one role; candidates and transfer reject self, inactive or password-pending receivers', async () => {
+  const f = await handoverFixture()
+  const observer = await addReviewer(f.unitId)
+  const [separate] = await db
+    .insert(roles)
+    .values({ code: 'S5T_A_' + randomUUID(), name: 'Assign only' })
+    .returning()
+  await db.insert(userRoles).values({ userId: observer.userId, roleId: separate!.id })
+  await db
+    .insert(userRoleScopes)
+    .values({ userId: observer.userId, roleId: separate!.id, scopeId: observer.scopeId })
+  await grantAssign({ roleId: separate!.id })
+  await assert.rejects(() =>
+    f.service.reassign(observer, f.sent.id, f.claimed.revision, f.next.userId, 'Không ghép quyền'),
+  )
+  assert.equal((await f.service.reviewGet(f.supervisor.userId, f.sent.id)).canReassign, true)
+  for (const receiver of [f.actor.userId, f.reviewer.userId, randomUUID()])
+    await assert.rejects(
+      () => f.service.reassign(f.supervisor, f.sent.id, f.claimed.revision, receiver, 'Bàn giao'),
+      (e: unknown) => e instanceof SubmissionError && e.code === 'INVALID_ASSIGNEE',
+    )
+  await db.update(users).set({ mustChangePassword: true }).where(eq(users.id, f.next.userId))
+  await assert.rejects(() =>
+    f.service.reassign(f.supervisor, f.sent.id, f.claimed.revision, f.next.userId, 'Bàn giao'),
+  )
+  assert.ok(
+    !(await f.service.assignees(f.supervisor.userId, f.sent.id)).candidates.some(
+      (c) => c.id === f.next.userId,
+    ),
+  )
+  for (const note of [null, 3, '  ', 'a'.repeat(2001)])
+    await assert.rejects(
+      () => f.service.reassign(f.supervisor, f.sent.id, f.claimed.revision, f.next.userId, note),
+      (e: unknown) => e instanceof SubmissionError && e.code === 'INVALID_REASSIGNMENT',
+    )
+  await db.update(users).set({ mustChangePassword: false }).where(eq(users.id, f.next.userId))
+  await db
+    .delete(rolePermissions)
+    .where(
+      and(
+        eq(rolePermissions.roleId, f.next.roleId),
+        eq(rolePermissions.permissionId, f.next.permissionId),
+      ),
+    )
+  await assert.rejects(() =>
+    f.service.reassign(f.supervisor, f.sent.id, f.claimed.revision, f.next.userId, 'Bàn giao'),
+  )
+})
+test('exact reassignment retry is idempotent; changed payload and revoked supervisor are rejected', async () => {
+  const f = await handoverFixture()
+  const transferred = await f.service.reassign(
+    f.supervisor,
+    f.sent.id,
+    f.claimed.revision,
+    f.next.userId,
+    'Lý do',
+  )
+  const repeated = await f.service.reassign(
+    f.supervisor,
+    f.sent.id,
+    f.claimed.revision,
+    f.next.userId,
+    ' Lý do ',
+  )
+  assert.equal(repeated.revision, transferred.revision)
+  const [eventCount] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(submissionEvents)
+    .where(
+      and(eq(submissionEvents.submissionId, f.sent.id), eq(submissionEvents.action, 'REASSIGNED')),
+    )
+  assert.equal(eventCount!.n, 1)
+  const all = await f.notices.list(f.next.userId, 'user')
+  assert.equal(all.items.length, 1)
+  await assert.rejects(
+    () =>
+      f.service.reassign(f.supervisor, f.sent.id, f.claimed.revision, f.next.userId, 'Đổi lý do'),
+    (e: unknown) => e instanceof SubmissionError && e.statusCode === 409,
+  )
+  const assign = await grantAssign(f.supervisor)
+  await db
+    .delete(rolePermissions)
+    .where(
+      and(
+        eq(rolePermissions.roleId, f.supervisor.roleId),
+        eq(rolePermissions.permissionId, assign),
+      ),
+    )
+  await assert.rejects(() =>
+    f.service.reassign(f.supervisor, f.sent.id, f.claimed.revision, f.next.userId, 'Lý do'),
+  )
+})
+test('concurrent reassignment requests have one winner and one event with exactly two notifications', async () => {
+  const f = await handoverFixture(),
+    other = await addReviewer(f.unitId)
+  const results = await Promise.allSettled([
+    f.service.reassign(f.supervisor, f.sent.id, f.claimed.revision, f.next.userId, 'Người mới A'),
+    f.service.reassign(f.supervisor, f.sent.id, f.claimed.revision, other.userId, 'Người mới B'),
+  ])
+  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1)
+  const [counts] = await db.execute<{ events: number; notifications: number }>(
+    sql`SELECT (SELECT count(*)::int FROM submission_events WHERE submission_id=${f.sent.id} AND action='REASSIGNED') AS events,(SELECT count(*)::int FROM personal_notifications n JOIN submission_events e ON e.id=n.event_id WHERE e.submission_id=${f.sent.id} AND e.action='REASSIGNED') AS notifications`,
+  )
+  assert.equal(counts!.events, 1)
+  assert.equal(counts!.notifications, 2)
+})
+test('reassignment racing a decision allows one transaction and keeps content intact', async () => {
+  const f = await handoverFixture()
+  const results = await Promise.allSettled([
+    f.service.reassign(f.supervisor, f.sent.id, f.claimed.revision, f.next.userId, 'Chuyển xử lý'),
+    f.service.resolve(f.reviewer, f.sent.id, f.claimed.revision, 'APPROVE', 'Duyệt nội dung'),
+  ])
+  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1)
+  const student = await f.service.get(f.actor.userId, f.sent.id)
+  assert.equal(student.revision, f.claimed.revision + 1)
+  assert.deepEqual(student.rounds, f.claimed.rounds)
+})
+test('reassignment racing resubmit retains one winner without losing the supplementary working copy', async () => {
+  const f = await handoverFixture()
+  const pending = await f.service.resolve(
+    f.reviewer,
+    f.sent.id,
+    f.claimed.revision,
+    'REQUEST_SUPPLEMENT',
+    'Bổ sung',
+  )
+  const saved = await f.service.save(f.actor, pending.id, pending.revision, {
+    purpose: 'Nội dung bổ sung',
+    amount: 0,
+    agreed: false,
+  })
+  const results = await Promise.allSettled([
+    f.service.reassign(f.supervisor, pending.id, saved.revision, f.next.userId, 'Bàn giao'),
+    f.service.submit(f.actor, pending.id, saved.revision),
+  ])
+  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1)
+  const student = await f.service.get(f.actor.userId, pending.id)
+  assert.equal(student.values.purpose, 'Nội dung bổ sung')
+  assert.equal(student.revision, saved.revision + 1)
+})
+test('notification failure rolls back assignment, event, audit and all notification recipients', async () => {
+  const f = await handoverFixture()
+  const before = await db.select().from(submissions).where(eq(submissions.id, f.sent.id))
+  const auditBefore = await intakeAudit('SUBMISSION_REASSIGN')
+  await db.execute(
+    sql.raw(
+      "CREATE FUNCTION s5t_fail_notification() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'notification fail'; END; $$",
+    ),
+  )
+  await db.execute(
+    sql.raw(
+      'CREATE TRIGGER s5t_fail_notification BEFORE INSERT ON personal_notifications FOR EACH ROW EXECUTE FUNCTION s5t_fail_notification()',
+    ),
+  )
+  await assert.rejects(() =>
+    f.service.reassign(f.supervisor, f.sent.id, f.claimed.revision, f.next.userId, 'Bàn giao'),
+  )
+  assert.deepEqual(await db.select().from(submissions).where(eq(submissions.id, f.sent.id)), before)
+  assert.deepEqual(await intakeAudit('SUBMISSION_REASSIGN'), auditBefore)
+  const events = await db
+    .select()
+    .from(submissionEvents)
+    .where(
+      and(eq(submissionEvents.submissionId, f.sent.id), eq(submissionEvents.action, 'REASSIGNED')),
+    )
+  assert.equal(events.length, 0)
+})
+test('personal inbox isolates recipients and hides private data, stale role/scope, former reviewer and foreign read IDs', async () => {
+  const f = await handoverFixture()
+  const first = await f.notices.list(f.reviewer.userId, 'user')
+  assert.equal(first.items.length, 2)
+  assert.equal(first.unreadCount, 2)
+  const pending = await f.service.resolve(
+    f.reviewer,
+    f.sent.id,
+    f.claimed.revision,
+    'REQUEST_SUPPLEMENT',
+    'Riêng tư KHÔNG ghi trong thông báo',
+  )
+  const owner = await f.notices.list(f.actor.userId, 'user')
+  assert.equal(owner.items.length, 1)
+  assert.ok(!JSON.stringify(owner).includes('Riêng tư'))
+  assert.ok(!JSON.stringify(owner).includes(f.actor.userId))
+  assert.ok(owner.items[0]!.targetUrl.startsWith('/submissions/'))
+  await assert.rejects(() => f.notices.read(f.next.userId, 'user', owner.items[0]!.id))
+  const read = await f.notices.read(f.actor.userId, 'user', owner.items[0]!.id)
+  assert.equal(read.unreadCount, 0)
+  assert.equal((await f.notices.read(f.actor.userId, 'user', read.id)).readAt, read.readAt)
+  assert.equal((await f.notices.list(f.actor.userId, 'user', { unreadOnly: true })).items.length, 0)
+  await f.service.reassign(f.supervisor, pending.id, pending.revision, f.next.userId, 'Bàn giao')
+  assert.equal((await f.notices.list(f.reviewer.userId, 'user')).items.length, 0)
+  const inbox = await f.notices.list(f.next.userId, 'user')
+  assert.equal(inbox.items.length, 1)
+  await db.delete(userRoleScopes).where(eq(userRoleScopes.userId, f.next.userId))
+  assert.equal((await f.notices.unreadCount(f.next.userId, 'user')).unreadCount, 0)
+  await assert.rejects(() => f.notices.read(f.next.userId, 'user', inbox.items[0]!.id))
+  await db.delete(userRoles).where(eq(userRoles.userId, f.next.userId))
+  await assert.rejects(
+    () => f.notices.list(f.next.userId, 'user'),
+    (e: unknown) => e instanceof SubmissionError && e.statusCode === 403,
+  )
+})
+test('notification filtering precedes pagination and keyset cursor preserves microsecond order without duplicates', async () => {
+  const f = await handoverFixture()
+  const [round] = await db
+    .select()
+    .from(submissionRounds)
+    .where(eq(submissionRounds.submissionId, f.sent.id))
+  for (let i = 0; i < 25; i++) {
+    const [event] = await db
+      .insert(submissionEvents)
+      .values({
+        submissionId: f.sent.id,
+        roundId: round!.id,
+        action: 'APPROVED',
+        actorUserId: f.reviewer.userId,
+        actorName: 'Cán bộ',
+        note: 'Không đưa vào inbox',
+        fromRevision: 100 + i,
+        toRevision: 101 + i,
+      })
+      .returning()
+    await db.insert(personalNotifications).values({
+      eventId: event!.id,
+      submissionId: f.sent.id,
+      recipientUserId: f.actor.userId,
+      recipientKind: 'OWNER',
+      createdAt: sql`'2026-10-10T12:00:00Z'::timestamptz + ${i} * interval '1 microsecond'`,
+    })
+  }
+  const first = await f.notices.list(f.actor.userId, 'user')
+  assert.equal(first.items.length, 20)
+  assert.equal(first.unreadCount, 25)
+  assert.ok(first.nextCursor)
+  const second = await f.notices.list(f.actor.userId, 'user', { cursor: first.nextCursor })
+  assert.equal(second.items.length, 5)
+  assert.equal(second.nextCursor, null)
+  assert.equal(new Set([...first.items, ...second.items].map((n) => n.id)).size, 25)
+  for (const raw of [
+    'bad',
+    'x'.repeat(301),
+    Buffer.from(JSON.stringify(['2026-02-30T00:00:00.000000Z', randomUUID()])).toString(
+      'base64url',
+    ),
+  ])
+    await assert.rejects(() => f.notices.list(f.actor.userId, 'user', { cursor: raw }))
+  await db.update(users).set({ status: 'INACTIVE' }).where(eq(users.id, f.actor.userId))
+  await assert.rejects(() => f.notices.unreadCount(f.actor.userId, 'user'))
+})
+test('SQL transfer guards reject combined content changes and notification/history envelopes remain immutable', async () => {
+  const f = await handoverFixture()
+  for (const change of [
+    sql`values='{}'::jsonb`,
+    sql`round_number=2`,
+    sql`review_started_at=now()`,
+    sql`designated_reviewer_id=NULL`,
+    sql`submitted_at=now()`,
+  ])
+    await assert.rejects(() =>
+      db.execute(
+        sql`UPDATE submissions SET reviewer_user_id=${f.next.userId},revision=revision+1,${change} WHERE id=${f.sent.id}`,
+      ),
+    )
+  const inbox = await f.notices.list(f.reviewer.userId, 'user'),
+    id = inbox.items[0]!.id
+  for (const op of [
+    sql`UPDATE personal_notifications SET recipient_user_id=${f.next.userId} WHERE id=${id}`,
+    sql`UPDATE personal_notifications SET event_id=${randomUUID()} WHERE id=${id}`,
+    sql`DELETE FROM personal_notifications WHERE id=${id}`,
+  ])
+    await assert.rejects(() => db.execute(op))
+  const marked = await f.notices.read(f.reviewer.userId, 'user', id)
+  await assert.rejects(() =>
+    db.execute(sql`UPDATE personal_notifications SET read_at=NULL WHERE id=${marked.id}`),
+  )
+  const transferred = await f.service.reassign(
+    f.supervisor,
+    f.sent.id,
+    f.claimed.revision,
+    f.next.userId,
+    'Bàn giao',
+  )
+  await assert.rejects(() =>
+    db.execute(
+      sql`UPDATE submission_events SET note='Đổi' WHERE submission_id=${transferred.id} AND action='REASSIGNED'`,
+    ),
+  )
+})
+for (const portal of ['user', 'admin'] as const)
+  test(
+    'HTTP reassignment and inbox enforce portal, Origin and current recipient for ' + portal,
+    async (t) => {
+      const f = await handoverFixture()
+      if (portal === 'user') await portalRole(f.supervisor.userId)
+      const app = buildApp({ submissionService: f.service })
+      t.after(() => app.close())
+      await app.ready()
+      const cookie = reviewCookie(app, f.supervisor, portal),
+        base = '/api/v1/' + portal
+      const body = {
+        expectedRevision: f.claimed.revision,
+        reviewerUserId: f.next.userId,
+        note: 'Bàn giao HTTP',
+      }
+      assert.equal(
+        (
+          await app.inject({
+            method: 'POST',
+            url: base + '/review-submissions/' + f.sent.id + '/reassign',
+            headers: { cookie },
+            payload: body,
+          })
+        ).statusCode,
+        403,
+      )
+      assert.equal(
+        (
+          await app.inject({
+            method: 'GET',
+            url: base + '/notifications',
+            headers: {
+              cookie: reviewCookie(app, f.supervisor, portal === 'user' ? 'admin' : 'user'),
+            },
+          })
+        ).statusCode,
+        401,
+      )
+      const response = await app.inject({
+        method: 'POST',
+        url: base + '/review-submissions/' + f.sent.id + '/reassign',
+        headers: { cookie, origin: env.corsOrigin },
+        payload: body,
+      })
+      assert.equal(response.statusCode, 200, response.body)
+      assert.equal(
+        response.json<ReviewDetail>().events.at(-1)!.reassignment!.toReviewerName,
+        'Cán bộ kiểm thử',
+      )
+      const bad = await app.inject({
+        method: 'POST',
+        url: base + '/review-submissions/' + f.sent.id + '/reassign',
+        headers: { cookie, origin: env.corsOrigin },
+        payload: { ...body, note: null },
+      })
+      assert.equal(bad.statusCode, 422)
+      await portalRole(f.next.userId, 'ADMIN')
+      const recipientCookie = reviewCookie(app, f.next, portal)
+      const list = await app.inject({
+        method: 'GET',
+        url: base + '/notifications',
+        headers: { cookie: recipientCookie },
+      })
+      assert.equal(list.statusCode, 200, list.body)
+      assert.equal(
+        list.json<Awaited<ReturnType<DrizzleNotificationRepository['list']>>>().items.length,
+        1,
+      )
+      const item = list.json<Awaited<ReturnType<DrizzleNotificationRepository['list']>>>().items[0]!
+      assert.equal(
+        item.targetUrl,
+        (portal === 'admin' ? '/admin' : '') + '/review-submissions/' + f.sent.id,
+      )
+      const read = await app.inject({
+        method: 'POST',
+        url: base + '/notifications/' + item.id + '/read',
+        headers: { cookie: recipientCookie, origin: env.corsOrigin },
+        payload: {},
+      })
+      assert.equal(read.statusCode, 200, read.body)
+      assert.equal(read.json<{ unreadCount: number }>().unreadCount, 0)
+      assert.equal(
+        (
+          await app.inject({
+            method: 'POST',
+            url: base + '/notifications/' + item.id + '/read',
+            headers: { cookie: recipientCookie },
+            payload: {},
+          })
+        ).statusCode,
+        403,
+      )
+    },
+  )

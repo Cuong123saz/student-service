@@ -156,6 +156,14 @@ export const submissionEvents = pgTable(
       .references(() => users.id, { onDelete: 'restrict' }),
     actorName: varchar('actor_name', { length: 255 }).notNull(),
     note: text('note'),
+    fromReviewerUserId: uuid('from_reviewer_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    toReviewerUserId: uuid('to_reviewer_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    fromReviewerName: varchar('from_reviewer_name', { length: 255 }),
+    toReviewerName: varchar('to_reviewer_name', { length: 255 }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     fromRevision: integer('from_revision').notNull(),
     toRevision: integer('to_revision').notNull(),
@@ -166,10 +174,11 @@ export const submissionEvents = pgTable(
       foreignColumns: [submissionRounds.id, submissionRounds.submissionId],
       name: 'submission_events_round_submission_fk',
     }).onDelete('restrict'),
+    uniqueIndex('submission_events_id_submission_unique').on(table.id, table.submissionId),
     uniqueIndex('submission_events_revision_unique').on(table.submissionId, table.fromRevision),
     check(
       'submission_events_shape_check',
-      sql`${table.fromRevision} > 0 AND ${table.toRevision} = ${table.fromRevision} + 1 AND ${table.action} IN ('SUBMITTED','CLAIMED','SUPPLEMENT_REQUESTED','RESUBMITTED','APPROVED','REJECTED') AND ((${table.action} IN ('SUPPLEMENT_REQUESTED','APPROVED','REJECTED') AND ${table.note} IS NOT NULL AND char_length(btrim(${table.note})) BETWEEN 1 AND 2000) OR (${table.action} IN ('SUBMITTED','CLAIMED','RESUBMITTED') AND ${table.note} IS NULL))`,
+      sql`${table.fromRevision} > 0 AND ${table.toRevision} = ${table.fromRevision} + 1 AND ${table.action} IN ('SUBMITTED','CLAIMED','SUPPLEMENT_REQUESTED','RESUBMITTED','APPROVED','REJECTED','REASSIGNED') AND ((${table.action} IN ('SUPPLEMENT_REQUESTED','APPROVED','REJECTED','REASSIGNED') AND ${table.note} IS NOT NULL AND char_length(btrim(${table.note})) BETWEEN 1 AND 2000) OR (${table.action} IN ('SUBMITTED','CLAIMED','RESUBMITTED') AND ${table.note} IS NULL)) AND ((${table.action} = 'REASSIGNED' AND ${table.fromReviewerUserId} IS NOT NULL AND ${table.toReviewerUserId} IS NOT NULL AND ${table.fromReviewerUserId} <> ${table.toReviewerUserId} AND ${table.fromReviewerName} IS NOT NULL AND char_length(btrim(${table.fromReviewerName})) > 0 AND ${table.toReviewerName} IS NOT NULL AND char_length(btrim(${table.toReviewerName})) > 0) OR (${table.action} <> 'REASSIGNED' AND ${table.fromReviewerUserId} IS NULL AND ${table.toReviewerUserId} IS NULL AND ${table.fromReviewerName} IS NULL AND ${table.toReviewerName} IS NULL))`,
     ),
   ],
 )

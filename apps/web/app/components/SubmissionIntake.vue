@@ -23,6 +23,7 @@ const failure = ref<ProcedureApiError | null>(null)
 const reloadRequired = ref(false)
 const message = ref('')
 const resolving = ref(false)
+const handingOver = ref(false)
 const resolutionAction = ref<ResolutionAction | ''>('')
 const resolutionNote = ref('')
 const resolutionReviewed = ref(false)
@@ -67,6 +68,7 @@ const canResolve = computed(
     resolutionReviewed.value &&
     resolutionConfirmed.value &&
     !resolving.value &&
+    !handingOver.value &&
     !claiming.value &&
     !loading.value &&
     !reloadRequired.value,
@@ -82,7 +84,8 @@ function reviewResolution() {
     !validNote.value ||
     loading.value ||
     reloadRequired.value ||
-    resolving.value
+    resolving.value ||
+    handingOver.value
   )
     return
   resolutionReviewed.value = true
@@ -123,6 +126,16 @@ async function resolveSubmission() {
     if (sequence === loadSequence) resolving.value = false
   }
 }
+function handoverUpdated(current: ReviewSubmissionDetail) {
+  detail.value = current
+  message.value = 'Đã bàn giao hồ sơ cho cán bộ mới.'
+  resetResolutionConfirmation()
+}
+function handoverFailed(error: ProcedureApiError) {
+  if (!error.status || error.status === 409 || error.status >= 500) reloadRequired.value = true
+  resetResolutionConfirmation()
+  fail(error)
+}
 const errorSummary = ref<HTMLElement | null>(null)
 let loadSequence = 0
 function fail(error: unknown) {
@@ -130,7 +143,7 @@ function fail(error: unknown) {
   void nextTick(() => errorSummary.value?.focus())
 }
 async function load() {
-  if (claiming.value || resolving.value) return
+  if (claiming.value || resolving.value || handingOver.value) return
   resetResolutionConfirmation()
   const sequence = ++loadSequence
   loading.value = true
@@ -173,7 +186,8 @@ async function claim() {
     reloadRequired.value ||
     loading.value ||
     claiming.value ||
-    resolving.value
+    resolving.value ||
+    handingOver.value
   )
     return
   const sequence = loadSequence
@@ -210,6 +224,7 @@ watch(
     loadSequence += 1
     claiming.value = false
     resolving.value = false
+    handingOver.value = false
     void load()
   },
 )
@@ -335,7 +350,7 @@ watch(
           lý nội dung; chưa cấp văn bản hoặc xác minh chữ ký số.
         </p>
         <fieldset
-          :disabled="loading || claiming || resolving || reloadRequired"
+          :disabled="loading || claiming || resolving || handingOver || reloadRequired"
           class="resolution-fields"
         >
           <label for="resolution-action">Hành động *</label>
@@ -400,6 +415,15 @@ watch(
         Bạn không có hành động quyết định đối với hồ sơ này. Chỉ cán bộ đã nhận và còn đủ quyền mới
         được quyết định.
       </p>
+      <SubmissionReassignment
+        :key="detail.id"
+        :detail="detail"
+        :portal="portal"
+        :blocked="loading || reloadRequired || claiming || resolving"
+        @pending="handingOver = $event"
+        @updated="handoverUpdated"
+        @failed="handoverFailed"
+      />
       <p v-if="detail.status === 'NEEDS_SUPPLEMENT'" class="intake-warning">
         Đang chờ sinh viên bổ sung. Thông tin bên dưới là lần gửi {{ detail.roundNumber }} đã chốt;
         phần sinh viên đang sửa chưa được chuyển đến cán bộ.

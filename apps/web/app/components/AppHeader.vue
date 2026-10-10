@@ -55,6 +55,7 @@ watch(
         <NuxtLink to="/services">Dịch vụ</NuxtLink>
         <template v-if="user">
           <NuxtLink to="/portal">Cổng của tôi</NuxtLink>
+          <NotificationLink portal="user" />
           <div class="app-header__identity">
             <strong>{{ user.username }}</strong>
             <small>{{ primaryRole }}</small>

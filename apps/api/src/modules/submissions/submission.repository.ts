@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { services } from '../../db/schema.js'
 import { auditLogs } from '../audit/audit.schema.js'
@@ -18,7 +18,11 @@ import {
   submissionEvents,
 } from './submission.schema.js'
 import { completionIssues, validateAnswers } from './submission.validation.js'
-import { reviewerAuthorities, type ReviewAuthority } from './submission.authorization.js'
+import {
+  reviewerAuthorities,
+  reviewVisibility,
+  type ReviewAuthority,
+} from './submission.authorization.js'
 import {
   SubmissionError,
   missingDraft,
@@ -36,6 +40,7 @@ import {
   type SubmissionActor,
   type StoredEvidence,
 } from './submission.types.js'
+import { personalNotifications } from '../notifications/notification.schema.js'
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type DraftRow = typeof submissions.$inferSelect
 export class DrizzleSubmissionRepository {
@@ -132,6 +137,8 @@ export class DrizzleSubmissionRepository {
         actorName: submissionEvents.actorName,
         note: submissionEvents.note,
         createdAt: submissionEvents.createdAt,
+        fromReviewerName: submissionEvents.fromReviewerName,
+        toReviewerName: submissionEvents.toReviewerName,
       })
       .from(submissionEvents)
       .innerJoin(submissionRounds, eq(submissionRounds.id, submissionEvents.roundId))
@@ -149,7 +156,12 @@ export class DrizzleSubmissionRepository {
         files: round.files.map((file) => this.evidenceView(file)),
         source: round.source,
       })),
-      events: events.map((event) => ({ ...event, createdAt: event.createdAt.toISOString() })),
+      events: events.map(({ fromReviewerName, toReviewerName, ...event }) => ({
+        ...event,
+        createdAt: event.createdAt.toISOString(),
+        reassignment:
+          fromReviewerName && toReviewerName ? { fromReviewerName, toReviewerName } : null,
+      })),
     }
   }
   private async round(tx: Transaction, row: DraftRow, roundNumber = row.roundNumber) {
@@ -173,6 +185,12 @@ export class DrizzleSubmissionRepository {
     fromRevision: number,
     action: SubmissionEventAction,
     note: string | null = null,
+    reassignment?: {
+      fromReviewerUserId: string
+      toReviewerUserId: string
+      fromReviewerName: string
+      toReviewerName: string
+    },
   ) {
     const round = await this.round(tx, row)
     const [user] = await tx
@@ -181,16 +199,43 @@ export class DrizzleSubmissionRepository {
       .where(eq(users.id, actor.userId))
       .limit(1)
     if (!user) throw missingDraft()
-    await tx.insert(submissionEvents).values({
-      submissionId: row.id,
-      roundId: round.id,
-      action,
-      actorUserId: actor.userId,
-      actorName: user.name,
-      note,
-      fromRevision,
-      toRevision: row.revision,
-    })
+    const [event] = await tx
+      .insert(submissionEvents)
+      .values({
+        submissionId: row.id,
+        roundId: round.id,
+        action,
+        actorUserId: actor.userId,
+        actorName: user.name,
+        note,
+        fromRevision,
+        toRevision: row.revision,
+        ...reassignment,
+      })
+      .returning({ id: submissionEvents.id })
+    if (!event) throw new Error('Event was not recorded')
+    const recipients: { recipientUserId: string; recipientKind: 'OWNER' | 'REVIEWER' }[] = []
+    if (['SUPPLEMENT_REQUESTED', 'APPROVED', 'REJECTED', 'REASSIGNED'].includes(action))
+      recipients.push({ recipientUserId: row.studentUserId, recipientKind: 'OWNER' })
+    const reviewer =
+      action === 'SUBMITTED'
+        ? row.designatedReviewerId
+        : ['CLAIMED', 'RESUBMITTED', 'REASSIGNED'].includes(action)
+          ? row.reviewerUserId
+          : null
+    if (reviewer) recipients.push({ recipientUserId: reviewer, recipientKind: 'REVIEWER' })
+    if (recipients.length)
+      await tx
+        .insert(personalNotifications)
+        .values(
+          recipients.map((recipient) => ({
+            ...recipient,
+            submissionId: row.id,
+            eventId: event.id,
+          })),
+        )
+        .onConflictDoNothing()
+    return event.id
   }
   private async recordRound(
     tx: Transaction,
@@ -677,12 +722,7 @@ export class DrizzleSubmissionRepository {
         unitId: processingUnitId,
         excludeUserId: actor.userId,
       }).limit(1)
-      if (
-        !eligible.length ||
-        (supplement &&
-          (!row.reviewerUserId ||
-            (row.designatedReviewerId && row.designatedReviewerId !== row.reviewerUserId)))
-      )
+      if (!eligible.length || (supplement && !row.reviewerUserId))
         throw new SubmissionError(
           409,
           'ROUTING_UNAVAILABLE',
@@ -729,21 +769,7 @@ export class DrizzleSubmissionRepository {
     return authority
   }
   private reviewVisibility(userId: string, authority: ReviewAuthority[]) {
-    const global = authority.some((scope) => scope.scopeType === 'GLOBAL')
-    const units = authority.flatMap((scope) => (scope.unitId ? [scope.unitId] : []))
-    return and(
-      inArray(submissions.status, [
-        'SUBMITTED',
-        'IN_REVIEW',
-        'NEEDS_SUPPLEMENT',
-        'APPROVED',
-        'REJECTED',
-      ]),
-      ne(submissions.studentUserId, userId),
-      or(isNull(submissions.designatedReviewerId), eq(submissions.designatedReviewerId, userId)),
-      global ? sql`true` : units.length ? inArray(submissions.processingUnitId, units) : sql`false`,
-      sql`EXISTS (SELECT 1 FROM organizational_units intake_unit WHERE intake_unit.id = ${submissions.processingUnitId} AND intake_unit.status = 'ACTIVE')`,
-    )
+    return reviewVisibility(userId, authority)
   }
   private async reviewSummary(tx: Transaction, row: DraftRow): Promise<ReviewSummary> {
     if (!row.studentSnapshot || !row.submittedAt || row.status === 'DRAFT')
@@ -816,7 +842,157 @@ export class DrizzleSubmissionRepository {
       studentSnapshot: round.studentSnapshot,
       reviewStartedAt: row.reviewStartedAt?.toISOString() ?? null,
       allowedActions: await this.allowedActions(tx, userId, row),
+      canReassign: await this.canReassign(tx, userId, row),
     }
+  }
+  private async canReassign(tx: Transaction, userId: string, row: DraftRow) {
+    return (
+      ['IN_REVIEW', 'NEEDS_SUPPLEMENT'].includes(row.status) &&
+      !!row.reviewerUserId &&
+      userId !== row.studentUserId &&
+      (await this.activeProcessingUnit(tx, row)) &&
+      (
+        await reviewerAuthorities(tx, {
+          userId,
+          unitId: row.processingUnitId!,
+          excludeUserId: row.studentUserId,
+          requireAssign: true,
+        })
+      ).length > 0
+    )
+  }
+  async assignees(userId: string, id: string) {
+    return this.database.transaction(async (tx) => {
+      const authority = await this.reviewAuthority(tx, userId)
+      const [row] = await tx
+        .select()
+        .from(submissions)
+        .where(and(eq(submissions.id, id), this.reviewVisibility(userId, authority)))
+        .limit(1)
+      if (!row) throw missingDraft()
+      if (!(await this.canReassign(tx, userId, row))) throw reviewForbidden()
+      const eligible = await reviewerAuthorities(tx, {
+        unitId: row.processingUnitId!,
+        excludeUserId: row.studentUserId,
+      })
+      const ids = [...new Set(eligible.map((a) => a.userId))].filter(
+        (id) => id !== row.reviewerUserId,
+      )
+      return {
+        candidates: ids.length
+          ? await tx
+              .select({ id: users.id, fullName: users.fullName })
+              .from(users)
+              .where(inArray(users.id, ids))
+              .orderBy(asc(users.fullName), asc(users.id))
+          : [],
+      }
+    })
+  }
+  async reassign(
+    actor: SubmissionActor,
+    id: string,
+    revision: number,
+    reviewerUserId: string,
+    rawNote: unknown,
+  ): Promise<ReviewDetail> {
+    const note = typeof rawNote === 'string' ? rawNote.trim() : ''
+    if (!note || note.length > 2000)
+      throw new SubmissionError(
+        422,
+        'INVALID_REASSIGNMENT',
+        'Nhập lý do bàn giao từ 1 đến 2000 ký tự.',
+        [{ path: 'note', message: 'Nhập lý do từ 1 đến 2000 ký tự.' }],
+      )
+    return this.database.transaction(async (tx) => {
+      await this.reviewAuthority(tx, actor.userId)
+      const [candidate] = await tx
+        .select({ serviceId: submissions.serviceId })
+        .from(submissions)
+        .where(eq(submissions.id, id))
+        .limit(1)
+      if (!candidate) throw missingDraft()
+      await tx
+        .select({ id: services.id })
+        .from(services)
+        .where(eq(services.id, candidate.serviceId))
+        .for('update')
+      const authority = await this.reviewAuthority(tx, actor.userId)
+      const [row] = await tx
+        .select()
+        .from(submissions)
+        .where(and(eq(submissions.id, id), this.reviewVisibility(actor.userId, authority)))
+        .for('update')
+      if (!row) throw missingDraft()
+      const assign = await reviewerAuthorities(tx, {
+        userId: actor.userId,
+        unitId: row.processingUnitId!,
+        excludeUserId: row.studentUserId,
+        requireAssign: true,
+      })
+      if (!assign.length || !(await this.activeProcessingUnit(tx, row))) throw reviewForbidden()
+      const [prior] = await tx
+        .select()
+        .from(submissionEvents)
+        .where(
+          and(eq(submissionEvents.submissionId, id), eq(submissionEvents.fromRevision, revision)),
+        )
+        .limit(1)
+      if (prior) {
+        if (
+          prior.action === 'REASSIGNED' &&
+          prior.actorUserId === actor.userId &&
+          prior.toReviewerUserId === reviewerUserId &&
+          prior.note === note
+        )
+          return this.reviewDetail(tx, row, actor.userId)
+        throw revisionConflict()
+      }
+      if (
+        row.revision !== revision ||
+        !['IN_REVIEW', 'NEEDS_SUPPLEMENT'].includes(row.status) ||
+        !row.reviewerUserId
+      )
+        throw revisionConflict()
+      const eligible = await reviewerAuthorities(tx, {
+        userId: reviewerUserId,
+        unitId: row.processingUnitId!,
+        excludeUserId: row.studentUserId,
+      })
+      if (!eligible.length || reviewerUserId === row.reviewerUserId)
+        throw new SubmissionError(
+          422,
+          'INVALID_ASSIGNEE',
+          'Chọn cán bộ mới đang hoạt động và đủ quyền xử lý.',
+          [
+            {
+              path: 'reviewerUserId',
+              message: 'Cán bộ được chọn không còn đủ điều kiện nhận hồ sơ.',
+            },
+          ],
+        )
+      const people = await tx
+        .select({ id: users.id, name: users.fullName })
+        .from(users)
+        .where(inArray(users.id, [row.reviewerUserId, reviewerUserId]))
+      const from = people.find((p) => p.id === row.reviewerUserId),
+        to = people.find((p) => p.id === reviewerUserId)
+      if (!from || !to) throw missingDraft()
+      const [updated] = await tx
+        .update(submissions)
+        .set({ reviewerUserId, revision: row.revision + 1, updatedAt: new Date() })
+        .where(eq(submissions.id, id))
+        .returning()
+      if (!updated) throw missingDraft()
+      await this.recordEvent(tx, actor, updated, row.revision, 'REASSIGNED', note, {
+        fromReviewerUserId: from.id,
+        toReviewerUserId: to.id,
+        fromReviewerName: from.name,
+        toReviewerName: to.name,
+      })
+      await this.audit(tx, actor, 'SUBMISSION_REASSIGN', updated)
+      return this.reviewDetail(tx, updated, actor.userId)
+    })
   }
   async reviewList(userId: string, status?: SubmittedStatus): Promise<ReviewSummary[]> {
     return this.database.transaction(async (tx) => {

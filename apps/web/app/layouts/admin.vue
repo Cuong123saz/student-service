@@ -67,6 +67,7 @@ async function handleLogout() {
         >
           {{ item.label }}
         </NuxtLink>
+        <NotificationLink portal="admin" />
       </nav>
 
       <div class="admin-layout__account">

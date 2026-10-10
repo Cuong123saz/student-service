@@ -17,6 +17,7 @@ export const resolutionActionLabels = {
 export const submissionEventLabels = {
   SUBMITTED: 'Sinh viên gửi hồ sơ',
   CLAIMED: 'Cán bộ nhận xử lý',
+  REASSIGNED: 'Bàn giao cán bộ xử lý',
   SUPPLEMENT_REQUESTED: 'Yêu cầu bổ sung',
   RESUBMITTED: 'Sinh viên gửi bổ sung',
   APPROVED: 'Đã duyệt nội dung',

@@ -16,6 +16,7 @@ function sample(): ReviewSubmissionDetail {
     rounds: [],
     events: [],
     allowedActions: [],
+    canReassign: false,
     revision: 3,
     submittedAt: '2026-10-09T01:00:00Z',
     reviewStartedAt: null,
@@ -136,6 +137,10 @@ function createApi() {
     get: vi.fn(),
     claim: vi.fn(),
     resolve: vi.fn(),
+    assignees: vi
+      .fn()
+      .mockResolvedValue({ candidates: [{ id: 'next-reviewer', fullName: 'Cán bộ mới' }] }),
+    reassign: vi.fn(),
     roundDownloadUrl: vi.fn(
       (id, roundNumber, fileId) => '/history/' + id + '/' + roundNumber + '/' + fileId,
     ),
@@ -705,6 +710,50 @@ describe('resolution response recovery', () => {
     expect(wrapper.text()).toContain('Lý do đã nhập trước khi kiểm tra trạng thái')
     expect(wrapper.get('.history-events').text()).toContain('Đủ thông tin đã đối chiếu')
     expect(api.resolve).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
+})
+
+describe('handover in intake', () => {
+  it('locks decisions when transfer outcome is unknown, preserves reason and reloads current state', async () => {
+    const entry = {
+      ...sample(),
+      status: 'IN_REVIEW' as const,
+      canClaim: false,
+      canReassign: true,
+      reviewerName: 'Cán bộ cũ',
+      allowedActions: ['APPROVE'] as const,
+    }
+    api.get.mockResolvedValue(entry)
+    api.reassign.mockRejectedValue({ message: 'Mất phản hồi', status: 0, issues: [] })
+    const wrapper = await mountSuspended(SubmissionIntake, {
+      props: { portal: 'admin', id: entry.id },
+    })
+    await flushPromises()
+    await wrapper.get('#handover-recipient').setValue('next-reviewer')
+    await wrapper.get('#handover-note').setValue('Giữ lý do bàn giao')
+    await button(wrapper, 'Xem lại bàn giao').trigger('click')
+    await wrapper.get('#handover-confirm').setValue(true)
+    await button(wrapper, 'Bàn giao hồ sơ').trigger('click')
+    await flushPromises()
+    expect(api.reassign).toHaveBeenCalledWith(
+      entry.id,
+      entry.revision,
+      'next-reviewer',
+      'Giữ lý do bàn giao',
+    )
+    expect(wrapper.get('#handover-note').element.value).toBe('Giữ lý do bàn giao')
+    expect(wrapper.get('#resolution-action').element.closest('fieldset').disabled).toBe(true)
+    expect(wrapper.text()).toContain('Tải lại trạng thái hồ sơ')
+    api.get.mockResolvedValue({
+      ...entry,
+      revision: entry.revision + 1,
+      reviewerName: 'Cán bộ mới',
+    })
+    await button(wrapper, 'Tải lại trạng thái hồ sơ').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('#handover-note').element.value).toBe('Giữ lý do bàn giao')
+    expect(wrapper.text()).toContain('Cán bộ mới')
     wrapper.unmount()
   })
 })

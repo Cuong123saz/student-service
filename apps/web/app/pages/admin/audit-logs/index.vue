@@ -45,6 +45,7 @@ const actionLabels: Record<string, string> = {
   SUBMISSION_SUPPLEMENT_REQUESTED: 'Cán bộ yêu cầu bổ sung',
   SUBMISSION_RESUBMIT: 'Sinh viên gửi bổ sung',
   SUBMISSION_APPROVED: 'Cán bộ duyệt nội dung',
+  SUBMISSION_REASSIGN: 'Bàn giao cán bộ xử lý',
   SUBMISSION_REJECTED: 'Cán bộ không chấp thuận',
   SUBMISSION_DRAFT_CREATE: 'Sinh viên tạo bản nháp',
   SUBMISSION_DRAFT_SAVE: 'Sinh viên lưu bản nháp',

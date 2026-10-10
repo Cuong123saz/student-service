@@ -21,7 +21,7 @@ interface MigratedRound {
   files: RoundEvidence[]
 }
 after(() => databaseClient.end())
-test('0017 backfills existing submitted and claimed dossiers into one immutable MIGRATION round without invented events', async () => {
+test('0017 backfills immutable rounds and 0018 preserves existing dossiers without invented notifications', async () => {
   const url = new URL(process.env.DATABASE_URL ?? 'http://invalid')
   assert.equal(url.port, '5434')
   assert.equal(url.pathname, '/student_service_test')
@@ -130,6 +130,24 @@ test('0017 backfills existing submitted and claimed dossiers into one immutable 
     assert.equal(draft!.round_number, 0)
     assert.equal(draft!.last_submitted_at, null)
     assert.equal(draft!.decision_at, null)
+    const handover = await readFile(
+      new URL('../../../drizzle/0018_submission_handover_notifications.sql', import.meta.url),
+      'utf8',
+    )
+    const beforeHandover = await temporary`SELECT * FROM submissions ORDER BY id`
+    await temporary.begin(async (tx) => {
+      for (const statement of handover
+        .split('--> statement-breakpoint')
+        .filter((part) => part.trim()))
+        await tx.unsafe(statement)
+    })
+    assert.deepEqual(await temporary`SELECT * FROM submissions ORDER BY id`, beforeHandover)
+    assert.equal(
+      Number((await temporary`SELECT count(*) FROM personal_notifications`)[0]!.count),
+      0,
+    )
+    assert.equal(Number((await temporary`SELECT count(*) FROM submission_events`)[0]!.count), 0)
+    assert.equal(Number((await temporary`SELECT count(*) FROM submission_rounds`)[0]!.count), 2)
   } finally {
     await temporary?.end()
     if (created) await base.unsafe('DROP DATABASE "' + temporaryName + '"')

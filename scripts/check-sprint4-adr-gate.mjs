@@ -12,6 +12,7 @@ const tableAdrMap = new Map([
       'docs/adr/0003-student-drafts-and-evidence.md',
       'docs/adr/0004-submission-and-intake.md',
       'docs/adr/0005-submission-resolution.md',
+      'docs/adr/0006-submission-reassignment-and-notifications.md',
     ],
   ],
   [
@@ -20,10 +21,18 @@ const tableAdrMap = new Map([
       'docs/adr/0003-student-drafts-and-evidence.md',
       'docs/adr/0004-submission-and-intake.md',
       'docs/adr/0005-submission-resolution.md',
+      'docs/adr/0006-submission-reassignment-and-notifications.md',
     ],
   ],
   ['submission_rounds', 'docs/adr/0005-submission-resolution.md'],
-  ['submission_events', 'docs/adr/0005-submission-resolution.md'],
+  [
+    'submission_events',
+    [
+      'docs/adr/0005-submission-resolution.md',
+      'docs/adr/0006-submission-reassignment-and-notifications.md',
+    ],
+  ],
+  ['personal_notifications', 'docs/adr/0006-submission-reassignment-and-notifications.md'],
   ['form_versions', 'docs/adr/0001-submission-workflow.md'],
   ['reviewer_queue', 'docs/adr/0001-submission-workflow.md'],
 ])

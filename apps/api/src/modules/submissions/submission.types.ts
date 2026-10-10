@@ -10,7 +10,13 @@ export type SubmittedStatus =
 export type SubmissionStatus = 'DRAFT' | SubmittedStatus
 export type ResolutionAction = 'REQUEST_SUPPLEMENT' | 'APPROVE' | 'REJECT'
 export type SubmissionEventAction =
-  'SUBMITTED' | 'CLAIMED' | 'SUPPLEMENT_REQUESTED' | 'RESUBMITTED' | 'APPROVED' | 'REJECTED'
+  | 'SUBMITTED'
+  | 'CLAIMED'
+  | 'SUPPLEMENT_REQUESTED'
+  | 'RESUBMITTED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'REASSIGNED'
 export interface StudentSnapshot {
   fullName: string
   studentCode: string
@@ -38,6 +44,7 @@ export interface SubmissionEventView {
   id: string
   roundNumber: number
   action: SubmissionEventAction
+  reassignment: { fromReviewerName: string; toReviewerName: string } | null
   actorName: string
   note: string | null
   createdAt: string
@@ -84,6 +91,7 @@ export interface ReviewSummary {
 }
 export interface ReviewDetail extends ReviewSummary, SubmissionHistory {
   allowedActions: ResolutionAction[]
+  canReassign: boolean
   serviceId: number
   procedure: PublicProcedure
   values: DraftValues

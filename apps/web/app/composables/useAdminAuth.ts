@@ -1,3 +1,4 @@
+import { resetNotificationState } from './useNotifications'
 import type {
   AdminChangePasswordInput,
   AdminLoginInput,
@@ -21,6 +22,7 @@ export function useAdminAuth() {
       },
     )
 
+    resetNotificationState('admin')
     user.value = response.user
     isResolved.value = true
     return response.user
@@ -36,6 +38,7 @@ export function useAdminAuth() {
       user.value = response.user
       return response.user
     } catch (error) {
+      resetNotificationState('admin')
       user.value = null
       throw error
     } finally {
@@ -62,6 +65,7 @@ export function useAdminAuth() {
       credentials: 'include',
     })
 
+    resetNotificationState('admin')
     user.value = null
     isResolved.value = true
   }
@@ -73,6 +77,7 @@ export function useAdminAuth() {
         credentials: 'include',
       })
     } finally {
+      resetNotificationState('admin')
       user.value = null
       isResolved.value = true
     }

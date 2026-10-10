@@ -57,6 +57,11 @@ export const SYSTEM_PERMISSIONS = [
     description: 'Xem xét hồ sơ được giao trong workflow',
   },
   {
+    code: 'submission.assign',
+    name: 'Phân công lại cán bộ',
+    description: 'Phân công lại cán bộ xử lý hồ sơ',
+  },
+  {
     code: 'submission.reject',
     name: 'Trả lại hồ sơ',
     description: 'Trả hồ sơ cho người nộp bổ sung hoặc chỉnh sửa',

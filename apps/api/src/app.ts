@@ -104,6 +104,7 @@ import { SubmissionService } from './modules/submissions/submission.service.js'
 import { LocalEvidenceStorage } from './modules/submissions/submission.storage.js'
 import { submissionRoutes } from './modules/submissions/submission.routes.js'
 import { submissionReviewRoutes } from './modules/submissions/submission-review.routes.js'
+import { notificationRoutes } from './modules/notifications/notification.routes.js'
 export interface BuildAppOptions {
   submissionService?: SubmissionService
   procedureService?: ProcedureUseCase
@@ -355,6 +356,8 @@ export function buildApp(options: BuildAppOptions = {}) {
     submissionService,
     portal: 'admin',
   })
+  app.register(notificationRoutes, { prefix: USER_API_PREFIX, portal: 'user' })
+  app.register(notificationRoutes, { prefix: ADMIN_API_PREFIX, portal: 'admin' })
   app.register(serviceRoutes)
 
   return app

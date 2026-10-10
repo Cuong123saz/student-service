@@ -39,6 +39,15 @@ export function useReviewSubmissions(portal: 'user' | 'admin') {
         method: 'POST',
         body: { expectedRevision, action, note },
       }),
+    assignees: (id: string) =>
+      request<{ candidates: { id: string; fullName: string }[] }>(
+        '/' + encodeURIComponent(id) + '/assignees',
+      ),
+    reassign: (id: string, expectedRevision: number, reviewerUserId: string, note: string) =>
+      request<ReviewSubmissionDetail>('/' + encodeURIComponent(id) + '/reassign', {
+        method: 'POST',
+        body: { expectedRevision, reviewerUserId, note },
+      }),
     roundDownloadUrl: (id: string, roundNumber: number, fileId: string) =>
       base +
       '/' +

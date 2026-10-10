@@ -29,7 +29,15 @@ export interface SubmissionRound {
 export interface SubmissionEvent {
   id: string
   roundNumber: number
-  action: 'SUBMITTED' | 'CLAIMED' | 'SUPPLEMENT_REQUESTED' | 'RESUBMITTED' | 'APPROVED' | 'REJECTED'
+  action:
+    | 'SUBMITTED'
+    | 'CLAIMED'
+    | 'SUPPLEMENT_REQUESTED'
+    | 'RESUBMITTED'
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'REASSIGNED'
+  reassignment: { fromReviewerName: string; toReviewerName: string } | null
   actorName: string
   note: string | null
   createdAt: string
@@ -87,4 +95,5 @@ export interface ReviewSubmissionDetail extends ReviewSubmissionSummary, Submiss
   studentSnapshot: SubmissionStudentSnapshot
   reviewStartedAt: string | null
   allowedActions: ResolutionAction[]
+  canReassign: boolean
 }
