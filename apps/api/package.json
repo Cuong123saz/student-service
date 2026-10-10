@@ -25,7 +25,8 @@
     "test:search-profile": "node --test scripts/check-concurrency.test.mjs && npm run build && node --env-file=.env.test scripts/check-concurrency.mjs --profile-search",
     "audit:storage": "node --env-file=.env scripts/audit-evidence.mjs",
     "test:storage": "node --test scripts/evidence-integrity.test.mjs && node --env-file=.env.test --test scripts/evidence-integrity.sql.test.mjs",
-    "test:recovery": "node --test scripts/recovery-bundle.test.mjs scripts/recovery-archive.test.mjs",
+    "test:recovery": "node --test scripts/recovery-bundle.test.mjs scripts/recovery-archive.test.mjs scripts/encrypted-recovery.test.mjs",
+    "recovery:encrypted": "node scripts/manage-encrypted-recovery.mjs --fake-data-only",
     "recovery:archive": "node scripts/manage-recovery-archive.mjs --fake-data-only",
     "rehearse:recovery": "npm run test:recovery && npm run build && node scripts/rehearse-recovery.mjs --fake-data-only"
   },

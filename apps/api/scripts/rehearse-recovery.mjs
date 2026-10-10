@@ -12,6 +12,12 @@ import {
 import { resolve, join } from 'node:path'
 import { pipeline, finished } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
+import {
+  encryptRecoveryBundle,
+  decryptRecoveryBundle,
+  verifyEncryptedRecoveryBundle,
+  validateEncryptedArchiveDestination,
+} from './encrypted-recovery.mjs'
 import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
@@ -44,7 +50,13 @@ let options, archiveRoot
 try {
   options = parseRehearsalOptions(process.argv.slice(2), process.env)
   archiveRoot = options.archiveRoot || resolve(tmpdir(), 'student-service-fake-archive-' + runId)
-  await validateRecoveryArchiveDestination({ archiveRoot, projectRoot: repo })
+  if (options.encryptionKey)
+    await validateEncryptedArchiveDestination({
+      archiveRoot,
+      keyPath: options.encryptionKey,
+      projectRoot: repo,
+    })
+  else await validateRecoveryArchiveDestination({ archiveRoot, projectRoot: repo })
 } catch (error) {
   console.error(/^[A-Z_]+$/.test(error.message) ? error.message : 'ARCHIVE_DESTINATION_UNAVAILABLE')
   process.exit(1)
@@ -395,26 +407,52 @@ try {
   report.checks.sourceStoppedAndReadOnly = true
   phaseEnd('backup-database-and-evidence', tick)
   tick = phaseStart('export-to-separate-fake-archive')
-  const exported = await exportRecoveryBundle({ bundleRoot, archiveRoot, projectRoot: repo })
-  const archivedBundleRoot = exported.bundleRoot
-  const archiveInspection = await inspectRecoveryArchive({
-    archiveRoot,
-    projectRoot: repo,
-    policy: { keepLatest: 3, minAgeDays: 30 },
-  })
-  assert.equal(archiveInspection.status, 'OK')
-  assert.ok(archiveInspection.verified >= 1)
-  assert.equal(archiveInspection.entries.find((entry) => entry.runId === runId)?.proposal, 'KEEP')
-  report.archive = {
-    root: archiveRoot,
-    selection: options.archiveRoot ? 'EXPLICIT' : 'TEMPORARY',
-    bundleRoot: archivedBundleRoot,
-    inspection: archiveInspection,
+  let archivedBundleRoot, encryptedPackageRoot
+  if (options.encryptionKey) {
+    const exported = await encryptRecoveryBundle({
+      bundleRoot,
+      archiveRoot,
+      keyPath: options.encryptionKey,
+      projectRoot: repo,
+    })
+    encryptedPackageRoot = exported.bundleRoot
+    await verifyEncryptedRecoveryBundle({
+      packageRoot: encryptedPackageRoot,
+      keyPath: options.encryptionKey,
+      projectRoot: repo,
+    })
+    report.archive = {
+      root: archiveRoot,
+      selection: 'EXPLICIT',
+      encrypted: true,
+      bundleRoot: encryptedPackageRoot,
+      keyId: exported.keyId,
+      retentionSupported: false,
+    }
+    report.checks.encryptedPackageAuthenticated = true
+  } else {
+    const exported = await exportRecoveryBundle({ bundleRoot, archiveRoot, projectRoot: repo })
+    archivedBundleRoot = exported.bundleRoot
+    const archiveInspection = await inspectRecoveryArchive({
+      archiveRoot,
+      projectRoot: repo,
+      policy: { keepLatest: 3, minAgeDays: 30 },
+    })
+    assert.equal(archiveInspection.status, 'OK')
+    assert.ok(archiveInspection.verified >= 1)
+    assert.equal(archiveInspection.entries.find((entry) => entry.runId === runId)?.proposal, 'KEEP')
+    report.archive = {
+      root: archiveRoot,
+      selection: options.archiveRoot ? 'EXPLICIT' : 'TEMPORARY',
+      encrypted: false,
+      bundleRoot: archivedBundleRoot,
+      inspection: archiveInspection,
+    }
+    await verifyRecoveryBundle(archivedBundleRoot)
   }
   report.checks.exportedCopyVerified = true
   phaseEnd('export-to-separate-fake-archive', tick)
   tick = phaseStart('restore-to-empty-private-target')
-  await verifyRecoveryBundle(archivedBundleRoot)
   // Simulate losing the fake source cluster; restore only from the saved bundle.
   await source.end({ timeout: 5 })
   source = undefined
@@ -429,6 +467,16 @@ try {
   assertDrillDatabase(targetUrl, targetDatabase)
   report.checks.sourceClusterRemovedBeforeRestore = true
   report.checks.independentPostgresCluster = true
+  if (encryptedPackageRoot) {
+    archivedBundleRoot = join(runRoot, 'decrypted-bundle')
+    await decryptRecoveryBundle({
+      packageRoot: encryptedPackageRoot,
+      keyPath: options.encryptionKey,
+      targetRoot: archivedBundleRoot,
+      projectRoot: repo,
+    })
+    report.checks.decryptedAfterSourceClusterRemoved = true
+  }
   await docker([
     'exec',
     containerId,
@@ -540,7 +588,15 @@ try {
   report.checks.injectedByteCorruptionDetected = true
   await stopServer()
   report.checks.bundleStillIntact = Boolean(await verifyRecoveryBundle(bundleRoot))
-  report.checks.archivedBundleStillIntact = Boolean(await verifyRecoveryBundle(archivedBundleRoot))
+  report.checks.archivedBundleStillIntact = encryptedPackageRoot
+    ? Boolean(
+        await verifyEncryptedRecoveryBundle({
+          packageRoot: encryptedPackageRoot,
+          keyPath: options.encryptionKey,
+          projectRoot: repo,
+        }),
+      )
+    : Boolean(await verifyRecoveryBundle(archivedBundleRoot))
   phaseEnd('verify-data-schema-files-and-permissions', tick)
   report.status = 'VERIFIED_PENDING_CLEANUP'
 } catch (error) {

@@ -18,10 +18,22 @@ export function assertDrillInvocation(args, env) {
 }
 export function parseRehearsalOptions(args, env) {
   assertDrillInvocation([args[0]], env)
-  if (args.length === 1) return {}
-  if (args.length !== 3 || args[1] !== '--archive-root') fail('INVALID_REHEARSAL_OPTIONS')
-  if (typeof args[2] !== 'string' || !isAbsolute(args[2])) fail('ABSOLUTE_PATH_REQUIRED')
-  return { archiveRoot: resolve(args[2]) }
+  const options = {}
+  for (let index = 1; index < args.length; index += 2) {
+    const property =
+      args[index] === '--archive-root'
+        ? 'archiveRoot'
+        : args[index] === '--encryption-key'
+          ? 'encryptionKey'
+          : undefined
+    if (!property || Object.hasOwn(options, property) || index + 1 >= args.length)
+      fail('INVALID_REHEARSAL_OPTIONS')
+    if (typeof args[index + 1] !== 'string' || !isAbsolute(args[index + 1]))
+      fail('ABSOLUTE_PATH_REQUIRED')
+    options[property] = resolve(args[index + 1])
+  }
+  if (options.encryptionKey && !options.archiveRoot) fail('ENCRYPTION_REQUIRES_EXPLICIT_ARCHIVE')
+  return options
 }
 export function assertOwnedContainer(info, runId, containerId) {
   if (
@@ -168,29 +180,7 @@ export async function verifyRecoveryBundle(bundleRoot) {
   } catch {
     fail('INVALID_MANIFEST')
   }
-  const validDigest = (item, maximum) =>
-    item &&
-    Number.isInteger(item.size) &&
-    item.size > 0 &&
-    item.size <= maximum &&
-    typeof item.sha256 === 'string' &&
-    digestPattern.test(item.sha256)
-  if (
-    !manifest ||
-    manifest.version !== 1 ||
-    manifest.fakeDataOnly !== true ||
-    !uuid.test(manifest.runId || '') ||
-    manifest.sourceDatabase !== sourceDatabase ||
-    manifest.consistency !== 'CONTROLLED_SOURCE_STOPPED' ||
-    !validDigest(manifest.database, 536870912) ||
-    !Array.isArray(manifest.files) ||
-    manifest.files.length > 5000 ||
-    manifest.files.some(
-      (file) => !file || !uuid.test(file.key || '') || !validDigest(file, 5242880),
-    ) ||
-    new Set(manifest.files.map((file) => file.key)).size !== manifest.files.length
-  )
-    fail('INVALID_MANIFEST')
+  validateRecoveryManifest(manifest)
   if (!equal(await fileDigest(join(bundleRoot, 'database.dump')), manifest.database))
     fail('DUMP_DIGEST_MISMATCH')
   if (
@@ -236,4 +226,33 @@ export function normalizeRecoveryDefinition(definition) {
         .join(', ') +
       ']',
   )
+}
+
+export { directory as assertRecoveryDirectory }
+
+export function validateRecoveryManifest(manifest) {
+  const validDigest = (item, maximum) =>
+    item &&
+    Number.isInteger(item.size) &&
+    item.size > 0 &&
+    item.size <= maximum &&
+    typeof item.sha256 === 'string' &&
+    digestPattern.test(item.sha256)
+  if (
+    !manifest ||
+    manifest.version !== 1 ||
+    manifest.fakeDataOnly !== true ||
+    !uuid.test(manifest.runId || '') ||
+    manifest.sourceDatabase !== sourceDatabase ||
+    manifest.consistency !== 'CONTROLLED_SOURCE_STOPPED' ||
+    !validDigest(manifest.database, 536870912) ||
+    !Array.isArray(manifest.files) ||
+    manifest.files.length > 5000 ||
+    manifest.files.some(
+      (file) => !file || !uuid.test(file.key || '') || !validDigest(file, 5242880),
+    ) ||
+    new Set(manifest.files.map((file) => file.key)).size !== manifest.files.length
+  )
+    fail('INVALID_MANIFEST')
+  return manifest
 }

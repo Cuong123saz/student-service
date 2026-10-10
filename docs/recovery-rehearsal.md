@@ -51,7 +51,7 @@ Từ repository, dùng terminal không nạp cấu hình database/kho tệp củ
 npm run rehearse:recovery --workspace @student-service/api
 ```
 
-Lệnh chạy toàn bộ test gói/guard (hiện 63 test, gồm bộ gói/kho riêng và kiểm tra tùy chọn nơi lưu), build API rồi gọi runner với cờ bắt buộc `--fake-data-only`. Runner chỉ nhận thêm cặp tùy chọn `--archive-root <đường dẫn tuyệt đối>` cho kho dữ liệu giả; đối số khác bị từ chối. Runner từ chối biến `DATABASE_URL` hoặc `SUBMISSION_STORAGE_ROOT` kế thừa, và `APP_ENV=production` **trước khi tạo thư mục hoặc gọi Docker**. Không đọc `.env` của dự án. Các child API chỉ nhận cấu hình giả, khóa phiên sinh ngẫu nhiên và `fake.env` trống; không chạy worker/email.
+Lệnh chạy toàn bộ test gói/guard (hiện 94 test, gồm gói/kho riêng, tùy chọn nơi lưu và mã hóa), build API rồi gọi runner với cờ bắt buộc `--fake-data-only`. Runner nhận `--archive-root <đường dẫn tuyệt đối>` cho kho giả và có thể thêm `--encryption-key <key file>` khi chọn kho mã hóa riêng; key bắt buộc đi cùng nơi lưu rõ ràng. Đối số khác bị từ chối. Xem [diễn tập mã hóa](encrypted-recovery.md) để chọn đúng loại kho và giữ khóa. Runner từ chối biến `DATABASE_URL` hoặc `SUBMISSION_STORAGE_ROOT` kế thừa, và `APP_ENV=production` **trước khi tạo thư mục hoặc gọi Docker**. Không đọc `.env` của dự án. Các child API chỉ nhận cấu hình giả, khóa phiên sinh ngẫu nhiên và `fake.env` trống; không chạy worker/email.
 
 Runner tự tạo thư mục `run/recovery-drills/<runId>` mới và container có tên/label cùng runId. Chỉ publish PostgreSQL lên `127.0.0.1` với cổng tự cấp, không dùng 5433/5434. Data PostgreSQL ở tmpfs, không mount ổ đĩa/kho thật. Trước mỗi lần xóa, kiểm tra ID, tên, label, image và không có persistent mount; không xóa container khác hoặc dùng prune/reset.
 
