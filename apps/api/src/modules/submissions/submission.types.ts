@@ -5,7 +5,12 @@ import type {
 } from '../procedures/procedure.contract.js'
 export type DraftValues = Record<string, string | number | boolean | null>
 export type SubmissionActor = ProcedureActor
-export type SubmissionStatus = 'DRAFT' | 'SUBMITTED' | 'IN_REVIEW'
+export type SubmittedStatus =
+  'SUBMITTED' | 'IN_REVIEW' | 'NEEDS_SUPPLEMENT' | 'APPROVED' | 'REJECTED'
+export type SubmissionStatus = 'DRAFT' | SubmittedStatus
+export type ResolutionAction = 'REQUEST_SUPPLEMENT' | 'APPROVE' | 'REJECT'
+export type SubmissionEventAction =
+  'SUBMITTED' | 'CLAIMED' | 'SUPPLEMENT_REQUESTED' | 'RESUBMITTED' | 'APPROVED' | 'REJECTED'
 export interface StudentSnapshot {
   fullName: string
   studentCode: string
@@ -21,7 +26,33 @@ export interface EvidenceView {
   sha256: string
   signatureStatus: 'NOT_CHECKED'
 }
-export interface DraftView {
+export interface SubmissionRoundView {
+  roundNumber: number
+  submittedAt: string
+  studentSnapshot: StudentSnapshot
+  values: DraftValues
+  files: EvidenceView[]
+  source: 'LIVE' | 'MIGRATION'
+}
+export interface SubmissionEventView {
+  id: string
+  roundNumber: number
+  action: SubmissionEventAction
+  actorName: string
+  note: string | null
+  createdAt: string
+}
+export interface RoundEvidence extends EvidenceView {
+  storageKey: string
+}
+export interface SubmissionHistory {
+  roundNumber: number
+  lastSubmittedAt: string | null
+  decisionAt: string | null
+  rounds: SubmissionRoundView[]
+  events: SubmissionEventView[]
+}
+export interface DraftView extends SubmissionHistory {
   id: string
   serviceId: number
   serviceName: string
@@ -40,15 +71,19 @@ export interface DraftView {
 export interface ReviewSummary {
   id: string
   serviceName: string
-  status: 'SUBMITTED' | 'IN_REVIEW'
+  status: SubmittedStatus
   revision: number
   submittedAt: string
+  roundNumber: number
+  lastSubmittedAt: string | null
+  decisionAt: string | null
   processingUnitName: string
   student: Pick<StudentSnapshot, 'fullName' | 'studentCode'>
   reviewerName: string | null
   canClaim: boolean
 }
-export interface ReviewDetail extends ReviewSummary {
+export interface ReviewDetail extends ReviewSummary, SubmissionHistory {
+  allowedActions: ResolutionAction[]
   serviceId: number
   procedure: PublicProcedure
   values: DraftValues

@@ -47,6 +47,13 @@ onMounted(() => {
         <NuxtLink :to="'/submissions/' + draft.id">
           <strong>{{ draft.serviceName }}</strong>
           <span>{{ submissionStatusLabels[draft.status] }}</span>
+          <small v-if="draft.roundNumber">Lần gửi {{ draft.roundNumber }}</small>
+          <small v-if="draft.lastSubmittedAt"
+            >Gửi gần nhất {{ formatSubmissionTime(draft.lastSubmittedAt) }}</small
+          >
+          <small v-if="draft.decisionAt"
+            >Quyết định nội dung {{ formatSubmissionTime(draft.decisionAt) }}</small
+          >
           <small v-if="draft.submittedAt"
             >Đã gửi {{ formatSubmissionTime(draft.submittedAt) }}</small
           >
@@ -54,7 +61,13 @@ onMounted(() => {
             >Bắt đầu xử lý {{ formatSubmissionTime(draft.reviewStartedAt) }}</small
           >
           <small>Cập nhật {{ new Date(draft.updatedAt).toLocaleString('vi-VN') }}</small>
-          <b>{{ draft.status === 'DRAFT' ? 'Tiếp tục kê khai →' : 'Xem hồ sơ đã gửi →' }}</b>
+          <b>{{
+            draft.status === 'DRAFT'
+              ? 'Tiếp tục kê khai →'
+              : draft.status === 'NEEDS_SUPPLEMENT'
+                ? 'Bổ sung hồ sơ →'
+                : 'Xem hồ sơ đã gửi →'
+          }}</b>
         </NuxtLink>
       </li>
     </ul>

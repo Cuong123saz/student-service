@@ -10,6 +10,11 @@ function sample(): StudentDraft {
     serviceName: 'Thủ tục thử nghiệm',
     revision: 1,
     status: 'DRAFT',
+    roundNumber: 0,
+    lastSubmittedAt: null,
+    decisionAt: null,
+    rounds: [],
+    events: [],
     submittedAt: null,
     reviewStartedAt: null,
     editable: true,
@@ -77,6 +82,9 @@ function mockApi() {
     upload: vi.fn(),
     remove: vi.fn(),
     get: vi.fn(),
+    roundDownloadUrl: vi.fn(
+      (id, roundNumber, fileId) => '/history/' + id + '/' + roundNumber + '/' + fileId,
+    ),
     downloadUrl: vi.fn(() => '/private-file'),
   }
 }
@@ -427,7 +435,171 @@ describe('student submission', () => {
     await button(wrapper, 'Gửi hồ sơ').trigger('click')
     await flushPromises()
     expect(api.submit).toHaveBeenLastCalledWith('draft-1', 3)
-    expect(wrapper.text()).toContain('chưa phải là phê duyệt')
+    expect(wrapper.text()).toContain('chưa phải là cấp văn bản hoặc xác minh chữ ký số')
+    wrapper.unmount()
+  })
+})
+
+function supplement(): StudentDraft {
+  const view = complete()
+  const round = {
+    roundNumber: 1,
+    submittedAt: '2026-10-10T01:00:00Z',
+    studentSnapshot: {
+      fullName: 'Nguyễn Minh An',
+      studentCode: 'SV001',
+      classCode: 'K20A',
+      facultyCode: 'QLGD',
+    },
+    values: { ...view.values, purpose: 'Bản gửi trước' },
+    files: [...view.files],
+    source: 'LIVE' as const,
+  }
+  return {
+    ...view,
+    status: 'NEEDS_SUPPLEMENT',
+    revision: 5,
+    roundNumber: 1,
+    submittedAt: round.submittedAt,
+    lastSubmittedAt: round.submittedAt,
+    reviewStartedAt: '2026-10-10T02:00:00Z',
+    rounds: [round],
+    events: [
+      {
+        id: 'event-1',
+        roundNumber: 1,
+        action: 'SUPPLEMENT_REQUESTED',
+        actorName: 'Cán bộ A',
+        note: '<b>Bổ sung nội dung và thay minh chứng</b>',
+        createdAt: '2026-10-10T03:00:00Z',
+      },
+    ],
+  }
+}
+describe('student supplement and history', () => {
+  it('clearly shows the request, retains the previous round, saves then confirms a resubmission', async () => {
+    const initial = supplement()
+    const updated = {
+      ...initial,
+      revision: 6,
+      values: { ...initial.values, purpose: 'Đã bổ sung nội dung' },
+    }
+    api.save.mockResolvedValue(updated)
+    api.submit.mockResolvedValue({
+      ...updated,
+      status: 'IN_REVIEW',
+      editable: false,
+      revision: 7,
+      roundNumber: 2,
+      lastSubmittedAt: '2026-10-10T04:00:00Z',
+    })
+    const wrapper = await mountSuspended(StudentDraftEditor, { props: { initialDraft: initial } })
+    expect(wrapper.text()).toContain('Hồ sơ cần bổ sung')
+    expect(wrapper.text()).toContain('<b>Bổ sung nội dung và thay minh chứng</b>')
+    expect(wrapper.find('.draft-reason b').exists()).toBe(false)
+    expect(wrapper.get('fieldset').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('.history-files a').attributes('href')).toBe('/history/draft-1/1/file-1')
+    expect(wrapper.get('.history-round').text()).toContain('Bản gửi trước')
+    await wrapper.get('#field-purpose').setValue('Đã bổ sung nội dung')
+    expect(button(wrapper, 'Gửi bổ sung').attributes('disabled')).toBeDefined()
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Nội dung mới chưa được gửi đến cán bộ')
+    await confirm(wrapper)
+    await button(wrapper, 'Gửi bổ sung').trigger('click')
+    await flushPromises()
+    expect(api.submit).toHaveBeenCalledWith('draft-1', 6)
+    expect(wrapper.text()).toContain('Đã gửi bổ sung đến cán bộ đang xử lý.')
+    expect(wrapper.text()).toContain('Đang xử lý')
+    expect(wrapper.find('#field-purpose').element.tagName).toBe('P')
+    wrapper.unmount()
+  })
+  it.each([409, 503, undefined])(
+    'preserves supplement input and blocks mutation until successful status check (%s)',
+    async (status) => {
+      const initial = supplement()
+      api.submit.mockRejectedValue({
+        status,
+        message: 'Chưa kiểm tra được gửi bổ sung',
+        issues: [],
+      })
+      api.get.mockResolvedValue({
+        ...initial,
+        revision: 6,
+        values: { ...initial.values, purpose: 'Bản lưu từ phiên khác' },
+      })
+      const wrapper = await mountSuspended(StudentDraftEditor, { props: { initialDraft: initial } })
+      await confirm(wrapper)
+      await button(wrapper, 'Gửi bổ sung').trigger('click')
+      await flushPromises()
+      expect(button(wrapper, 'Lưu bổ sung').attributes('disabled')).toBeDefined()
+      expect(wrapper.get('#upload-proof').attributes('disabled')).toBeDefined()
+      await button(
+        wrapper,
+        status === 409 ? 'Tải bản lưu mới, giữ nội dung đang nhập' : 'Kiểm tra trạng thái hồ sơ',
+      ).trigger('click')
+      await flushPromises()
+      expect(wrapper.get('#field-purpose').element).toHaveProperty('value', initial.values.purpose)
+      expect(button(wrapper, 'Gửi bổ sung').attributes('disabled')).toBeDefined()
+      expect(api.submit).toHaveBeenCalledOnce()
+      wrapper.unmount()
+    },
+  )
+  it.each(['APPROVED', 'REJECTED'] as const)(
+    'renders terminal %s as read-only with a plain-text decision and history',
+    async (status) => {
+      const initial = supplement()
+      const wrapper = await mountSuspended(StudentDraftEditor, {
+        props: {
+          initialDraft: {
+            ...initial,
+            status,
+            editable: false,
+            decisionAt: '2026-10-10T04:00:00Z',
+            events: [
+              ...initial.events,
+              {
+                id: 'decision',
+                roundNumber: 1,
+                action: status,
+                actorName: 'Cán bộ A',
+                note: '<script>reason</script>',
+                createdAt: '2026-10-10T04:00:00Z',
+              },
+            ],
+          },
+        },
+      })
+      expect(wrapper.find('#upload-proof').exists()).toBe(false)
+      expect(wrapper.find('#confirm-submission').exists()).toBe(false)
+      expect(wrapper.text()).toContain(
+        status === 'APPROVED' ? 'Đã duyệt nội dung' : 'Không chấp thuận',
+      )
+      expect(wrapper.text()).toContain('<script>reason</script>')
+      expect(wrapper.find('script').exists()).toBe(false)
+      expect(wrapper.text()).toContain('chưa phải là cấp văn bản')
+      wrapper.unmount()
+    },
+  )
+  it('does not apply a delayed save to a different student dossier', async () => {
+    let finish!: (view: StudentDraft) => void
+    api.save.mockReturnValue(
+      new Promise<StudentDraft>((resolve) => {
+        finish = resolve
+      }),
+    )
+    const wrapper = await mountSuspended(StudentDraftEditor, {
+      props: { initialDraft: supplement() },
+    })
+    await wrapper.get('form').trigger('submit')
+    await wrapper.setProps({
+      initialDraft: { ...sample(), id: 'draft-2', serviceName: 'Hồ sơ mới' },
+    })
+    finish({ ...supplement(), revision: 9 })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Hồ sơ mới')
+    expect(wrapper.text()).not.toContain('Đã lưu bổ sung')
+    expect(wrapper.get('#field-purpose').element).toHaveProperty('value', '')
     wrapper.unmount()
   })
 })

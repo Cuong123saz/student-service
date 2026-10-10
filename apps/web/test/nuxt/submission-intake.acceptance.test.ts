@@ -10,6 +10,12 @@ function sample(): ReviewSubmissionDetail {
     serviceId: 1,
     serviceName: 'Xác nhận học tập',
     status: 'SUBMITTED',
+    roundNumber: 1,
+    lastSubmittedAt: '2026-10-09T01:00:00Z',
+    decisionAt: null,
+    rounds: [],
+    events: [],
+    allowedActions: [],
     revision: 3,
     submittedAt: '2026-10-09T01:00:00Z',
     reviewStartedAt: null,
@@ -129,6 +135,10 @@ function createApi() {
     list: vi.fn(),
     get: vi.fn(),
     claim: vi.fn(),
+    resolve: vi.fn(),
+    roundDownloadUrl: vi.fn(
+      (id, roundNumber, fileId) => '/history/' + id + '/' + roundNumber + '/' + fileId,
+    ),
     downloadUrl: vi.fn((id: string, fileId: string) => '/private/' + id + '/' + fileId),
   }
 }
@@ -393,6 +403,308 @@ describe('submission intake', () => {
     expect(wrapper.get('[role="alert"] a').attributes('href')).toBe('/admin/login')
     expect(wrapper.find('.intake-columns').exists()).toBe(false)
     expect(api.claim).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+})
+
+function processing(): ReviewSubmissionDetail {
+  const initial = sample()
+  return {
+    ...initial,
+    status: 'IN_REVIEW',
+    revision: 4,
+    canClaim: false,
+    reviewerName: 'Cán bộ A',
+    reviewStartedAt: '2026-10-10T02:00:00Z',
+    allowedActions: ['REQUEST_SUPPLEMENT', 'APPROVE', 'REJECT'],
+    rounds: [
+      {
+        roundNumber: 1,
+        submittedAt: initial.submittedAt,
+        studentSnapshot: initial.studentSnapshot,
+        values: initial.values,
+        files: initial.files,
+        source: 'MIGRATION',
+      },
+    ],
+    events: [
+      {
+        id: 'claim-1',
+        roundNumber: 1,
+        action: 'CLAIMED',
+        actorName: 'Cán bộ A',
+        note: null,
+        createdAt: '2026-10-10T02:00:00Z',
+      },
+    ],
+  }
+}
+async function reviewDecision(
+  wrapper: Awaited<ReturnType<typeof mountSuspended>>,
+  action = 'REQUEST_SUPPLEMENT',
+  note = 'Bổ sung minh chứng đúng nội dung',
+) {
+  await wrapper.get('#resolution-action').setValue(action)
+  await wrapper.get('#resolution-note').setValue(note)
+  await button(wrapper, 'Xem lại quyết định').trigger('click')
+}
+describe('submission resolution', () => {
+  it.each([
+    ['REQUEST_SUPPLEMENT', 'NEEDS_SUPPLEMENT', 'Chờ bổ sung'],
+    ['APPROVE', 'APPROVED', 'Đã duyệt nội dung'],
+    ['REJECT', 'REJECTED', 'Không chấp thuận'],
+  ] as const)(
+    'requires review and explicit confirmation for %s and uses the returned status',
+    async (action, status, label) => {
+      api.get.mockResolvedValue(processing())
+      let finish!: (value: ReviewSubmissionDetail) => void
+      api.resolve.mockReturnValue(
+        new Promise<ReviewSubmissionDetail>((resolve) => {
+          finish = resolve
+        }),
+      )
+      const wrapper = await mountSuspended(SubmissionIntake, {
+        props: { portal: 'user', id: 'submission-1' },
+        attachTo: document.body,
+      })
+      await flushPromises()
+      expect(wrapper.text()).toContain('chưa cấp văn bản hoặc xác minh chữ ký số')
+      await reviewDecision(wrapper, action, '  Lý do xử lý rõ ràng  ')
+      expect(document.activeElement).toBe(wrapper.get('.resolution-summary').element)
+      expect(button(wrapper, 'Ghi quyết định').attributes('disabled')).toBeDefined()
+      await button(wrapper, 'Ghi quyết định').trigger('click')
+      expect(api.resolve).not.toHaveBeenCalled()
+      await wrapper.get('#resolution-confirm').setValue(true)
+      await button(wrapper, 'Ghi quyết định').trigger('click')
+      await button(wrapper, 'Ghi quyết định').trigger('click')
+      expect(api.resolve).toHaveBeenCalledExactlyOnceWith(
+        'submission-1',
+        4,
+        action,
+        'Lý do xử lý rõ ràng',
+      )
+      finish({
+        ...processing(),
+        status,
+        revision: 5,
+        allowedActions: [],
+        decisionAt: status === 'NEEDS_SUPPLEMENT' ? null : '2026-10-10T03:00:00Z',
+      })
+      await flushPromises()
+      expect(wrapper.text()).toContain(label)
+      expect(wrapper.find('#resolution-action').exists()).toBe(false)
+      expect(wrapper.text()).toContain('Chữ ký chưa được xác minh')
+      wrapper.unmount()
+    },
+  )
+  it('does not offer actions withheld by the server and keeps submitted round downloads independent of current files', async () => {
+    api.get.mockResolvedValue({ ...processing(), allowedActions: ['APPROVE'] })
+    const wrapper = await mountSuspended(SubmissionIntake, {
+      props: { portal: 'admin', id: 'submission-1' },
+    })
+    await flushPromises()
+    expect(
+      wrapper.findAll('#resolution-action option').map((option) => option.attributes('value')),
+    ).toEqual(['', 'APPROVE'])
+    expect(wrapper.get('.history-files a').attributes('href')).toBe(
+      '/history/submission-1/1/file-1',
+    )
+    expect(wrapper.get('.history-round').text()).toContain('không có diễn biến thao tác trước đó')
+    expect(wrapper.get('.history-events').text()).toContain('Cán bộ nhận xử lý')
+    expect(wrapper.find('script').exists()).toBe(false)
+    wrapper.unmount()
+  })
+  it('requires a trimmed note of at most 2000 characters and resets review after editing it', async () => {
+    api.get.mockResolvedValue(processing())
+    const wrapper = await mountSuspended(SubmissionIntake, {
+      props: { portal: 'user', id: 'submission-1' },
+    })
+    await flushPromises()
+    await wrapper.get('#resolution-action').setValue('APPROVE')
+    for (const note of ['   ', 'x'.repeat(2001)]) {
+      await wrapper.get('#resolution-note').setValue(note)
+      expect(button(wrapper, 'Xem lại quyết định').attributes('disabled')).toBeDefined()
+      expect(wrapper.get('#resolution-note').attributes('aria-invalid')).toBe('true')
+    }
+    await reviewDecision(wrapper, 'APPROVE', '<script>plain note</script>')
+    expect(wrapper.get('.resolution-summary').text()).toContain('<script>plain note</script>')
+    expect(wrapper.find('script').exists()).toBe(false)
+    await wrapper.get('#resolution-confirm').setValue(true)
+    await wrapper.get('#resolution-note').setValue('Đổi lý do')
+    expect(wrapper.find('.resolution-summary').exists()).toBe(false)
+    expect(api.resolve).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+  it.each([409, 503, undefined])(
+    'retains reason after uncertain or conflicting resolution and requires successful GET (%s)',
+    async (status) => {
+      api.get
+        .mockResolvedValueOnce(processing())
+        .mockRejectedValueOnce({ status: 503, message: 'Chưa tải được', issues: [] })
+        .mockResolvedValueOnce({ ...processing(), revision: 5 })
+      api.resolve.mockRejectedValue({ status, message: 'Cần kiểm tra quyết định', issues: [] })
+      const wrapper = await mountSuspended(SubmissionIntake, {
+        props: { portal: 'user', id: 'submission-1' },
+      })
+      await flushPromises()
+      await reviewDecision(wrapper)
+      await wrapper.get('#resolution-confirm').setValue(true)
+      await button(wrapper, 'Ghi quyết định').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('#resolution-note').element).toHaveProperty(
+        'value',
+        'Bổ sung minh chứng đúng nội dung',
+      )
+      expect(wrapper.get('.resolution-fields').attributes('disabled')).toBeDefined()
+      await button(wrapper, 'Tải lại trạng thái hồ sơ').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('.resolution-fields').attributes('disabled')).toBeDefined()
+      await button(wrapper, 'Tải lại trạng thái hồ sơ').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('#resolution-note').element).toHaveProperty(
+        'value',
+        'Bổ sung minh chứng đúng nội dung',
+      )
+      expect(wrapper.find('#resolution-confirm').exists()).toBe(false)
+      expect(api.resolve).toHaveBeenCalledOnce()
+      wrapper.unmount()
+    },
+  )
+  it('hides decisions from a scoped reader who is not the assigned reviewer and shows supplement reason as text', async () => {
+    const initial = processing()
+    api.get.mockResolvedValue({
+      ...initial,
+      status: 'NEEDS_SUPPLEMENT',
+      allowedActions: [],
+      events: [
+        ...initial.events,
+        {
+          id: 'supplement-1',
+          roundNumber: 1,
+          action: 'SUPPLEMENT_REQUESTED',
+          actorName: 'Cán bộ A',
+          note: '<b>Thiếu minh chứng</b>',
+          createdAt: '2026-10-10T03:00:00Z',
+        },
+      ],
+    })
+    const wrapper = await mountSuspended(SubmissionIntake, {
+      props: { portal: 'admin', id: 'submission-1' },
+    })
+    await flushPromises()
+    expect(wrapper.find('#resolution-note').exists()).toBe(false)
+    expect(wrapper.text()).toContain('phần sinh viên đang sửa chưa được chuyển đến cán bộ')
+    expect(wrapper.get('.history-events').text()).toContain('<b>Thiếu minh chứng</b>')
+    expect(wrapper.find('.history-events b').exists()).toBe(false)
+    wrapper.unmount()
+  })
+  it.each(['NEEDS_SUPPLEMENT', 'APPROVED', 'REJECTED'] as const)(
+    'loads the separate %s queue before limit is applied by the server',
+    async (status) => {
+      api.list.mockResolvedValue([])
+      const wrapper = await mountSuspended(SubmissionIntake, { props: { portal: 'user' } })
+      await flushPromises()
+      expect(wrapper.findAll('.intake-filters button')).toHaveLength(5)
+      const label =
+        status === 'NEEDS_SUPPLEMENT'
+          ? 'Chờ bổ sung'
+          : status === 'APPROVED'
+            ? 'Đã duyệt nội dung'
+            : 'Không chấp thuận'
+      await button(wrapper, label).trigger('click')
+      await flushPromises()
+      expect(api.list).toHaveBeenLastCalledWith(status)
+      expect(button(wrapper, label).attributes('aria-pressed')).toBe('true')
+      expect(wrapper.get('.intake-empty').text()).toContain('Chưa có hồ sơ')
+      wrapper.unmount()
+    },
+  )
+  it('drops a late resolution response after navigation without clearing the new detail', async () => {
+    let finish!: (value: ReviewSubmissionDetail) => void
+    api.get
+      .mockResolvedValueOnce(processing())
+      .mockResolvedValueOnce({ ...sample(), id: 'submission-2', serviceName: 'Hồ sơ khác' })
+    api.resolve.mockReturnValue(
+      new Promise<ReviewSubmissionDetail>((resolve) => {
+        finish = resolve
+      }),
+    )
+    const wrapper = await mountSuspended(SubmissionIntake, {
+      props: { portal: 'user', id: 'submission-1' },
+    })
+    await flushPromises()
+    await reviewDecision(wrapper)
+    await wrapper.get('#resolution-confirm').setValue(true)
+    await button(wrapper, 'Ghi quyết định').trigger('click')
+    await wrapper.setProps({ id: 'submission-2' })
+    await flushPromises()
+    finish({ ...processing(), status: 'APPROVED', allowedActions: [] })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Hồ sơ khác')
+    expect(wrapper.text()).not.toContain('Đã ghi quyết định duyệt nội dung.')
+    expect(wrapper.get('.intake-files a').attributes('href')).toBe('/private/submission-2/file-1')
+    wrapper.unmount()
+  })
+})
+
+describe('resolution response recovery', () => {
+  it('preserves a rejected note and exposes the server issue beside the reason field', async () => {
+    api.get.mockResolvedValue(processing())
+    api.resolve.mockRejectedValue({
+      status: 422,
+      message: 'Kiểm tra lý do',
+      issues: [{ path: 'note', message: 'Lý do phải có 1–2000 ký tự' }],
+    })
+    const wrapper = await mountSuspended(SubmissionIntake, {
+      props: { portal: 'user', id: 'submission-1' },
+    })
+    await flushPromises()
+    await reviewDecision(wrapper, 'REJECT', 'Lý do đang nhập')
+    await wrapper.get('#resolution-confirm').setValue(true)
+    await button(wrapper, 'Ghi quyết định').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('#resolution-note').element).toHaveProperty('value', 'Lý do đang nhập')
+    expect(wrapper.get('#resolution-note').attributes('aria-invalid')).toBe('true')
+    expect(wrapper.get('#resolution-note').attributes('aria-describedby')).toContain(
+      'resolution-note-error',
+    )
+    expect(wrapper.get('#resolution-note-error').text()).toBe('Lý do phải có 1–2000 ký tự')
+    expect(wrapper.find('#resolution-confirm').exists()).toBe(false)
+    wrapper.unmount()
+  })
+  it('keeps the local reason for comparison when status check confirms an already committed decision', async () => {
+    api.get.mockResolvedValueOnce(processing()).mockResolvedValueOnce({
+      ...processing(),
+      status: 'APPROVED',
+      revision: 5,
+      allowedActions: [],
+      events: [
+        {
+          id: 'approved-1',
+          roundNumber: 1,
+          action: 'APPROVED',
+          actorName: 'Cán bộ A',
+          note: 'Đủ thông tin đã đối chiếu',
+          createdAt: '2026-10-10T04:00:00Z',
+        },
+      ],
+    })
+    api.resolve.mockRejectedValue({ message: 'Mất phản hồi', issues: [] })
+    const wrapper = await mountSuspended(SubmissionIntake, {
+      props: { portal: 'admin', id: 'submission-1' },
+    })
+    await flushPromises()
+    await reviewDecision(wrapper, 'APPROVE', 'Đủ thông tin đã đối chiếu')
+    await wrapper.get('#resolution-confirm').setValue(true)
+    await button(wrapper, 'Ghi quyết định').trigger('click')
+    await flushPromises()
+    await button(wrapper, 'Tải lại trạng thái hồ sơ').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Đã duyệt nội dung')
+    expect(wrapper.find('#resolution-note').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Lý do đã nhập trước khi kiểm tra trạng thái')
+    expect(wrapper.get('.history-events').text()).toContain('Đủ thông tin đã đối chiếu')
+    expect(api.resolve).toHaveBeenCalledOnce()
     wrapper.unmount()
   })
 })

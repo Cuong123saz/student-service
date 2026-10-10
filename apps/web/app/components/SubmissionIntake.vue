@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import type { ReviewSubmissionDetail, ReviewSubmissionSummary } from '~/types/submission'
+import type {
+  ReviewSubmissionDetail,
+  ReviewSubmissionSummary,
+  ResolutionAction,
+} from '~/types/submission'
 import type { ProcedureApiError } from '~/types/procedure'
 import {
   formatSubmissionAnswer,
   formatSubmissionTime,
   submissionStatusLabels,
+  resolutionActionLabels,
 } from '~/utils/submission'
 const props = defineProps<{ portal: 'user' | 'admin'; id?: string }>()
 const api = useReviewSubmissions(props.portal)
@@ -17,6 +22,107 @@ const claiming = ref(false)
 const failure = ref<ProcedureApiError | null>(null)
 const reloadRequired = ref(false)
 const message = ref('')
+const resolving = ref(false)
+const resolutionAction = ref<ResolutionAction | ''>('')
+const resolutionNote = ref('')
+const resolutionReviewed = ref(false)
+const resolutionConfirmed = ref(false)
+const resolutionSummary = ref<HTMLElement | null>(null)
+const queueGroups: { status: ReviewSubmissionSummary['status']; label: string }[] = [
+  { status: 'SUBMITTED', label: 'Chờ tiếp nhận' },
+  { status: 'IN_REVIEW', label: 'Đang xử lý' },
+  { status: 'NEEDS_SUPPLEMENT', label: 'Chờ bổ sung' },
+  { status: 'APPROVED', label: 'Đã duyệt nội dung' },
+  { status: 'REJECTED', label: 'Không chấp thuận' },
+]
+const queueEmptyLabels = {
+  SUBMITTED: 'Chưa có hồ sơ chờ tiếp nhận',
+  IN_REVIEW: 'Chưa có hồ sơ đang xử lý',
+  NEEDS_SUPPLEMENT: 'Chưa có hồ sơ chờ bổ sung',
+  APPROVED: 'Chưa có hồ sơ đã duyệt nội dung',
+  REJECTED: 'Chưa có hồ sơ không chấp thuận',
+}
+const resolutionNoteIssue = computed(
+  () => failure.value?.issues?.find((issue) => issue.path === 'note')?.message,
+)
+const latestResolution = computed(() =>
+  [...(detail.value?.events ?? [])]
+    .reverse()
+    .find((event) => ['SUPPLEMENT_REQUESTED', 'APPROVED', 'REJECTED'].includes(event.action)),
+)
+const normalizedNote = computed(() => resolutionNote.value.trim())
+const validNote = computed(
+  () => normalizedNote.value.length > 0 && normalizedNote.value.length <= 2000,
+)
+const resolutionAvailable = computed(
+  () =>
+    detail.value?.status === 'IN_REVIEW' &&
+    Boolean(resolutionAction.value) &&
+    detail.value.allowedActions.includes(resolutionAction.value as ResolutionAction),
+)
+const canResolve = computed(
+  () =>
+    resolutionAvailable.value &&
+    validNote.value &&
+    resolutionReviewed.value &&
+    resolutionConfirmed.value &&
+    !resolving.value &&
+    !claiming.value &&
+    !loading.value &&
+    !reloadRequired.value,
+)
+function resetResolutionConfirmation() {
+  resolutionReviewed.value = false
+  resolutionConfirmed.value = false
+}
+watch([resolutionAction, resolutionNote], resetResolutionConfirmation, { flush: 'sync' })
+function reviewResolution() {
+  if (
+    !resolutionAvailable.value ||
+    !validNote.value ||
+    loading.value ||
+    reloadRequired.value ||
+    resolving.value
+  )
+    return
+  resolutionReviewed.value = true
+  resolutionConfirmed.value = false
+  void nextTick(() => resolutionSummary.value?.focus())
+}
+async function resolveSubmission() {
+  if (!canResolve.value || !detail.value || !resolutionAction.value) return
+  const sequence = loadSequence
+  const { id, revision } = detail.value
+  const action = resolutionAction.value
+  const note = normalizedNote.value
+  resolving.value = true
+  failure.value = null
+  message.value = ''
+  resolutionConfirmed.value = false
+  try {
+    const current = await api.resolve(id, revision, action, note)
+    if (sequence !== loadSequence || props.id !== id) return
+    detail.value = current
+    message.value =
+      action === 'REQUEST_SUPPLEMENT'
+        ? 'Đã gửi yêu cầu bổ sung trong hồ sơ.'
+        : action === 'APPROVE'
+          ? 'Đã ghi quyết định duyệt nội dung.'
+          : 'Đã ghi quyết định không chấp thuận.'
+    resolutionAction.value = ''
+    resolutionNote.value = ''
+    resetResolutionConfirmation()
+  } catch (error) {
+    if (sequence !== loadSequence || props.id !== id) return
+    const context = error as ProcedureApiError
+    if (!context.status || context.status === 409 || context.status >= 500)
+      reloadRequired.value = true
+    resetResolutionConfirmation()
+    fail(error)
+  } finally {
+    if (sequence === loadSequence) resolving.value = false
+  }
+}
 const errorSummary = ref<HTMLElement | null>(null)
 let loadSequence = 0
 function fail(error: unknown) {
@@ -24,6 +130,8 @@ function fail(error: unknown) {
   void nextTick(() => errorSummary.value?.focus())
 }
 async function load() {
+  if (claiming.value || resolving.value) return
+  resetResolutionConfirmation()
   const sequence = ++loadSequence
   loading.value = true
   message.value = ''
@@ -32,6 +140,8 @@ async function load() {
       const current = await api.get(props.id)
       if (sequence !== loadSequence) return
       detail.value = current
+      if (resolutionAction.value && !current.allowedActions.includes(resolutionAction.value))
+        resolutionAction.value = ''
     } else {
       const current = await api.list(selectedStatus.value)
       if (sequence !== loadSequence) return
@@ -62,7 +172,8 @@ async function claim() {
     detail.value.status !== 'SUBMITTED' ||
     reloadRequired.value ||
     loading.value ||
-    claiming.value
+    claiming.value ||
+    resolving.value
   )
     return
   const sequence = loadSequence
@@ -80,7 +191,7 @@ async function claim() {
     reloadRequired.value = true
     fail(error)
   } finally {
-    claiming.value = false
+    if (sequence === loadSequence) claiming.value = false
   }
 }
 onMounted(load)
@@ -93,6 +204,12 @@ watch(
     detail.value = null
     failure.value = null
     reloadRequired.value = false
+    resolutionAction.value = ''
+    resolutionNote.value = ''
+    resetResolutionConfirmation()
+    loadSequence += 1
+    claiming.value = false
+    resolving.value = false
     void load()
   },
 )
@@ -117,36 +234,33 @@ watch(
         v-if="!loading && !reloadRequired"
         type="button"
         variant="secondary"
-        :loading="claiming"
+        :loading="claiming || resolving"
         @click="load"
         >Tải lại</BaseButton
       >
     </header>
     <div v-if="!id" class="intake-filters" role="group" aria-label="Trạng thái hồ sơ">
       <BaseButton
+        v-for="group in queueGroups"
+        :key="group.status"
         type="button"
-        :variant="selectedStatus === 'SUBMITTED' ? 'primary' : 'secondary'"
-        :aria-pressed="selectedStatus === 'SUBMITTED'"
+        :variant="selectedStatus === group.status ? 'primary' : 'secondary'"
+        :aria-pressed="selectedStatus === group.status"
         :disabled="loading"
-        @click="selectStatus('SUBMITTED')"
-        >Chờ tiếp nhận</BaseButton
-      >
-      <BaseButton
-        type="button"
-        :variant="selectedStatus === 'IN_REVIEW' ? 'primary' : 'secondary'"
-        :aria-pressed="selectedStatus === 'IN_REVIEW'"
-        :disabled="loading"
-        @click="selectStatus('IN_REVIEW')"
-        >Đang xử lý</BaseButton
+        @click="selectStatus(group.status)"
+        >{{ group.label }}</BaseButton
       >
     </div>
     <div v-if="failure" ref="errorSummary" class="intake-error" role="alert" tabindex="-1">
       <strong>{{ failure.message }}</strong>
       <p v-if="detail">
         Thông tin bên dưới là lần tải thành công trước. Tải lại để kiểm tra trạng thái và quyền tiếp
-        nhận hiện tại.
+        nhận và xử lý hiện tại.
       </p>
-      <p v-if="reloadRequired">Cần kiểm tra lại trạng thái trước khi thử nhận xử lý lần nữa.</p>
+      <p v-if="reloadRequired">
+        Cần kiểm tra lại trạng thái trước khi thực hiện thao tác tiếp theo. Lý do đang nhập được giữ
+        lại; chưa thể xác định thao tác trước đã được ghi hay chưa.
+      </p>
       <p v-if="failure.requestId">Mã hỗ trợ: {{ failure.requestId }}</p>
       <BaseButton type="button" variant="secondary" :loading="loading" @click="load">{{
         reloadRequired ? 'Tải lại trạng thái hồ sơ' : 'Thử lại'
@@ -190,6 +304,14 @@ watch(
               }}</time>
             </dd>
           </div>
+          <div>
+            <dt>Lần gửi gần nhất</dt>
+            <dd>{{ detail.roundNumber }} · {{ formatSubmissionTime(detail.lastSubmittedAt) }}</dd>
+          </div>
+          <div v-if="detail.decisionAt">
+            <dt>Quyết định nội dung</dt>
+            <dd>{{ formatSubmissionTime(detail.decisionAt) }}</dd>
+          </div>
         </dl>
         <BaseButton
           v-if="detail.canClaim && detail.status === 'SUBMITTED'"
@@ -203,6 +325,105 @@ watch(
           Bạn hiện không thể nhận xử lý hồ sơ này.
         </p>
       </article>
+      <article
+        v-if="detail.status === 'IN_REVIEW' && detail.allowedActions.length"
+        class="intake-panel intake-resolution"
+      >
+        <h2>Quyết định xử lý</h2>
+        <p class="intake-help">
+          Chọn hành động, ghi lý do cụ thể rồi xem lại và xác nhận. Quyết định này ghi nhận việc xử
+          lý nội dung; chưa cấp văn bản hoặc xác minh chữ ký số.
+        </p>
+        <fieldset
+          :disabled="loading || claiming || resolving || reloadRequired"
+          class="resolution-fields"
+        >
+          <label for="resolution-action">Hành động *</label>
+          <select id="resolution-action" v-model="resolutionAction">
+            <option value="">Chọn hành động</option>
+            <option v-for="action in detail.allowedActions" :key="action" :value="action">
+              {{ resolutionActionLabels[action] }}
+            </option>
+          </select>
+          <label for="resolution-note">Lý do / nội dung yêu cầu *</label>
+          <textarea
+            id="resolution-note"
+            v-model="resolutionNote"
+            rows="5"
+            maxlength="2000"
+            :aria-invalid="Boolean(resolutionNoteIssue) || (Boolean(resolutionNote) && !validNote)"
+            :aria-describedby="
+              resolutionNoteIssue
+                ? 'resolution-note-help resolution-note-error'
+                : 'resolution-note-help'
+            "
+          />
+          <small id="resolution-note-help" class="intake-help"
+            >Nhập 1–2000 ký tự sau khi bỏ khoảng trắng đầu và cuối. {{ normalizedNote.length }}/2000
+            ký tự.</small
+          >
+          <p v-if="resolutionNoteIssue" id="resolution-note-error" class="resolution-error">
+            {{ resolutionNoteIssue }}
+          </p>
+          <BaseButton
+            type="button"
+            variant="secondary"
+            :disabled="!resolutionAvailable || !validNote"
+            @click="reviewResolution"
+            >Xem lại quyết định</BaseButton
+          >
+          <div
+            v-if="resolutionReviewed"
+            ref="resolutionSummary"
+            tabindex="-1"
+            class="resolution-summary"
+            aria-label="Xem lại quyết định"
+          >
+            <h3>{{ resolutionActionLabels[resolutionAction as ResolutionAction] }}</h3>
+            <p class="resolution-note">{{ normalizedNote }}</p>
+            <label class="resolution-confirm" for="resolution-confirm"
+              ><input id="resolution-confirm" v-model="resolutionConfirmed" type="checkbox" /><span
+                >Tôi đã đối chiếu hồ sơ và xác nhận hành động cùng lý do trên.</span
+              ></label
+            >
+            <BaseButton
+              type="button"
+              :loading="resolving"
+              :disabled="!canResolve"
+              @click="resolveSubmission"
+              >Ghi quyết định</BaseButton
+            >
+          </div>
+        </fieldset>
+      </article>
+      <p v-else-if="detail.status === 'IN_REVIEW'" class="intake-help">
+        Bạn không có hành động quyết định đối với hồ sơ này. Chỉ cán bộ đã nhận và còn đủ quyền mới
+        được quyết định.
+      </p>
+      <p v-if="detail.status === 'NEEDS_SUPPLEMENT'" class="intake-warning">
+        Đang chờ sinh viên bổ sung. Thông tin bên dưới là lần gửi {{ detail.roundNumber }} đã chốt;
+        phần sinh viên đang sửa chưa được chuyển đến cán bộ.
+      </p>
+      <p v-if="detail.status === 'APPROVED' || detail.status === 'REJECTED'" class="intake-warning">
+        Đây là quyết định nội dung trong ứng dụng. Chưa xác nhận đã cấp văn bản, ký số hoặc xác minh
+        chữ ký.
+      </p>
+      <details v-if="resolutionNote && !detail.allowedActions.length" class="intake-panel">
+        <summary>Lý do đã nhập trước khi kiểm tra trạng thái</summary>
+        <p class="resolution-note">{{ resolutionNote }}</p>
+        <p class="intake-help">
+          Đối chiếu với diễn biến xử lý bên dưới. Nội dung đang giữ tại trang này không tự gửi lại.
+        </p>
+      </details>
+      <p
+        v-if="
+          ['NEEDS_SUPPLEMENT', 'APPROVED', 'REJECTED'].includes(detail.status) &&
+          latestResolution?.note
+        "
+        class="intake-panel resolution-note"
+      >
+        <strong>Lý do xử lý:</strong> {{ latestResolution.note }}
+      </p>
       <div class="intake-columns">
         <article class="intake-panel">
           <h2>Thông tin sinh viên khi gửi</h2>
@@ -226,7 +447,8 @@ watch(
           </dl>
           <h2>Thông tin kê khai</h2>
           <p class="intake-help">
-            Biểu mẫu v{{ detail.procedure.versionNumber }} · Thông tin được giữ nguyên từ khi gửi.
+            Biểu mẫu v{{ detail.procedure.versionNumber }} · Nội dung của lần gửi
+            {{ detail.roundNumber }} gần nhất.
           </p>
           <dl class="intake-answers">
             <div v-for="field in detail.procedure.fields" :key="field.key">
@@ -257,15 +479,19 @@ watch(
           <p class="intake-instructions">{{ detail.procedure.contactInstructions }}</p>
         </aside>
       </div>
+      <SubmissionHistory
+        :rounds="detail.rounds"
+        :events="detail.events"
+        :procedure="detail.procedure"
+        :download-url="
+          (roundNumber, fileId) => api.roundDownloadUrl(detail.id, roundNumber, fileId)
+        "
+      />
     </template>
     <template v-else-if="!id && !loading && !failure">
       <div v-if="!entries.length" class="intake-panel intake-empty">
         <h2>
-          {{
-            selectedStatus === 'SUBMITTED'
-              ? 'Chưa có hồ sơ chờ tiếp nhận'
-              : 'Chưa có hồ sơ đang xử lý'
-          }}
+          {{ queueEmptyLabels[selectedStatus] }}
         </h2>
         <p>Nhóm đang chọn chưa có hồ sơ trong phạm vi được phân công.</p>
       </div>
@@ -304,6 +530,63 @@ watch(
 </template>
 
 <style scoped>
+.resolution-error {
+  color: var(--color-error);
+}
+.resolution-fields {
+  border: 0;
+  padding: 0;
+  margin: 20px 0 0;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.resolution-fields > label {
+  font-weight: 700;
+}
+.resolution-fields select,
+.resolution-fields textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  min-height: 44px;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.resolution-fields > button {
+  justify-self: start;
+}
+.resolution-summary {
+  background: var(--color-surface-subtle);
+  padding: 20px;
+  border-radius: var(--radius-sm);
+}
+.resolution-summary h3 {
+  margin-top: 0;
+}
+.resolution-note {
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+.resolution-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  line-height: 1.65;
+  min-height: 44px;
+  margin: 16px 0;
+}
+.resolution-confirm input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin-top: 4px;
+  accent-color: var(--color-primary);
+}
+
 .intake-filters {
   display: flex;
   flex-wrap: wrap;

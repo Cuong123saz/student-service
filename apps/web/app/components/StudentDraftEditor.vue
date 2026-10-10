@@ -20,6 +20,7 @@ const confirmed = ref(false)
 const reloadRequired = ref(false)
 const uncertainSubmit = ref(false)
 const localUnsavedAnswers = ref<DraftValues | null>(null)
+let viewGeneration = 0
 const summary = ref<HTMLElement | null>(null)
 const errorSummary = ref<HTMLElement | null>(null)
 function studentAnswers(view: StudentDraft) {
@@ -41,7 +42,13 @@ function initialize(view: StudentDraft) {
 }
 initialize(draft.value)
 watch(answers, resetConfirmation, { deep: true, flush: 'sync' })
-const submitted = computed(() => draft.value.status !== 'DRAFT')
+const supplementing = computed(() => draft.value.status === 'NEEDS_SUPPLEMENT')
+const submitted = computed(() => draft.value.status !== 'DRAFT' && !supplementing.value)
+const latestResolution = computed(() =>
+  [...draft.value.events]
+    .reverse()
+    .find((event) => ['SUPPLEMENT_REQUESTED', 'APPROVED', 'REJECTED'].includes(event.action)),
+)
 const canEdit = computed(() => !submitted.value && draft.value.editable && !reloadRequired.value)
 const dirty = computed(
   () => !submitted.value && JSON.stringify(answers.value) !== savedAnswers.value,
@@ -111,29 +118,42 @@ function fail(e: unknown) {
 }
 async function save() {
   if (!canEdit.value || busy.value) return
+  const generation = viewGeneration
   busy.value = true
   failure.value = null
   resetConfirmation()
   try {
-    initialize(await api.save(draft.value.id, draft.value.revision, { ...answers.value }))
-    message.value = 'Đã lưu bản nháp. Hồ sơ chưa được gửi.'
+    const current = await api.save(draft.value.id, draft.value.revision, { ...answers.value })
+    if (generation !== viewGeneration) return
+    initialize(current)
+    message.value = supplementing.value
+      ? 'Đã lưu bổ sung. Nội dung mới chưa được gửi đến cán bộ.'
+      : 'Đã lưu bản nháp. Hồ sơ chưa được gửi.'
   } catch (e) {
+    if (generation !== viewGeneration) return
     fail(e)
   } finally {
-    busy.value = false
+    if (generation === viewGeneration) busy.value = false
   }
 }
 async function submit() {
   if (!canSubmit.value) return
+  const generation = viewGeneration
   busy.value = true
   failure.value = null
   message.value = ''
   confirmed.value = false
   try {
-    initialize(await api.submit(draft.value.id, draft.value.revision))
-    message.value = 'Đã gửi hồ sơ đến đơn vị xử lý.'
+    const wasSupplementing = supplementing.value
+    const current = await api.submit(draft.value.id, draft.value.revision)
+    if (generation !== viewGeneration) return
+    initialize(current)
+    message.value = wasSupplementing
+      ? 'Đã gửi bổ sung đến cán bộ đang xử lý.'
+      : 'Đã gửi hồ sơ đến đơn vị xử lý.'
     void nextTick(() => summary.value?.focus())
   } catch (e) {
+    if (generation !== viewGeneration) return
     const error = e as ProcedureApiError
     if (!error.status || error.status >= 500) {
       uncertainSubmit.value = true
@@ -141,18 +161,20 @@ async function submit() {
     }
     fail(e)
   } finally {
-    busy.value = false
+    if (generation === viewGeneration) busy.value = false
   }
 }
 async function reloadKeepingInput() {
   if (busy.value) return
+  const generation = viewGeneration
   busy.value = true
   resetConfirmation()
   try {
     const local = { ...answers.value }
     const hadUnsavedInput = dirty.value
     const current = await api.get(draft.value.id)
-    if (current.status === 'DRAFT') {
+    if (generation !== viewGeneration) return
+    if (current.status === 'DRAFT' || current.status === 'NEEDS_SUPPLEMENT') {
       draft.value = current
       savedAnswers.value = JSON.stringify(studentAnswers(current))
       message.value =
@@ -168,9 +190,10 @@ async function reloadKeepingInput() {
     reloadRequired.value = false
     uncertainSubmit.value = false
   } catch (e) {
+    if (generation !== viewGeneration) return
     fail(e)
   } finally {
-    busy.value = false
+    if (generation === viewGeneration) busy.value = false
   }
 }
 async function upload(key: string, event: Event) {
@@ -196,30 +219,40 @@ async function upload(key: string, event: Event) {
     input.value = ''
     return
   }
+  const generation = viewGeneration
   busy.value = true
   failure.value = null
   try {
-    initialize(await api.upload(draft.value.id, draft.value.revision, key, file))
+    const current = await api.upload(draft.value.id, draft.value.revision, key, file)
+    if (generation !== viewGeneration) return
+    initialize(current)
     message.value = 'Đã lưu minh chứng. Chữ ký chưa được xác minh.'
   } catch (e) {
+    if (generation !== viewGeneration) return
     fail(e)
   } finally {
-    busy.value = false
+    if (generation === viewGeneration) busy.value = false
     input.value = ''
   }
 }
 async function remove(fileId: string) {
   if (busy.value || dirty.value || !canEdit.value) return
+  const generation = viewGeneration
   busy.value = true
   failure.value = null
   resetConfirmation()
   try {
-    initialize(await api.remove(draft.value.id, draft.value.revision, fileId))
-    message.value = 'Đã gỡ minh chứng khỏi bản nháp.'
+    const current = await api.remove(draft.value.id, draft.value.revision, fileId)
+    if (generation !== viewGeneration) return
+    initialize(current)
+    message.value = supplementing.value
+      ? 'Đã gỡ khỏi bản bổ sung. Minh chứng trong các lần gửi trước vẫn được giữ.'
+      : 'Đã gỡ minh chứng khỏi bản nháp.'
   } catch (e) {
+    if (generation !== viewGeneration) return
     fail(e)
   } finally {
-    busy.value = false
+    if (generation === viewGeneration) busy.value = false
   }
 }
 function review() {
@@ -235,7 +268,23 @@ function beforeUnload(event: BeforeUnloadEvent) {
   }
 }
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
-onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
+onBeforeUnmount(() => {
+  viewGeneration += 1
+  window.removeEventListener('beforeunload', beforeUnload)
+})
+watch(
+  () => props.initialDraft,
+  (current) => {
+    viewGeneration += 1
+    busy.value = false
+    failure.value = null
+    message.value = ''
+    reloadRequired.value = false
+    uncertainSubmit.value = false
+    localUnsavedAnswers.value = null
+    initialize(structuredClone(toRaw(current)))
+  },
+)
 onBeforeRouteLeave(
   () =>
     (!dirty.value && !localUnsavedAnswers.value) ||
@@ -251,18 +300,44 @@ onBeforeRouteLeave(
       </div>
       <span class="draft-badge" role="status">{{ submissionStatusLabels[draft.status] }}</span>
     </header>
-    <p v-if="!submitted" class="draft-notice">
+    <p v-if="draft.status === 'DRAFT'" class="draft-notice">
       Bản nháp chưa được chuyển đến đơn vị xử lý. Lưu thông tin, xem lại và xác nhận trước khi gửi
       hồ sơ.
     </p>
-    <div v-else class="draft-notice">
-      <p>Hồ sơ đã gửi được giữ nguyên để đơn vị xử lý tiếp nhận.</p>
-      <p>Gửi hoặc tiếp nhận hồ sơ chưa phải là phê duyệt hay xác nhận chữ ký số.</p>
+    <div v-else-if="supplementing" class="draft-warning" role="status">
+      <strong>Hồ sơ cần bổ sung</strong>
+      <p v-if="latestResolution?.note" class="draft-reason">{{ latestResolution.note }}</p>
       <p>
-        Đã gửi:
+        Sửa thông tin, tải hoặc gỡ minh chứng rồi xem lại và gửi bổ sung. Cán bộ chỉ thấy bản đã gửi
+        lần {{ draft.roundNumber }}; nội dung bạn đang sửa chưa được chuyển đến cán bộ.
+      </p>
+    </div>
+    <div v-else class="draft-notice">
+      <p>Thông tin và minh chứng của lần gửi gần nhất được giữ nguyên.</p>
+      <p>Quyết định nội dung trong ứng dụng chưa phải là cấp văn bản hoặc xác minh chữ ký số.</p>
+      <p
+        v-if="
+          (draft.status === 'APPROVED' || draft.status === 'REJECTED') && latestResolution?.note
+        "
+        class="draft-reason"
+      >
+        <strong>Lý do xử lý:</strong> {{ latestResolution.note }}
+      </p>
+      <p>
+        Đã gửi lần đầu:
         <time :datetime="draft.submittedAt ?? undefined">{{
           formatSubmissionTime(draft.submittedAt)
         }}</time>
+      </p>
+      <p v-if="draft.lastSubmittedAt">
+        Lần gửi {{ draft.roundNumber }} gần nhất:
+        <time :datetime="draft.lastSubmittedAt">{{
+          formatSubmissionTime(draft.lastSubmittedAt)
+        }}</time>
+      </p>
+      <p v-if="draft.decisionAt">
+        Quyết định nội dung:
+        <time :datetime="draft.decisionAt">{{ formatSubmissionTime(draft.decisionAt) }}</time>
       </p>
       <p v-if="draft.reviewStartedAt">
         Bắt đầu xử lý:
@@ -396,7 +471,9 @@ onBeforeRouteLeave(
           </div>
         </fieldset>
         <div v-if="!submitted" class="draft-actions">
-          <BaseButton type="submit" :loading="busy" :disabled="!canEdit">Lưu bản nháp</BaseButton
+          <BaseButton type="submit" :loading="busy" :disabled="!canEdit">{{
+            supplementing ? 'Lưu bổ sung' : 'Lưu bản nháp'
+          }}</BaseButton
           ><BaseButton type="button" variant="secondary" :disabled="busy" @click="review"
             >Xem lại thông tin</BaseButton
           >
@@ -497,7 +574,9 @@ onBeforeRouteLeave(
               ? 'Nội dung hồ sơ đã gửi.'
               : dirty
                 ? 'Nội dung đang nhập, có thay đổi chưa lưu.'
-                : 'Nội dung bản nháp đã lưu.'
+                : supplementing
+                  ? 'Nội dung bổ sung đã lưu, chưa gửi đến cán bộ.'
+                  : 'Nội dung bản nháp đã lưu.'
           }}
         </p>
         <dl>
@@ -520,7 +599,8 @@ onBeforeRouteLeave(
           </li>
         </ul>
         <p v-else-if="!submitted">
-          Đã điền các mục bắt buộc trong biểu mẫu. Hồ sơ vẫn chưa được gửi.
+          Đã điền các mục bắt buộc trong biểu mẫu.
+          {{ supplementing ? 'Phần bổ sung vẫn chưa được gửi.' : 'Hồ sơ vẫn chưa được gửi.' }}
         </p>
         <div v-if="!submitted" class="draft-submit">
           <p v-if="dirty" class="draft-help">Lưu thay đổi trước khi xác nhận và gửi hồ sơ.</p>
@@ -538,18 +618,30 @@ onBeforeRouteLeave(
               >Tôi đã xem lại và xác nhận thông tin đã lưu cùng các minh chứng là chính xác.</span
             >
           </label>
-          <BaseButton type="button" :loading="busy" :disabled="!canSubmit" @click="submit"
-            >Gửi hồ sơ</BaseButton
-          >
+          <BaseButton type="button" :loading="busy" :disabled="!canSubmit" @click="submit">{{
+            supplementing ? 'Gửi bổ sung' : 'Gửi hồ sơ'
+          }}</BaseButton>
         </div>
         <p class="draft-warning">
           Hình dấu đỏ hoặc chữ ký trên tệp không phải kết quả xác minh chữ ký số.
         </p>
       </aside>
     </div>
+    <SubmissionHistory
+      :rounds="draft.rounds"
+      :events="draft.events"
+      :procedure="draft.procedure"
+      :download-url="(roundNumber, fileId) => api.roundDownloadUrl(draft.id, roundNumber, fileId)"
+    />
   </div>
 </template>
 <style scoped>
+.draft-editor > .submission-history {
+  margin-top: 24px;
+}
+.draft-reason {
+  white-space: pre-wrap;
+}
 .draft-readonly {
   margin: 0;
   white-space: pre-wrap;

@@ -74,6 +74,12 @@ Sinh viên gửi bản đã lưu sau khi xem lại và xác nhận; máy chủ k
 
 [Hướng dẫn gửi và tiếp nhận](docs/submission-intake.md) mô tả cách dùng, quyền, API và kiểm chứng. Giấy xác nhận sinh viên tiếp tục xử lý trực tiếp tại CTSV.
 
+### Sprint 5 — Bổ sung và quyết định xử lý
+
+Cán bộ đã nhận hồ sơ được yêu cầu bổ sung, duyệt nội dung hoặc không chấp thuận theo quyền hiện tại. Sinh viên bổ sung rồi gửi lại cho cùng cán bộ; mỗi lần gửi và minh chứng gốc được giữ riêng để đối chiếu. Quyết định nội dung chưa phải ký hoặc cấp văn bản.
+
+[Hướng dẫn bổ sung và quyết định](docs/submission-resolution.md) mô tả quyền, cách sử dụng, lịch sử và kiểm chứng. Giấy xác nhận sinh viên vẫn thực hiện trực tiếp tại CTSV.
+
 ## Luồng đã chạy được
 
 ### Admin

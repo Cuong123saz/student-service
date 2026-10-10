@@ -11,7 +11,12 @@ import {
 } from '../organizations/organization.schema.js'
 import { procedureVersions } from '../procedures/procedure.schema.js'
 import type { PublicProcedure } from '../procedures/procedure.contract.js'
-import { submissions, submissionFiles } from './submission.schema.js'
+import {
+  submissions,
+  submissionFiles,
+  submissionRounds,
+  submissionEvents,
+} from './submission.schema.js'
 import { completionIssues, validateAnswers } from './submission.validation.js'
 import { reviewerAuthorities, type ReviewAuthority } from './submission.authorization.js'
 import {
@@ -20,6 +25,10 @@ import {
   revisionConflict,
   reviewForbidden,
   type ReviewDetail,
+  type SubmittedStatus,
+  type ResolutionAction,
+  type SubmissionEventAction,
+  type RoundEvidence,
   type ReviewSummary,
   type VerifySubmissionFiles,
   type DraftValues,
@@ -91,6 +100,122 @@ export class DrizzleSubmissionRepository {
     if (units[0]?.status !== 'ACTIVE' || owners[0]?.status !== 'ACTIVE') return null
     return { ...row, unitName: units[0].name }
   }
+  private async activeProcessingUnit(tx: Transaction, row: DraftRow) {
+    if (!row.processingUnitId) return false
+    const [unit] = await tx
+      .select({ id: organizationalUnits.id })
+      .from(organizationalUnits)
+      .where(
+        and(
+          eq(organizationalUnits.id, row.processingUnitId),
+          eq(organizationalUnits.status, 'ACTIVE'),
+        ),
+      )
+      .limit(1)
+    return Boolean(unit)
+  }
+  private evidenceView(file: RoundEvidence) {
+    const { storageKey: _key, ...view } = file
+    return view
+  }
+  private async history(tx: Transaction, row: DraftRow) {
+    const rounds = await tx
+      .select()
+      .from(submissionRounds)
+      .where(eq(submissionRounds.submissionId, row.id))
+      .orderBy(asc(submissionRounds.roundNumber))
+    const events = await tx
+      .select({
+        id: submissionEvents.id,
+        roundNumber: submissionRounds.roundNumber,
+        action: submissionEvents.action,
+        actorName: submissionEvents.actorName,
+        note: submissionEvents.note,
+        createdAt: submissionEvents.createdAt,
+      })
+      .from(submissionEvents)
+      .innerJoin(submissionRounds, eq(submissionRounds.id, submissionEvents.roundId))
+      .where(eq(submissionEvents.submissionId, row.id))
+      .orderBy(asc(submissionEvents.toRevision))
+    return {
+      roundNumber: row.roundNumber,
+      lastSubmittedAt: row.lastSubmittedAt?.toISOString() ?? null,
+      decisionAt: row.decisionAt?.toISOString() ?? null,
+      rounds: rounds.map((round) => ({
+        roundNumber: round.roundNumber,
+        submittedAt: round.submittedAt.toISOString(),
+        studentSnapshot: round.studentSnapshot,
+        values: round.values,
+        files: round.files.map((file) => this.evidenceView(file)),
+        source: round.source,
+      })),
+      events: events.map((event) => ({ ...event, createdAt: event.createdAt.toISOString() })),
+    }
+  }
+  private async round(tx: Transaction, row: DraftRow, roundNumber = row.roundNumber) {
+    const [round] = await tx
+      .select()
+      .from(submissionRounds)
+      .where(
+        and(
+          eq(submissionRounds.submissionId, row.id),
+          eq(submissionRounds.roundNumber, roundNumber),
+        ),
+      )
+      .limit(1)
+    if (!round) throw missingDraft()
+    return round
+  }
+  private async recordEvent(
+    tx: Transaction,
+    actor: SubmissionActor,
+    row: DraftRow,
+    fromRevision: number,
+    action: SubmissionEventAction,
+    note: string | null = null,
+  ) {
+    const round = await this.round(tx, row)
+    const [user] = await tx
+      .select({ name: users.fullName })
+      .from(users)
+      .where(eq(users.id, actor.userId))
+      .limit(1)
+    if (!user) throw missingDraft()
+    await tx.insert(submissionEvents).values({
+      submissionId: row.id,
+      roundId: round.id,
+      action,
+      actorUserId: actor.userId,
+      actorName: user.name,
+      note,
+      fromRevision,
+      toRevision: row.revision,
+    })
+  }
+  private async recordRound(
+    tx: Transaction,
+    row: DraftRow,
+    files: (typeof submissionFiles.$inferSelect)[],
+  ) {
+    await tx.insert(submissionRounds).values({
+      submissionId: row.id,
+      roundNumber: row.roundNumber,
+      submittedAt: row.lastSubmittedAt!,
+      studentSnapshot: row.studentSnapshot!,
+      values: row.values,
+      files: files.map((file) => ({
+        id: file.id,
+        attachmentKey: file.attachmentKey,
+        name: file.name,
+        mimeType: file.mimeType,
+        size: file.size,
+        sha256: file.sha256,
+        signatureStatus: file.signatureStatus,
+        storageKey: file.storageKey,
+      })),
+      source: 'LIVE',
+    })
+  }
   private async view(tx: Transaction, row: DraftRow): Promise<DraftView> {
     const files = await tx
       .select({
@@ -106,9 +231,12 @@ export class DrizzleSubmissionRepository {
       .where(and(eq(submissionFiles.submissionId, row.id), isNull(submissionFiles.removedAt)))
       .orderBy(submissionFiles.createdAt)
     const editable =
-      row.status === 'DRAFT' &&
-      Boolean(await this.available(tx, row.serviceId, row.procedureVersionId))
+      row.status === 'NEEDS_SUPPLEMENT'
+        ? await this.activeProcessingUnit(tx, row)
+        : row.status === 'DRAFT' &&
+          Boolean(await this.available(tx, row.serviceId, row.procedureVersionId))
     return {
+      ...(await this.history(tx, row)),
       id: row.id,
       serviceId: row.serviceId,
       serviceName: row.serviceName,
@@ -124,7 +252,9 @@ export class DrizzleSubmissionRepository {
       readOnlyReason: editable
         ? null
         : row.status !== 'DRAFT'
-          ? 'Hồ sơ đã gửi và chỉ được xem. Nội dung và minh chứng đã được chốt.'
+          ? row.status === 'NEEDS_SUPPLEMENT'
+            ? 'Đơn vị xử lý đang tạm ngừng. Bản làm việc hiện chỉ được xem.'
+            : 'Hồ sơ đã gửi và chỉ được xem. Nội dung và minh chứng đã được chốt.'
           : 'Biểu mẫu đã cập nhật hoặc thủ tục đang tạm ngừng. Bản nháp này chỉ được xem; hãy kiểm tra trang dịch vụ để bắt đầu với biểu mẫu hiện hành.',
       updatedAt: row.updatedAt.toISOString(),
     }
@@ -241,6 +371,9 @@ export class DrizzleSubmissionRepository {
           revision: submissions.revision,
           submittedAt: submissions.submittedAt,
           reviewStartedAt: submissions.reviewStartedAt,
+          roundNumber: submissions.roundNumber,
+          lastSubmittedAt: submissions.lastSubmittedAt,
+          decisionAt: submissions.decisionAt,
           updatedAt: submissions.updatedAt,
         })
         .from(submissions)
@@ -251,6 +384,8 @@ export class DrizzleSubmissionRepository {
         ...row,
         submittedAt: row.submittedAt?.toISOString() ?? null,
         reviewStartedAt: row.reviewStartedAt?.toISOString() ?? null,
+        lastSubmittedAt: row.lastSubmittedAt?.toISOString() ?? null,
+        decisionAt: row.decisionAt?.toISOString() ?? null,
         updatedAt: row.updatedAt.toISOString(),
       }))
     })
@@ -282,14 +417,19 @@ export class DrizzleSubmissionRepository {
   }
   private async writable(tx: Transaction, userId: string, id: string, revision: number) {
     const { row, profile } = await this.lockOwned(tx, userId, id)
-    if (row.status !== 'DRAFT')
+    if (!['DRAFT', 'NEEDS_SUPPLEMENT'].includes(row.status))
       throw new SubmissionError(
         409,
         'SUBMISSION_READ_ONLY',
         'Hồ sơ đã gửi; không thể thay đổi nội dung hoặc minh chứng.',
       )
     if (row.revision !== revision) throw revisionConflict()
-    if (!(await this.available(tx, row.serviceId, row.procedureVersionId)))
+    if (row.status === 'NEEDS_SUPPLEMENT' && !(await this.activeProcessingUnit(tx, row)))
+      throw new SubmissionError(409, 'ROUTING_UNAVAILABLE', 'Đơn vị xử lý đang tạm ngừng.')
+    if (
+      row.status === 'DRAFT' &&
+      !(await this.available(tx, row.serviceId, row.procedureVersionId))
+    )
       throw new SubmissionError(
         409,
         'PROCEDURE_UNAVAILABLE',
@@ -440,10 +580,13 @@ export class DrizzleSubmissionRepository {
   ) {
     return this.database.transaction(async (tx) => {
       const { row, profile } = await this.lockOwned(tx, actor.userId, id)
-      if (row.status !== 'DRAFT') return this.view(tx, row)
+      const supplement = row.status === 'NEEDS_SUPPLEMENT'
+      if (row.status !== 'DRAFT' && !supplement) return this.view(tx, row)
       if (row.revision !== revision) throw revisionConflict()
-      const active = await this.available(tx, row.serviceId, row.procedureVersionId)
-      if (!active)
+      const active = supplement
+        ? null
+        : await this.available(tx, row.serviceId, row.procedureVersionId)
+      if (!supplement && !active)
         throw new SubmissionError(
           409,
           'PROCEDURE_UNAVAILABLE',
@@ -510,42 +653,73 @@ export class DrizzleSubmissionRepository {
           'Thông tin hồ sơ hiện tại chưa đầy đủ.',
           refreshedIssues,
         )
-      // Recheck routing after storage I/O. Never silently reroute a designated submission.
-      const current = await this.available(tx, row.serviceId, row.procedureVersionId)
-      if (!current)
+      // Recheck profile and pinned routing after storage I/O; never silently reassign.
+      const current = supplement
+        ? null
+        : await this.available(tx, row.serviceId, row.procedureVersionId)
+      if (!supplement && !current)
         throw new SubmissionError(
           409,
           'PROCEDURE_UNAVAILABLE',
           'Thủ tục hoặc đơn vị xử lý đang tạm ngừng.',
         )
-      const config = current.version.config
+      const processingUnitId = supplement
+        ? row.processingUnitId!
+        : current!.version.config.processingUnitId
+      const designatedReviewerId = supplement
+        ? row.designatedReviewerId
+        : current!.version.config.processorUserId
+      if (supplement && !(await this.activeProcessingUnit(tx, row)))
+        throw new SubmissionError(409, 'ROUTING_UNAVAILABLE', 'Đơn vị xử lý đang tạm ngừng.')
+      const eligibleUserId = supplement ? row.reviewerUserId : designatedReviewerId
       const eligible = await reviewerAuthorities(tx, {
-        ...(config.processorUserId ? { userId: config.processorUserId } : {}),
-        unitId: config.processingUnitId,
+        ...(eligibleUserId ? { userId: eligibleUserId } : {}),
+        unitId: processingUnitId,
         excludeUserId: actor.userId,
       }).limit(1)
-      if (!eligible.length)
+      if (
+        !eligible.length ||
+        (supplement &&
+          (!row.reviewerUserId ||
+            (row.designatedReviewerId && row.designatedReviewerId !== row.reviewerUserId)))
+      )
         throw new SubmissionError(
           409,
           'ROUTING_UNAVAILABLE',
-          'Chưa có cán bộ hợp lệ tiếp nhận hồ sơ. Vui lòng liên hệ đơn vị xử lý.',
+          'Cán bộ hoặc tuyến xử lý không còn hợp lệ. Vui lòng liên hệ đơn vị xử lý.',
         )
+      const now = new Date()
       const [submitted] = await tx
         .update(submissions)
         .set({
-          status: 'SUBMITTED',
+          status: supplement ? 'IN_REVIEW' : 'SUBMITTED',
           revision: row.revision + 1,
           values,
-          submittedAt: new Date(),
-          processingUnitId: config.processingUnitId,
-          designatedReviewerId: config.processorUserId,
+          submittedAt: row.submittedAt ?? now,
+          lastSubmittedAt: now,
+          roundNumber: row.roundNumber + 1,
+          processingUnitId,
+          designatedReviewerId,
           studentSnapshot: currentProfile,
           updatedAt: new Date(),
         })
         .where(eq(submissions.id, id))
         .returning()
       if (!submitted) throw missingDraft()
-      await this.audit(tx, actor, 'SUBMISSION_SUBMIT', submitted)
+      await this.recordRound(tx, submitted, files)
+      await this.recordEvent(
+        tx,
+        actor,
+        submitted,
+        row.revision,
+        supplement ? 'RESUBMITTED' : 'SUBMITTED',
+      )
+      await this.audit(
+        tx,
+        actor,
+        supplement ? 'SUBMISSION_RESUBMIT' : 'SUBMISSION_SUBMIT',
+        submitted,
+      )
       return this.view(tx, submitted)
     })
   }
@@ -558,7 +732,13 @@ export class DrizzleSubmissionRepository {
     const global = authority.some((scope) => scope.scopeType === 'GLOBAL')
     const units = authority.flatMap((scope) => (scope.unitId ? [scope.unitId] : []))
     return and(
-      inArray(submissions.status, ['SUBMITTED', 'IN_REVIEW']),
+      inArray(submissions.status, [
+        'SUBMITTED',
+        'IN_REVIEW',
+        'NEEDS_SUPPLEMENT',
+        'APPROVED',
+        'REJECTED',
+      ]),
       ne(submissions.studentUserId, userId),
       or(isNull(submissions.designatedReviewerId), eq(submissions.designatedReviewerId, userId)),
       global ? sql`true` : units.length ? inArray(submissions.processingUnitId, units) : sql`false`,
@@ -588,6 +768,9 @@ export class DrizzleSubmissionRepository {
       status: row.status,
       revision: row.revision,
       submittedAt: row.submittedAt.toISOString(),
+      roundNumber: row.roundNumber,
+      lastSubmittedAt: row.lastSubmittedAt?.toISOString() ?? null,
+      decisionAt: row.decisionAt?.toISOString() ?? null,
       processingUnitName: unit?.name ?? row.procedure.processingUnitName,
       student: {
         fullName: row.studentSnapshot.fullName,
@@ -597,19 +780,45 @@ export class DrizzleSubmissionRepository {
       canClaim: row.status === 'SUBMITTED',
     }
   }
-  private async reviewDetail(tx: Transaction, row: DraftRow): Promise<ReviewDetail> {
-    const view = await this.view(tx, row)
+  private async allowedActions(
+    tx: Transaction,
+    userId: string,
+    row: DraftRow,
+  ): Promise<ResolutionAction[]> {
+    if (row.status !== 'IN_REVIEW' || row.reviewerUserId !== userId) return []
+    const review = await reviewerAuthorities(tx, {
+      userId,
+      unitId: row.processingUnitId!,
+      excludeUserId: row.studentUserId,
+    })
+    if (!review.length) return []
+    const reject = await reviewerAuthorities(tx, {
+      userId,
+      unitId: row.processingUnitId!,
+      requireReject: true,
+      excludeUserId: row.studentUserId,
+    })
+    return reject.length ? ['REQUEST_SUPPLEMENT', 'APPROVE', 'REJECT'] : ['APPROVE']
+  }
+  private async reviewDetail(
+    tx: Transaction,
+    row: DraftRow,
+    userId: string,
+  ): Promise<ReviewDetail> {
+    const round = await this.round(tx, row)
     return {
       ...(await this.reviewSummary(tx, row)),
+      ...(await this.history(tx, row)),
       serviceId: row.serviceId,
       procedure: row.procedure,
-      values: row.values,
-      files: view.files,
-      studentSnapshot: row.studentSnapshot!,
+      values: round.values,
+      files: round.files.map((file) => this.evidenceView(file)),
+      studentSnapshot: round.studentSnapshot,
       reviewStartedAt: row.reviewStartedAt?.toISOString() ?? null,
+      allowedActions: await this.allowedActions(tx, userId, row),
     }
   }
-  async reviewList(userId: string, status?: 'SUBMITTED' | 'IN_REVIEW'): Promise<ReviewSummary[]> {
+  async reviewList(userId: string, status?: SubmittedStatus): Promise<ReviewSummary[]> {
     return this.database.transaction(async (tx) => {
       const authority = await this.reviewAuthority(tx, userId)
       const rows = await tx
@@ -637,7 +846,7 @@ export class DrizzleSubmissionRepository {
         .where(and(eq(submissions.id, id), this.reviewVisibility(userId, authority)))
         .limit(1)
       if (!row) throw missingDraft()
-      return this.reviewDetail(tx, row)
+      return this.reviewDetail(tx, row, userId)
     })
   }
   async claim(actor: SubmissionActor, id: string, revision: number): Promise<ReviewDetail> {
@@ -661,8 +870,8 @@ export class DrizzleSubmissionRepository {
         .where(and(eq(submissions.id, id), this.reviewVisibility(actor.userId, authority)))
         .for('update')
       if (!row) throw missingDraft()
-      if (row.status === 'IN_REVIEW') {
-        if (row.reviewerUserId === actor.userId) return this.reviewDetail(tx, row)
+      if (row.status !== 'SUBMITTED') {
+        if (row.reviewerUserId === actor.userId) return this.reviewDetail(tx, row, actor.userId)
         throw new SubmissionError(409, 'ALREADY_CLAIMED', 'Hồ sơ đã được cán bộ khác nhận xử lý.')
       }
       if (row.revision !== revision) throw revisionConflict()
@@ -678,34 +887,145 @@ export class DrizzleSubmissionRepository {
         .where(eq(submissions.id, id))
         .returning()
       if (!updated) throw missingDraft()
+      await this.recordEvent(tx, actor, updated, row.revision, 'CLAIMED')
       await this.audit(tx, actor, 'SUBMISSION_CLAIM', updated)
-      return this.reviewDetail(tx, updated)
+      return this.reviewDetail(tx, updated, actor.userId)
     })
   }
-  async reviewFile(userId: string, id: string, fileId: string) {
+  async resolve(
+    actor: SubmissionActor,
+    id: string,
+    revision: number,
+    action: ResolutionAction,
+    rawNote: string,
+  ): Promise<ReviewDetail> {
+    const note = typeof rawNote === 'string' ? rawNote.trim() : ''
+    if (
+      !['REQUEST_SUPPLEMENT', 'APPROVE', 'REJECT'].includes(action) ||
+      !note ||
+      note.length > 2000
+    )
+      throw new SubmissionError(422, 'INVALID_DECISION', 'Nhập lý do từ 1 đến 2000 ký tự.', [
+        { path: 'note', message: 'Nhập lý do từ 1 đến 2000 ký tự.' },
+      ])
     return this.database.transaction(async (tx) => {
-      const authority = await this.reviewAuthority(tx, userId)
-      const [file] = await tx
-        .select({
-          key: submissionFiles.storageKey,
-          name: submissionFiles.name,
-          mimeType: submissionFiles.mimeType,
-          size: submissionFiles.size,
-          sha256: submissionFiles.sha256,
-        })
-        .from(submissionFiles)
-        .innerJoin(submissions, eq(submissions.id, submissionFiles.submissionId))
+      await this.reviewAuthority(tx, actor.userId)
+      const [candidate] = await tx
+        .select({ serviceId: submissions.serviceId })
+        .from(submissions)
+        .where(eq(submissions.id, id))
+        .limit(1)
+      if (!candidate) throw missingDraft()
+      await tx
+        .select({ id: services.id })
+        .from(services)
+        .where(eq(services.id, candidate.serviceId))
+        .for('update')
+      const authority = await this.reviewAuthority(tx, actor.userId)
+      const [row] = await tx
+        .select()
+        .from(submissions)
+        .where(and(eq(submissions.id, id), this.reviewVisibility(actor.userId, authority)))
+        .for('update')
+      if (!row) throw missingDraft()
+      if (row.reviewerUserId !== actor.userId)
+        throw new SubmissionError(
+          403,
+          'FORBIDDEN',
+          'Chỉ cán bộ đã nhận hồ sơ được quyết định xử lý.',
+        )
+      // Re-authorize before even an idempotent retry. Reject and scope belong to the review role.
+      const permitted = await reviewerAuthorities(tx, {
+        userId: actor.userId,
+        unitId: row.processingUnitId!,
+        requireReject: action !== 'APPROVE',
+        excludeUserId: row.studentUserId,
+      })
+      if (!permitted.length) throw reviewForbidden()
+      const eventAction: SubmissionEventAction =
+        action === 'REQUEST_SUPPLEMENT'
+          ? 'SUPPLEMENT_REQUESTED'
+          : action === 'APPROVE'
+            ? 'APPROVED'
+            : 'REJECTED'
+      const [prior] = await tx
+        .select()
+        .from(submissionEvents)
         .where(
-          and(
-            eq(submissions.id, id),
-            eq(submissionFiles.id, fileId),
-            isNull(submissionFiles.removedAt),
-            this.reviewVisibility(userId, authority),
-          ),
+          and(eq(submissionEvents.submissionId, id), eq(submissionEvents.fromRevision, revision)),
         )
         .limit(1)
-      if (!file) throw missingDraft()
-      return file
+      if (prior) {
+        if (
+          prior.actorUserId === actor.userId &&
+          prior.action === eventAction &&
+          prior.note === note
+        )
+          return this.reviewDetail(tx, row, actor.userId)
+        throw revisionConflict()
+      }
+      if (row.revision !== revision || row.status !== 'IN_REVIEW') throw revisionConflict()
+      const now = new Date()
+      const [updated] = await tx
+        .update(submissions)
+        .set({
+          status:
+            action === 'REQUEST_SUPPLEMENT'
+              ? 'NEEDS_SUPPLEMENT'
+              : action === 'APPROVE'
+                ? 'APPROVED'
+                : 'REJECTED',
+          revision: row.revision + 1,
+          decisionAt: action === 'REQUEST_SUPPLEMENT' ? null : now,
+          updatedAt: now,
+        })
+        .where(eq(submissions.id, id))
+        .returning()
+      if (!updated) throw missingDraft()
+      await this.recordEvent(tx, actor, updated, row.revision, eventAction, note)
+      await this.audit(tx, actor, 'SUBMISSION_' + eventAction, updated)
+      return this.reviewDetail(tx, updated, actor.userId)
     })
+  }
+  private storedRoundFile(files: RoundEvidence[], fileId: string) {
+    const file = files.find((item) => item.id === fileId)
+    if (!file) throw missingDraft()
+    return {
+      key: file.storageKey,
+      name: file.name,
+      mimeType: file.mimeType,
+      size: file.size,
+      sha256: file.sha256,
+    }
+  }
+  async roundFile(userId: string, id: string, roundNumber: number, fileId: string) {
+    return this.database.transaction(async (tx) => {
+      await this.profile(tx, userId)
+      const [row] = await tx
+        .select()
+        .from(submissions)
+        .where(and(eq(submissions.id, id), eq(submissions.studentUserId, userId)))
+        .limit(1)
+      if (!row) throw missingDraft()
+      return this.storedRoundFile((await this.round(tx, row, roundNumber)).files, fileId)
+    })
+  }
+  async reviewRoundFile(userId: string, id: string, roundNumber: number | null, fileId: string) {
+    return this.database.transaction(async (tx) => {
+      const authority = await this.reviewAuthority(tx, userId)
+      const [row] = await tx
+        .select()
+        .from(submissions)
+        .where(and(eq(submissions.id, id), this.reviewVisibility(userId, authority)))
+        .limit(1)
+      if (!row) throw missingDraft()
+      return this.storedRoundFile(
+        (await this.round(tx, row, roundNumber ?? row.roundNumber)).files,
+        fileId,
+      )
+    })
+  }
+  reviewFile(userId: string, id: string, fileId: string) {
+    return this.reviewRoundFile(userId, id, null, fileId)
   }
 }

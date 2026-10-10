@@ -1,5 +1,7 @@
 import type { PublicProcedure, ProcedureIssue } from './procedure'
-export type SubmissionStatus = 'DRAFT' | 'SUBMITTED' | 'IN_REVIEW'
+export type SubmissionStatus =
+  'DRAFT' | 'SUBMITTED' | 'IN_REVIEW' | 'NEEDS_SUPPLEMENT' | 'APPROVED' | 'REJECTED'
+export type ResolutionAction = 'REQUEST_SUPPLEMENT' | 'APPROVE' | 'REJECT'
 export type DraftValues = Record<string, string | number | boolean | null>
 export interface Evidence {
   id: string
@@ -10,7 +12,38 @@ export interface Evidence {
   sha256: string
   signatureStatus: 'NOT_CHECKED'
 }
-export interface StudentDraft {
+export interface SubmissionStudentSnapshot {
+  fullName: string
+  studentCode: string
+  classCode: string
+  facultyCode: string
+}
+export interface SubmissionRound {
+  roundNumber: number
+  submittedAt: string
+  studentSnapshot: SubmissionStudentSnapshot
+  values: DraftValues
+  files: Evidence[]
+  source: 'LIVE' | 'MIGRATION'
+}
+export interface SubmissionEvent {
+  id: string
+  roundNumber: number
+  action: 'SUBMITTED' | 'CLAIMED' | 'SUPPLEMENT_REQUESTED' | 'RESUBMITTED' | 'APPROVED' | 'REJECTED'
+  actorName: string
+  note: string | null
+  createdAt: string
+}
+export interface SubmissionProgress {
+  roundNumber: number
+  lastSubmittedAt: string | null
+  decisionAt: string | null
+}
+export interface SubmissionHistory extends SubmissionProgress {
+  rounds: SubmissionRound[]
+  events: SubmissionEvent[]
+}
+export interface StudentDraft extends SubmissionHistory {
   id: string
   serviceId: number
   serviceName: string
@@ -26,7 +59,7 @@ export interface StudentDraft {
   reviewStartedAt: string | null
   updatedAt: string
 }
-export interface DraftSummary {
+export interface DraftSummary extends SubmissionProgress {
   id: string
   serviceName: string
   status: SubmissionStatus
@@ -35,8 +68,7 @@ export interface DraftSummary {
   reviewStartedAt: string | null
   updatedAt: string
 }
-
-export interface ReviewSubmissionSummary {
+export interface ReviewSubmissionSummary extends SubmissionProgress {
   id: string
   serviceName: string
   status: Exclude<SubmissionStatus, 'DRAFT'>
@@ -47,16 +79,12 @@ export interface ReviewSubmissionSummary {
   reviewerName: string | null
   canClaim: boolean
 }
-export interface ReviewSubmissionDetail extends ReviewSubmissionSummary {
+export interface ReviewSubmissionDetail extends ReviewSubmissionSummary, SubmissionHistory {
   serviceId: number
   procedure: PublicProcedure
   values: DraftValues
   files: Evidence[]
-  studentSnapshot: {
-    fullName: string
-    studentCode: string
-    classCode: string
-    facultyCode: string
-  }
+  studentSnapshot: SubmissionStudentSnapshot
   reviewStartedAt: string | null
+  allowedActions: ResolutionAction[]
 }

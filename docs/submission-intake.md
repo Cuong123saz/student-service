@@ -64,3 +64,7 @@ Demo trình duyệt dùng ba tài khoản và thủ tục giả định trên da
 Bằng chứng local được bỏ qua trong Git: run/intake-api-{unit,integration,targeted,typecheck,lint,build}.log, run/intake-web-{tests,build}.log, run/intake-adr-tests.log, run/intake-format.log, run/intake-browser-smoke.log, run/intake-dev-migration.log và run/intake-local-health.log. Ảnh run/intake-{student,reviewer,admin}-{1440,375}.png. Kịch bản demo run/intake-smoke.mjs chứa dữ liệu giả, chỉ chạy được với database test localhost:5434/student_service_test.
 
 Bản local mới chạy tại http://localhost:3001, API http://localhost:3000; kiểm tra API công khai 200, API hồ sơ chưa đăng nhập 401 và các trang mới tải được. Không dùng kết quả nghiệm thu Sprint 4 hoặc số liệu bản nháp lịch sử để thay bằng chứng của bước gửi/nhận.
+
+## Increment bổ sung và quyết định
+
+Bước [bổ sung và quyết định xử lý](submission-resolution.md) được triển khai tiếp theo yêu cầu chủ dự án. Phạm vi và số liệu kiểm chứng phía trên thuộc increment gửi/tiếp nhận; không thay bằng chứng cho bước mới. Chưa ký/cấp văn bản; giấy xác nhận sinh viên giữ OFFLINE.

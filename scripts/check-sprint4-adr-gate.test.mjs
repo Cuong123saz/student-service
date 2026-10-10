@@ -16,6 +16,8 @@ const protectedTables = [
   'workflow_steps',
   'submissions',
   'submission_files',
+  'submission_rounds',
+  'submission_events',
   'form_versions',
   'reviewer_queue',
 ]
@@ -79,6 +81,7 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
     write(adrPath, '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0003-student-drafts-and-evidence.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0004-submission-and-intake.md', '---\nstatus: ' + adr + '\n---\n')
+    write('docs/adr/0005-submission-resolution.md', '---\nstatus: ' + adr + '\n---\n')
   }
   const base = commit()
   return { write, commit, run, base }
@@ -227,3 +230,21 @@ test('submission intake ADR must be accepted before changing submitted records',
   assert.match(result.output, /0004-submission-and-intake/u)
   assert.match(result.output, /was not Accepted before/u)
 })
+
+for (const table of ['submissions', 'submission_files', 'submission_rounds', 'submission_events']) {
+  test('resolution ADR must predate changes to ' + table, (t) => {
+    const repo = fixture(t, { adr: 'Accepted' })
+    repo.write('docs/adr/0005-submission-resolution.md', '---\nstatus: Proposed\n---\n')
+    const base = repo.commit()
+    repo.write('docs/adr/0005-submission-resolution.md', '---\nstatus: Accepted\n---\n')
+    repo.write(
+      'apps/api/drizzle/0017_resolution.sql',
+      'ALTER TABLE ' + table + ' ADD COLUMN round_number integer;\n',
+    )
+    repo.commit()
+    const result = repo.run(base)
+    assert.equal(result.status, 1, result.output)
+    assert.match(result.output, /0005-submission-resolution/u)
+    assert.match(result.output, /was not Accepted before/u)
+  })
+}

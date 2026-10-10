@@ -25,7 +25,12 @@ import type { ProcedureConfig } from '../procedures/procedure.contract.js'
 import { DrizzleSubmissionRepository } from './submission.repository.js'
 import { SubmissionService } from './submission.service.js'
 import { SubmissionError, type SubmissionActor, type DraftView } from './submission.types.js'
-import { submissionFiles, submissions } from './submission.schema.js'
+import {
+  submissionFiles,
+  submissions,
+  submissionRounds,
+  submissionEvents,
+} from './submission.schema.js'
 import { buildApp } from '../../app.js'
 import { ADMIN_JWT_AUDIENCE, JWT_ISSUER, USER_JWT_AUDIENCE } from '../auth/auth.constants.js'
 const url = new URL(process.env.DATABASE_URL ?? 'http://invalid')
@@ -36,9 +41,15 @@ if (
 )
   throw new Error('Tests require local student_service_test on port 5434')
 async function cleanup() {
+  await db.execute(sql.raw('DROP TRIGGER IF EXISTS s5t_fail_event ON submission_events'))
+  await db.execute(sql.raw('DROP FUNCTION IF EXISTS s5t_fail_event()'))
   await db.execute(sql.raw('DROP TRIGGER IF EXISTS s5t_fail_audit ON audit_logs'))
   await db.execute(sql.raw('DROP FUNCTION IF EXISTS s5t_fail_audit()'))
-  await db.execute(sql.raw('TRUNCATE submission_files, submissions, procedure_versions'))
+  await db.execute(
+    sql.raw(
+      'TRUNCATE submission_events, submission_rounds, submission_files, submissions, procedure_versions',
+    ),
+  )
   await db.execute(sql.raw('TRUNCATE audit_logs'))
   await db.delete(users).where(like(users.username, 's5t-%'))
   await db.delete(roles).where(like(roles.code, 'S5T_%'))
@@ -1876,4 +1887,849 @@ test('HTTP failed submit emits no private answers/storage keys in response or er
   ])
     assert.ok(!serialized.includes(secret))
   assert.equal((await f.service.get(f.actor.userId, ready.id)).status, 'DRAFT')
+})
+
+async function grantReject(reviewer: { roleId: number }) {
+  await db
+    .insert(permissions)
+    .values({ code: 'submission.reject', name: 'Không chấp thuận hồ sơ' })
+    .onConflictDoNothing()
+  const [permission] = await db
+    .select()
+    .from(permissions)
+    .where(eq(permissions.code, 'submission.reject'))
+  await db
+    .insert(rolePermissions)
+    .values({ roleId: reviewer.roleId, permissionId: permission!.id })
+    .onConflictDoNothing()
+  return permission!.id
+}
+async function resolutionFixture() {
+  const f = await fixture('ONLINE', true)
+  const reviewer = f.designatedReviewer!
+  await grantReject(reviewer)
+  const ready = await complete(f)
+  const sent = await f.service.submit(f.actor, ready.id, ready.revision)
+  const claimed = await f.service.claim(reviewer, sent.id, sent.revision)
+  return { ...f, reviewer, ready, sent, claimed }
+}
+test('two supplement cycles keep submitted rounds private, original bytes/history, first intake and pinned retired form', async () => {
+  const f = await resolutionFixture()
+  assert.equal(f.sent.roundNumber, 1)
+  assert.equal(f.sent.rounds[0]!.source, 'LIVE')
+  assert.deepEqual(
+    f.sent.events.map((event) => event.action),
+    ['SUBMITTED'],
+  )
+  const oldFile = f.sent.files[0]!
+  let request = await f.service.resolve(
+    f.reviewer,
+    f.sent.id,
+    f.claimed.revision,
+    'REQUEST_SUPPLEMENT',
+    '  Bổ sung mục đích và minh chứng  ',
+  )
+  assert.equal(request.status, 'NEEDS_SUPPLEMENT')
+  assert.equal(request.events.at(-1)!.note, 'Bổ sung mục đích và minh chứng')
+  assert.deepEqual(request.allowedActions, [])
+  assert.equal((await f.service.get(f.actor.userId, request.id)).editable, true)
+  await db
+    .update(procedureVersions)
+    .set({ status: 'RETIRED' })
+    .where(eq(procedureVersions.id, f.version.id))
+  await db.update(services).set({ status: 'INACTIVE' }).where(eq(services.id, f.serviceId))
+  let working = await f.service.save(f.actor, request.id, request.revision, {
+    purpose: 'Nội dung bổ sung chưa gửi',
+    agreed: false,
+    amount: 0,
+  })
+  working = await f.service.remove(f.actor, working.id, working.revision, oldFile.id)
+  const newPdf = Buffer.from('%PDF-1.4\nnew original evidence')
+  working = await f.service.upload(
+    f.actor,
+    working.id,
+    working.revision,
+    'proof',
+    newPdf,
+    'bổ sung.pdf',
+    'application/pdf',
+  )
+  const newFile = working.files[0]!
+  const visible = await f.service.reviewGet(f.reviewer.userId, working.id)
+  assert.equal(visible.values.purpose, 'Nội dung riêng tư')
+  assert.deepEqual(
+    visible.files.map((file) => file.id),
+    [oldFile.id],
+  )
+  assert.ok(!JSON.stringify(visible).includes('Nội dung bổ sung chưa gửi'))
+  assert.ok(!JSON.stringify(visible).includes(newFile.id))
+  assert.deepEqual(
+    (await f.service.reviewDownload(f.reviewer.userId, working.id, oldFile.id)).bytes,
+    pdf,
+  )
+  await assert.rejects(
+    () => f.service.reviewDownload(f.reviewer.userId, working.id, newFile.id),
+    errorCode(404),
+  )
+  await assert.rejects(
+    () => f.service.download(f.actor.userId, working.id, oldFile.id),
+    errorCode(404),
+  )
+  assert.deepEqual(
+    (await f.service.roundDownload(f.actor.userId, working.id, 1, oldFile.id)).bytes,
+    pdf,
+  )
+  assert.deepEqual(
+    (await f.service.reviewRoundDownload(f.reviewer.userId, working.id, 1, oldFile.id)).bytes,
+    pdf,
+  )
+  await assert.rejects(
+    () => f.service.submit(f.actor, working.id, request.revision),
+    errorCode(409, 'REVISION_CONFLICT'),
+  )
+  let resubmitted = await f.service.submit(f.actor, working.id, working.revision)
+  assert.equal(resubmitted.status, 'IN_REVIEW')
+  assert.equal(resubmitted.roundNumber, 2)
+  assert.equal(resubmitted.submittedAt, f.sent.submittedAt)
+  assert.equal(resubmitted.reviewStartedAt, f.claimed.reviewStartedAt)
+  assert.equal(resubmitted.rounds[0]!.values.purpose, 'Nội dung riêng tư')
+  assert.equal(resubmitted.rounds[1]!.values.purpose, 'Nội dung bổ sung chưa gửi')
+  await assert.rejects(
+    () => f.service.reviewDownload(f.reviewer.userId, working.id, oldFile.id),
+    errorCode(404),
+  )
+  assert.deepEqual(
+    (await f.service.reviewDownload(f.reviewer.userId, working.id, newFile.id)).bytes,
+    newPdf,
+  )
+  request = await f.service.resolve(
+    f.reviewer,
+    resubmitted.id,
+    resubmitted.revision,
+    'REQUEST_SUPPLEMENT',
+    'Bổ sung lần hai',
+  )
+  working = await f.service.save(f.actor, request.id, request.revision, {
+    purpose: 'Nội dung lần ba',
+  })
+  await db
+    .update(users)
+    .set({ fullName: 'Tên mới của sinh viên' })
+    .where(eq(users.id, f.actor.userId))
+  resubmitted = await f.service.submit(f.actor, working.id, working.revision)
+  assert.equal(resubmitted.roundNumber, 3)
+  assert.equal(resubmitted.rounds[0]!.studentSnapshot.fullName, 'Nguyễn Minh An')
+  assert.equal(resubmitted.rounds[2]!.studentSnapshot.fullName, 'Tên mới của sinh viên')
+  const approved = await f.service.resolve(
+    f.reviewer,
+    resubmitted.id,
+    resubmitted.revision,
+    'APPROVE',
+    'Đã kiểm tra nội dung',
+  )
+  assert.equal(approved.status, 'APPROVED')
+  assert.ok(approved.decisionAt)
+  assert.deepEqual(approved.allowedActions, [])
+  assert.equal((await f.service.get(f.actor.userId, approved.id)).editable, false)
+  assert.deepEqual(
+    approved.events.map((event) => event.action),
+    [
+      'SUBMITTED',
+      'CLAIMED',
+      'SUPPLEMENT_REQUESTED',
+      'RESUBMITTED',
+      'SUPPLEMENT_REQUESTED',
+      'RESUBMITTED',
+      'APPROVED',
+    ],
+  )
+  assert.ok(
+    approved.rounds.every((round) =>
+      round.files.every((file) => file.signatureStatus === 'NOT_CHECKED'),
+    ),
+  )
+  const publicJson = JSON.stringify(approved)
+  assert.ok(
+    !publicJson.includes('storageKey') &&
+      !publicJson.includes('actorUserId') &&
+      !publicJson.includes(f.reviewer.userId),
+  )
+  const [row] = await db.select().from(submissions).where(eq(submissions.id, approved.id))
+  assert.equal(row!.reviewerUserId, f.reviewer.userId)
+  assert.equal((await f.service.list(f.actor.userId))[0]!.roundNumber, 3)
+  assert.deepEqual(
+    (await f.service.reviewList(f.reviewer.userId, 'APPROVED')).map((row) => row.id),
+    [approved.id],
+  )
+  for (const operation of [
+    () => f.service.save(f.actor, approved.id, approved.revision, { purpose: 'Đổi kết quả' }),
+    () => f.service.remove(f.actor, approved.id, approved.revision, newFile.id),
+    () => f.service.resolve(f.reviewer, approved.id, approved.revision, 'REJECT', 'Đổi quyết định'),
+  ])
+    await assert.rejects(operation, errorCode(409))
+})
+test('decision authority requires assigned reviewer; reject and scope on the same review role', async () => {
+  const f = await fixture()
+  const reviewer = await addReviewer(f.unitId),
+    observer = await addReviewer(f.unitId)
+  const ready = await complete(f),
+    sent = await f.service.submit(f.actor, ready.id, ready.revision)
+  const claimed = await f.service.claim(reviewer, sent.id, sent.revision)
+  assert.deepEqual(claimed.allowedActions, ['APPROVE'])
+  assert.deepEqual((await f.service.reviewGet(observer.userId, sent.id)).allowedActions, [])
+  await assert.rejects(
+    () => f.service.resolve(observer, sent.id, claimed.revision, 'APPROVE', 'Thay người đã nhận'),
+    errorCode(403),
+  )
+  const otherRole = await db
+    .insert(roles)
+    .values({ code: 'S5T_SPLIT_' + randomUUID(), name: 'Reject only' })
+    .returning()
+  await db.insert(userRoles).values({ userId: reviewer.userId, roleId: otherRole[0]!.id })
+  await grantReject({ roleId: otherRole[0]!.id })
+  await db
+    .insert(userRoleScopes)
+    .values({ userId: reviewer.userId, roleId: otherRole[0]!.id, scopeId: reviewer.scopeId })
+  assert.deepEqual((await f.service.reviewGet(reviewer.userId, sent.id)).allowedActions, [
+    'APPROVE',
+  ])
+  for (const action of ['REQUEST_SUPPLEMENT', 'REJECT'] as const)
+    await assert.rejects(
+      () => f.service.resolve(reviewer, sent.id, claimed.revision, action, 'Đủ lý do'),
+      errorCode(403),
+    )
+  await grantReject(reviewer)
+  assert.deepEqual((await f.service.reviewGet(reviewer.userId, sent.id)).allowedActions, [
+    'REQUEST_SUPPLEMENT',
+    'APPROVE',
+    'REJECT',
+  ])
+  await db
+    .delete(userRoleScopes)
+    .where(
+      and(eq(userRoleScopes.userId, reviewer.userId), eq(userRoleScopes.roleId, reviewer.roleId)),
+    )
+  await assert.rejects(
+    () =>
+      f.service.resolve(reviewer, sent.id, claimed.revision, 'REJECT', 'Thiếu scope ở role review'),
+    errorCode(403),
+  )
+})
+test('decisions validate note, preserve it privately, normalize retry identity and race once', async () => {
+  const f = await resolutionFixture()
+  for (const note of ['', '  \n ', 'a'.repeat(2001)])
+    await assert.rejects(
+      () => f.service.resolve(f.reviewer, f.sent.id, f.claimed.revision, 'APPROVE', note),
+      errorCode(422, 'INVALID_DECISION'),
+    )
+  const outcomes = await Promise.allSettled([
+    f.service.resolve(f.reviewer, f.sent.id, f.claimed.revision, 'APPROVE', '  Lý do riêng tư  '),
+    f.service.resolve(f.reviewer, f.sent.id, f.claimed.revision, 'REJECT', 'Lý do khác'),
+  ])
+  assert.equal(outcomes.filter((outcome) => outcome.status === 'fulfilled').length, 1)
+  const winner = outcomes.find((outcome) => outcome.status === 'fulfilled')!
+  assert.ok(winner.status === 'fulfilled')
+  const decision = winner.value,
+    action = decision.status === 'APPROVED' ? 'APPROVE' : 'REJECT',
+    note = decision.events.at(-1)!.note!
+  const retry = await f.service.resolve(
+    f.reviewer,
+    f.sent.id,
+    f.claimed.revision,
+    action,
+    ' ' + note + ' ',
+  )
+  assert.equal(retry.revision, decision.revision)
+  assert.equal(retry.events.length, 3)
+  await assert.rejects(
+    () => f.service.resolve(f.reviewer, f.sent.id, f.claimed.revision, action, note + '.'),
+    errorCode(409, 'REVISION_CONFLICT'),
+  )
+  const audit = JSON.stringify(await db.select().from(auditLogs))
+  assert.ok(!audit.includes(note) && !audit.includes('Lý do riêng tư'))
+  await db.update(users).set({ mustChangePassword: true }).where(eq(users.id, f.reviewer.userId))
+  await assert.rejects(
+    () => f.service.resolve(f.reviewer, f.sent.id, f.claimed.revision, action, note),
+    errorCode(403),
+  )
+})
+test('a prior-cycle exact decision retry returns current state without creating a second request', async () => {
+  const f = await resolutionFixture()
+  const request = await f.service.resolve(
+    f.reviewer,
+    f.sent.id,
+    f.claimed.revision,
+    'REQUEST_SUPPLEMENT',
+    'Bổ sung vòng một',
+  )
+  const sent = await f.service.submit(f.actor, request.id, request.revision)
+  const retry = await f.service.resolve(
+    f.reviewer,
+    request.id,
+    f.claimed.revision,
+    'REQUEST_SUPPLEMENT',
+    'Bổ sung vòng một',
+  )
+  assert.equal(retry.status, 'IN_REVIEW')
+  assert.equal(retry.roundNumber, 2)
+  assert.equal(retry.revision, sent.revision)
+  assert.equal(retry.events.filter((event) => event.action === 'SUPPLEMENT_REQUESTED').length, 1)
+  await assert.rejects(
+    () =>
+      f.service.resolve(
+        f.reviewer,
+        request.id,
+        f.claimed.revision,
+        'REQUEST_SUPPLEMENT',
+        'Bổ sung vòng hai',
+      ),
+    errorCode(409),
+  )
+  const next = await f.service.resolve(
+    f.reviewer,
+    request.id,
+    sent.revision,
+    'REQUEST_SUPPLEMENT',
+    'Bổ sung vòng hai',
+  )
+  assert.equal(next.events.filter((event) => event.action === 'SUPPLEMENT_REQUESTED').length, 2)
+})
+
+for (const failure of ['event', 'audit'] as const) {
+  for (const operation of ['decision', 'resubmit'] as const) {
+    test(
+      failure + ' insertion failure rolls back ' + operation + ' revision/round/history atomically',
+      async () => {
+        const f = await resolutionFixture()
+        const before =
+          operation === 'decision'
+            ? await f.service.get(f.actor.userId, f.sent.id)
+            : await f.service.resolve(
+                f.reviewer,
+                f.sent.id,
+                f.claimed.revision,
+                'REQUEST_SUPPLEMENT',
+                'Yêu cầu bổ sung',
+              )
+        const table = failure === 'event' ? 'submission_events' : 'audit_logs',
+          name = 's5t_fail_' + failure
+        await db.execute(
+          sql.raw(
+            'CREATE FUNCTION ' +
+              name +
+              "() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated private-data failure'; END; $$",
+          ),
+        )
+        await db.execute(
+          sql.raw(
+            'CREATE TRIGGER ' +
+              name +
+              ' BEFORE INSERT ON ' +
+              table +
+              ' FOR EACH ROW EXECUTE FUNCTION ' +
+              name +
+              '()',
+          ),
+        )
+        const revision = before.revision
+        await assert.rejects(() =>
+          operation === 'decision'
+            ? f.service.resolve(f.reviewer, before.id, revision, 'APPROVE', 'Lý do riêng tư')
+            : f.service.submit(f.actor, before.id, revision),
+        )
+        const current = await f.service.get(f.actor.userId, before.id)
+        assert.equal(current.status, before.status)
+        assert.equal(current.revision, revision)
+        assert.equal(current.rounds.length, before.rounds.length)
+        assert.equal(current.events.length, before.events.length)
+      },
+    )
+  }
+}
+test('SQL freezes bindings/routing/reviewer and round/event history while allowing only soft removal of working evidence', async () => {
+  const f = await resolutionFixture()
+  const pending = await f.service.resolve(
+    f.reviewer,
+    f.sent.id,
+    f.claimed.revision,
+    'REQUEST_SUPPLEMENT',
+    'Bổ sung',
+  )
+  for (const change of [
+    sql`service_name = 'Đổi binding'`,
+    sql`student_user_id = ${f.otherId}`,
+    sql`processing_unit_id = NULL`,
+    sql`designated_reviewer_id = NULL`,
+    sql`reviewer_user_id = ${f.otherId}`,
+    sql`review_started_at = now()`,
+    sql`student_snapshot = '{}'::jsonb`,
+    sql`round_number = 2`,
+    sql`last_submitted_at = now()`,
+    sql`submitted_at = now()`,
+  ])
+    await assert.rejects(() =>
+      db.execute(
+        sql`UPDATE submissions SET ${change}, revision = revision + 1 WHERE id = ${pending.id}`,
+      ),
+    )
+  const file = f.sent.files[0]!
+  for (const change of [
+    sql`name = 'changed.pdf'`,
+    sql`storage_key = ${randomUUID()}`,
+    sql`sha256 = ${'b'.repeat(64)}`,
+    sql`size = 100`,
+    sql`attachment_key = 'extraProof'`,
+  ])
+    await assert.rejects(() =>
+      db.execute(sql`UPDATE submission_files SET ${change} WHERE id = ${file.id}`),
+    )
+  await assert.rejects(() => db.execute(sql`DELETE FROM submission_files WHERE id = ${file.id}`))
+  const removed = await f.service.remove(f.actor, pending.id, pending.revision, file.id)
+  await assert.rejects(() =>
+    db.execute(sql`UPDATE submission_files SET removed_at = NULL WHERE id = ${file.id}`),
+  )
+  await assert.rejects(() =>
+    db.execute(sql`UPDATE submission_files SET removed_at = now() WHERE id = ${file.id}`),
+  )
+  await assert.rejects(() => db.execute(sql`DELETE FROM submission_files WHERE id = ${file.id}`))
+  for (const table of ['submission_rounds', 'submission_events'])
+    for (const operation of ['UPDATE ' + table + ' SET id = id', 'DELETE FROM ' + table])
+      await assert.rejects(() =>
+        db.execute(sql.raw(operation + " WHERE submission_id = '" + pending.id + "'")),
+      )
+  const replacement = await f.service.upload(
+    f.actor,
+    removed.id,
+    removed.revision,
+    'proof',
+    pdf,
+    'new.pdf',
+    'application/pdf',
+  )
+  await assert.rejects(() =>
+    db.execute(sql`DELETE FROM submission_files WHERE id = ${replacement.files[0]!.id}`),
+  )
+  assert.equal(removed.rounds[0]!.files[0]!.id, file.id)
+  assert.deepEqual(
+    (await f.service.roundDownload(f.actor.userId, pending.id, 1, file.id)).bytes,
+    pdf,
+  )
+  const [round] = await db
+    .select()
+    .from(submissionRounds)
+    .where(eq(submissionRounds.submissionId, pending.id))
+  await assert.rejects(() => db.insert(submissionRounds).values({ ...round!, id: randomUUID() }))
+  const [event] = await db
+    .select()
+    .from(submissionEvents)
+    .where(eq(submissionEvents.submissionId, pending.id))
+  await assert.rejects(() => db.insert(submissionEvents).values({ ...event!, id: randomUUID() }))
+})
+test('event composite FK rejects a round from another submission and history downloads reject wrong round or owner', async () => {
+  const f = await resolutionFixture()
+  const otherActor = { ...f.actor, userId: f.otherId }
+  const ready = await complete(f, otherActor)
+  const other = await f.service.submit(otherActor, ready.id, ready.revision)
+  const [foreignRound] = await db
+    .select()
+    .from(submissionRounds)
+    .where(eq(submissionRounds.submissionId, other.id))
+  await assert.rejects(() =>
+    db.insert(submissionEvents).values({
+      submissionId: f.sent.id,
+      roundId: foreignRound!.id,
+      action: 'APPROVED',
+      actorUserId: f.reviewer.userId,
+      actorName: 'Cán bộ',
+      note: 'Sai hồ sơ',
+      fromRevision: 1000,
+      toRevision: 1001,
+    }),
+  )
+  const fileId = f.sent.files[0]!.id
+  await assert.rejects(
+    () => f.service.roundDownload(f.otherId, f.sent.id, 1, fileId),
+    errorCode(404),
+  )
+  await assert.rejects(
+    () => f.service.roundDownload(f.actor.userId, f.sent.id, 2, fileId),
+    errorCode(404),
+  )
+  await assert.rejects(
+    () => f.service.reviewRoundDownload(f.reviewer.userId, other.id, 1, fileId),
+    errorCode(404),
+  )
+  await assert.rejects(
+    () => f.service.reviewRoundDownload(f.reviewer.userId, f.sent.id, 2, fileId),
+    errorCode(404),
+  )
+})
+for (const download of ['owner', 'reviewer'] as const) {
+  test(
+    'historical ' + download + ' downloads verify size/hash and reauthorize after storage I/O',
+    async () => {
+      const f = await resolutionFixture(),
+        fileId = f.sent.files[0]!.id
+      const operation = () =>
+        download === 'owner'
+          ? f.service.roundDownload(f.actor.userId, f.sent.id, 1, fileId)
+          : f.service.reviewRoundDownload(f.reviewer.userId, f.sent.id, 1, fileId)
+      const [file] = await db.select().from(submissionFiles).where(eq(submissionFiles.id, fileId))
+      f.storage.files.set(file!.storageKey, Buffer.from('x'.repeat(pdf.length)))
+      await assert.rejects(operation, errorCode(503, 'FILE_INTEGRITY'))
+      f.storage.files.set(file!.storageKey, Buffer.concat([pdf, Buffer.from('extra')]))
+      await assert.rejects(operation, errorCode(503, 'FILE_INTEGRITY'))
+      f.storage.files.set(file!.storageKey, pdf)
+      const barrier = pauseRead(f.storage),
+        pending = operation()
+      const settled = pending.then(
+        () => null,
+        (error) => error as unknown,
+      )
+      try {
+        await barrier.waitFor(pending)
+        await db
+          .update(users)
+          .set({ mustChangePassword: true })
+          .where(eq(users.id, download === 'owner' ? f.actor.userId : f.reviewer.userId))
+      } finally {
+        barrier.resume()
+      }
+      assert.ok(errorCode(403)(await settled))
+    },
+  )
+}
+for (const revoke of ['profile', 'reviewer', 'unit', 'reject-only'] as const) {
+  test(
+    'resubmit rechecks ' + revoke + ' after original byte verification without silent reassignment',
+    async () => {
+      const f = await resolutionFixture()
+      const request = await f.service.resolve(
+        f.reviewer,
+        f.sent.id,
+        f.claimed.revision,
+        'REQUEST_SUPPLEMENT',
+        'Bổ sung',
+      )
+      const barrier = pauseRead(f.storage),
+        pending = f.service.submit(f.actor, request.id, request.revision)
+      const settled = pending.then(
+        () => null,
+        (error) => error as unknown,
+      )
+      try {
+        await barrier.waitFor(pending)
+        if (revoke === 'profile')
+          await db
+            .update(users)
+            .set({ mustChangePassword: true })
+            .where(eq(users.id, f.actor.userId))
+        if (revoke === 'reviewer')
+          await db
+            .delete(rolePermissions)
+            .where(
+              and(
+                eq(rolePermissions.roleId, f.reviewer.roleId),
+                eq(rolePermissions.permissionId, f.reviewer.permissionId),
+              ),
+            )
+        if (revoke === 'unit')
+          await db
+            .update(organizationalUnits)
+            .set({ status: 'INACTIVE' })
+            .where(eq(organizationalUnits.id, f.unitId))
+        if (revoke === 'reject-only') {
+          const [permission] = await db
+            .select()
+            .from(permissions)
+            .where(eq(permissions.code, 'submission.reject'))
+          await db
+            .delete(rolePermissions)
+            .where(
+              and(
+                eq(rolePermissions.roleId, f.reviewer.roleId),
+                eq(rolePermissions.permissionId, permission!.id),
+              ),
+            )
+        }
+      } finally {
+        barrier.resume()
+      }
+      const result = await settled
+      if (revoke === 'reject-only') {
+        assert.equal(
+          result,
+          null,
+          'Resubmission needs current review, not current reject permission',
+        )
+        assert.equal((await f.service.get(f.actor.userId, request.id)).roundNumber, 2)
+      } else {
+        assert.ok(
+          errorCode(
+            revoke === 'profile' ? 403 : 409,
+            revoke === 'profile' ? 'STUDENT_UNAVAILABLE' : 'ROUTING_UNAVAILABLE',
+          )(result),
+        )
+        const [row] = await db.select().from(submissions).where(eq(submissions.id, request.id))
+        assert.equal(row!.status, 'NEEDS_SUPPLEMENT')
+        assert.equal(row!.revision, request.revision)
+        assert.equal(
+          (
+            await db
+              .select()
+              .from(submissionRounds)
+              .where(eq(submissionRounds.submissionId, request.id))
+          ).length,
+          1,
+        )
+      }
+    },
+  )
+}
+
+for (const portal of ['user', 'admin'] as const) {
+  test(
+    'HTTP ' +
+      portal +
+      ' resolution validates session/Origin/note/current role and serves private round files',
+    async (t) => {
+      const f = await httpFixture(t),
+        reviewer = await addReviewer(f.unitId),
+        observer = await addReviewer(f.unitId)
+      await grantReject(reviewer)
+      const ready = await complete(f),
+        sent = await f.service.submit(f.actor, ready.id, ready.revision)
+      const claimed = await f.service.claim(reviewer, sent.id, sent.revision)
+      const base = '/api/v1/' + portal + '/review-submissions',
+        url = base + '/' + sent.id + '/resolve'
+      const cookie = reviewCookie(f.app, reviewer, portal)
+      const payload = {
+        expectedRevision: claimed.revision,
+        action: 'REQUEST_SUPPLEMENT',
+        note: 'Bổ sung theo yêu cầu',
+      }
+      assert.equal((await f.app.inject({ method: 'POST', url, payload })).statusCode, 401)
+      assert.equal(
+        (
+          await f.app.inject({
+            method: 'POST',
+            url,
+            payload,
+            headers: {
+              cookie: reviewCookie(f.app, reviewer, portal === 'user' ? 'admin' : 'user'),
+              origin: env.corsOrigin,
+            },
+          })
+        ).statusCode,
+        401,
+      )
+      assert.equal(
+        (
+          await f.app.inject({
+            method: 'POST',
+            url,
+            payload,
+            headers: {
+              cookie: reviewCookie(f.app, reviewer, portal, ['ADMIN'], true),
+              origin: env.corsOrigin,
+            },
+          })
+        ).statusCode,
+        403,
+      )
+      for (const origin of [undefined, 'https://attacker.example'])
+        assert.equal(
+          (
+            await f.app.inject({
+              method: 'POST',
+              url,
+              payload,
+              headers: { cookie, ...(origin ? { origin } : {}) },
+            })
+          ).statusCode,
+          403,
+        )
+      assert.equal(
+        (
+          await f.app.inject({
+            method: 'POST',
+            url,
+            payload,
+            headers: { cookie: reviewCookie(f.app, observer, portal), origin: env.corsOrigin },
+          })
+        ).statusCode,
+        403,
+      )
+      for (const invalid of [
+        { ...payload, action: 'SIGN' },
+        { ...payload, expectedRevision: 0 },
+      ])
+        assert.equal(
+          (
+            await f.app.inject({
+              method: 'POST',
+              url,
+              payload: invalid,
+              headers: { cookie, origin: env.corsOrigin },
+            })
+          ).statusCode,
+          400,
+        )
+      for (const note of [null, false, 123, {}, []])
+        assert.equal(
+          (
+            await f.app.inject({
+              method: 'POST',
+              url,
+              payload: { ...payload, note },
+              headers: { cookie, origin: env.corsOrigin },
+            })
+          ).statusCode,
+          422,
+        )
+      const invalidNote = await f.app.inject({
+        method: 'POST',
+        url,
+        payload: { ...payload, note: '   ' },
+        headers: { cookie, origin: env.corsOrigin },
+      })
+      assert.equal(invalidNote.statusCode, 422)
+      assert.equal(invalidNote.json<{ issues: { path: string }[] }>().issues[0]!.path, 'note')
+      const longNote = await f.app.inject({
+        method: 'POST',
+        url,
+        payload: { ...payload, note: 'a'.repeat(2001) },
+        headers: { cookie, origin: env.corsOrigin },
+      })
+      assert.equal(longNote.statusCode, 422)
+      const validNote = 'a'.repeat(2000)
+      const accepted = await f.app.inject({
+        method: 'POST',
+        url,
+        payload: { ...payload, note: '  ' + validNote + '  ' },
+        headers: { cookie, origin: env.corsOrigin },
+      })
+      assert.equal(accepted.statusCode, 200, accepted.body)
+      const detail = accepted.json<DraftView>()
+      assert.equal(detail.status, 'NEEDS_SUPPLEMENT')
+      assert.equal(detail.events.at(-1)!.note, validNote)
+      assert.ok(!accepted.body.includes('storageKey') && !accepted.body.includes('actorUserId'))
+      assert.equal(
+        (await f.app.inject({ url: base + '?status=NEEDS_SUPPLEMENT', headers: { cookie } })).json<
+          unknown[]
+        >().length,
+        1,
+      )
+      for (const state of ['APPROVED', 'REJECTED'])
+        assert.deepEqual(
+          (await f.app.inject({ url: base + '?status=' + state, headers: { cookie } })).json(),
+          [],
+        )
+      const filePath = base + '/' + sent.id + '/rounds/1/files/' + sent.files[0]!.id
+      assert.equal((await f.app.inject({ url: filePath })).statusCode, 401)
+      const original = await f.app.inject({ url: filePath, headers: { cookie } })
+      assert.equal(original.statusCode, 200)
+      assert.deepEqual(original.rawPayload, pdf)
+      assert.equal(original.headers['cache-control'], 'private, no-store')
+      assert.equal(original.headers['x-content-type-options'], 'nosniff')
+      assert.match(String(original.headers['content-disposition']), /^attachment;/)
+      assert.equal(
+        (
+          await f.app.inject({
+            url: filePath.replace('/rounds/1/', '/rounds/2/'),
+            headers: { cookie },
+          })
+        ).statusCode,
+        404,
+      )
+      const ownerPath =
+        '/api/v1/user/submissions/' + sent.id + '/rounds/1/files/' + sent.files[0]!.id
+      assert.equal(
+        (await f.app.inject({ url: ownerPath, headers: { cookie: f.cookie() } })).statusCode,
+        200,
+      )
+      assert.equal(
+        (await f.app.inject({ url: ownerPath, headers: { cookie: f.cookie(f.otherId) } }))
+          .statusCode,
+        404,
+      )
+      const resubmitted = await f.service.submit(f.actor, detail.id, detail.revision)
+      const reject = await f.app.inject({
+        method: 'POST',
+        url,
+        payload: {
+          expectedRevision: resubmitted.revision,
+          action: 'REJECT',
+          note: 'Không đủ nội dung cần thiết',
+        },
+        headers: { cookie, origin: env.corsOrigin },
+      })
+      assert.equal(reject.statusCode, 200, reject.body)
+      assert.equal(reject.json<{ status: string }>().status, 'REJECTED')
+      assert.equal(
+        (await f.app.inject({ url: base + '?status=REJECTED', headers: { cookie } })).json<
+          unknown[]
+        >().length,
+        1,
+      )
+      await db.delete(rolePermissions).where(eq(rolePermissions.roleId, reviewer.roleId))
+      assert.equal((await f.app.inject({ url: filePath, headers: { cookie } })).statusCode, 403)
+      assert.equal(
+        (
+          await f.app.inject({
+            method: 'POST',
+            url,
+            payload: {
+              expectedRevision: resubmitted.revision,
+              action: 'REJECT',
+              note: 'Không đủ nội dung cần thiết',
+            },
+            headers: { cookie, origin: env.corsOrigin },
+          })
+        ).statusCode,
+        403,
+      )
+    },
+  )
+}
+test('HTTP failed decision hides private note and storage keys, returning unknown outcome safely with rollback', async (t) => {
+  const errors: unknown[][] = []
+  const f = await httpFixture(t, (app) =>
+    app.addHook('onRequest', async (request) => {
+      request.log.error = (...args: unknown[]) => {
+        errors.push(args)
+      }
+    }),
+  )
+  const reviewer = await addReviewer(f.unitId)
+  const ready = await complete(f),
+    sent = await f.service.submit(f.actor, ready.id, ready.revision)
+  const claimed = await f.service.claim(reviewer, sent.id, sent.revision)
+  const [file] = await db.select().from(submissionFiles)
+  await db.execute(
+    sql.raw(
+      "CREATE FUNCTION s5t_fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test audit unavailable'; END; $$",
+    ),
+  )
+  await db.execute(
+    sql.raw(
+      'CREATE TRIGGER s5t_fail_audit BEFORE INSERT ON audit_logs FOR EACH ROW EXECUTE FUNCTION s5t_fail_audit()',
+    ),
+  )
+  const note = 'Nội dung quyết định riêng tư <script>alert(1)</script>'
+  const response = await f.app.inject({
+    method: 'POST',
+    url: '/api/v1/user/review-submissions/' + sent.id + '/resolve',
+    headers: { cookie: reviewCookie(f.app, reviewer, 'user'), origin: env.corsOrigin },
+    payload: { expectedRevision: claimed.revision, action: 'APPROVE', note },
+  })
+  assert.equal(response.statusCode, 500)
+  assert.equal(errors.length, 1)
+  const serialized = JSON.stringify(errors) + response.body
+  for (const secret of [note, 'Nội dung riêng tư', file!.storageKey, 'test audit unavailable'])
+    assert.ok(!serialized.includes(secret))
+  const current = await f.service.get(f.actor.userId, sent.id)
+  assert.equal(current.status, 'IN_REVIEW')
+  assert.equal(current.revision, claimed.revision)
+  assert.equal(current.events.length, 2)
 })

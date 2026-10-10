@@ -1,4 +1,4 @@
-import { and, eq, ne, or } from 'drizzle-orm'
+import { and, eq, ne, or, sql } from 'drizzle-orm'
 import type { db } from '../../db/client.js'
 import { users, userRoles } from '../auth/auth.schema.js'
 import {
@@ -17,7 +17,12 @@ export interface ReviewAuthority {
 // Permission and scope must belong to the SAME assigned role.
 export function reviewerAuthorities(
   tx: Transaction,
-  options: { userId?: string; unitId?: string; excludeUserId?: string } = {},
+  options: {
+    userId?: string
+    unitId?: string
+    excludeUserId?: string
+    requireReject?: boolean
+  } = {},
 ) {
   return tx
     .selectDistinct({
@@ -54,6 +59,9 @@ export function reviewerAuthorities(
         eq(users.status, 'ACTIVE'),
         eq(users.mustChangePassword, false),
         eq(permissions.code, 'submission.review'),
+        options.requireReject
+          ? sql`EXISTS (SELECT 1 FROM role_permissions resolution_grant JOIN permissions resolution_permission ON resolution_permission.id = resolution_grant.permission_id WHERE resolution_grant.role_id = ${userRoles.roleId} AND resolution_permission.code = 'submission.reject')`
+          : undefined,
         or(
           eq(authorizationScopes.scopeType, 'GLOBAL'),
           and(

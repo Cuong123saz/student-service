@@ -184,6 +184,30 @@ export async function submissionRoutes(
         ),
       ),
   )
+  app.get<{ Params: { id: string; roundNumber: number; fileId: string } }>(
+    '/submissions/:id/rounds/:roundNumber/files/:fileId',
+    {
+      preHandler: guards,
+      schema: {
+        params: Type.Object(
+          { id: uuid, roundNumber: Type.Integer({ minimum: 1 }), fileId: uuid },
+          { additionalProperties: false },
+        ),
+      },
+    },
+    async (request, reply) =>
+      execute(request, reply, async () =>
+        sendEvidence(
+          reply,
+          await service.roundDownload(
+            actor(request).userId,
+            request.params.id,
+            request.params.roundNumber,
+            request.params.fileId,
+          ),
+        ),
+      ),
+  )
   app.get<{ Params: { id: string; fileId: string } }>(
     '/submissions/:id/files/:fileId',
     {

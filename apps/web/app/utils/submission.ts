@@ -5,7 +5,23 @@ export const submissionStatusLabels: Record<SubmissionStatus, string> = {
   DRAFT: 'Bản nháp · Chưa gửi',
   SUBMITTED: 'Đã gửi · Chờ tiếp nhận',
   IN_REVIEW: 'Đang xử lý',
+  NEEDS_SUPPLEMENT: 'Chờ bổ sung',
+  APPROVED: 'Đã duyệt nội dung',
+  REJECTED: 'Không chấp thuận',
 }
+export const resolutionActionLabels = {
+  REQUEST_SUPPLEMENT: 'Yêu cầu bổ sung',
+  APPROVE: 'Đã duyệt nội dung',
+  REJECT: 'Không chấp thuận',
+} as const
+export const submissionEventLabels = {
+  SUBMITTED: 'Sinh viên gửi hồ sơ',
+  CLAIMED: 'Cán bộ nhận xử lý',
+  SUPPLEMENT_REQUESTED: 'Yêu cầu bổ sung',
+  RESUBMITTED: 'Sinh viên gửi bổ sung',
+  APPROVED: 'Đã duyệt nội dung',
+  REJECTED: 'Không chấp thuận',
+} as const
 export function formatSubmissionTime(value: string | null) {
   return value ? new Date(value).toLocaleString('vi-VN') : 'Chưa có'
 }

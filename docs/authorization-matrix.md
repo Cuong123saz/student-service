@@ -38,3 +38,7 @@ Khi thêm hoặc bỏ permission mặc định, phải cập nhật đồng th�
 2. Migration tương ứng.
 3. Bảng ma trận này.
 4. Test tổng số grant và các quyền nhạy cảm.
+
+## Xử lý hồ sơ theo ADR 0005
+
+submission.review cho phép tiếp nhận/đọc và duyệt nội dung hồ sơ trong đúng phạm vi. submission.reject bổ sung khả năng yêu cầu sinh viên bổ sung hoặc không chấp thuận. Hành động quyết định yêu cầu đúng cán bộ đã nhận; review/reject/scope phải nằm trên cùng role assignment. Không tự cấp grant theo ADMIN và không đồng nhất các quyền này với document.sign hoặc thẩm quyền ký văn bản. Catalog và số grant mặc định ở trên không thay đổi.

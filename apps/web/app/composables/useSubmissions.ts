@@ -45,6 +45,14 @@ export function useSubmissions() {
       request<StudentDraft>('/' + id + '/files/' + fileId + '?revision=' + revision, {
         method: 'DELETE',
       }),
+    roundDownloadUrl: (id: string, roundNumber: number, fileId: string) =>
+      base +
+      '/' +
+      encodeURIComponent(id) +
+      '/rounds/' +
+      roundNumber +
+      '/files/' +
+      encodeURIComponent(fileId),
     downloadUrl: (id: string, fileId: string) => base + '/' + id + '/files/' + fileId,
   }
 }

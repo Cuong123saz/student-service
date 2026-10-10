@@ -7,6 +7,8 @@ import {
   type SubmissionActor,
   type DraftValues,
   type StoredFileIntegrity,
+  type SubmittedStatus,
+  type ResolutionAction,
 } from './submission.types.js'
 import { inspectEvidence } from './submission.validation.js'
 export type SubmissionRepository = Pick<
@@ -24,6 +26,9 @@ export type SubmissionRepository = Pick<
   | 'reviewGet'
   | 'claim'
   | 'reviewFile'
+  | 'resolve'
+  | 'roundFile'
+  | 'reviewRoundFile'
 >
 export class SubmissionService {
   constructor(
@@ -51,7 +56,7 @@ export class SubmissionService {
       for (const file of files) await this.readVerified(file)
     })
   }
-  reviewList(userId: string, status?: 'SUBMITTED' | 'IN_REVIEW') {
+  reviewList(userId: string, status?: SubmittedStatus) {
     return this.repository.reviewList(userId, status)
   }
   reviewGet(userId: string, id: string) {
@@ -59,6 +64,15 @@ export class SubmissionService {
   }
   claim(actor: SubmissionActor, id: string, revision: number) {
     return this.repository.claim(actor, id, revision)
+  }
+  resolve(
+    actor: SubmissionActor,
+    id: string,
+    revision: number,
+    action: ResolutionAction,
+    note: string,
+  ) {
+    return this.repository.resolve(actor, id, revision, action, note)
   }
   async upload(
     actor: SubmissionActor,
@@ -109,6 +123,18 @@ export class SubmissionService {
     const bytes = await this.readVerified(file)
     // Storage may be slow: eligibility or linkage can change before bytes are returned.
     await this.repository.file(userId, id, fileId)
+    return { bytes, name: file.name, mimeType: file.mimeType }
+  }
+  async roundDownload(userId: string, id: string, roundNumber: number, fileId: string) {
+    const file = await this.repository.roundFile(userId, id, roundNumber, fileId)
+    const bytes = await this.readVerified(file)
+    await this.repository.roundFile(userId, id, roundNumber, fileId)
+    return { bytes, name: file.name, mimeType: file.mimeType }
+  }
+  async reviewRoundDownload(userId: string, id: string, roundNumber: number, fileId: string) {
+    const file = await this.repository.reviewRoundFile(userId, id, roundNumber, fileId)
+    const bytes = await this.readVerified(file)
+    await this.repository.reviewRoundFile(userId, id, roundNumber, fileId)
     return { bytes, name: file.name, mimeType: file.mimeType }
   }
   async reviewDownload(userId: string, id: string, fileId: string) {

@@ -1,4 +1,8 @@
-import type { ReviewSubmissionSummary, ReviewSubmissionDetail } from '~/types/submission'
+import type {
+  ReviewSubmissionSummary,
+  ReviewSubmissionDetail,
+  ResolutionAction,
+} from '~/types/submission'
 import type { ProcedureApiError } from '~/types/procedure'
 import { getApiErrorContext } from '~/utils/api-error'
 
@@ -30,6 +34,19 @@ export function useReviewSubmissions(portal: 'user' | 'admin') {
         method: 'POST',
         body: { expectedRevision },
       }),
+    resolve: (id: string, expectedRevision: number, action: ResolutionAction, note: string) =>
+      request<ReviewSubmissionDetail>('/' + encodeURIComponent(id) + '/resolve', {
+        method: 'POST',
+        body: { expectedRevision, action, note },
+      }),
+    roundDownloadUrl: (id: string, roundNumber: number, fileId: string) =>
+      base +
+      '/' +
+      encodeURIComponent(id) +
+      '/rounds/' +
+      roundNumber +
+      '/files/' +
+      encodeURIComponent(fileId),
     downloadUrl: (id: string, fileId: string) =>
       base + '/' + encodeURIComponent(id) + '/files/' + encodeURIComponent(fileId),
   }

@@ -49,6 +49,22 @@ describe('review submission API', () => {
         body: { expectedRevision: 4 },
         credentials: 'include',
       })
+      await api.resolve('submission/1', 5, 'REQUEST_SUPPLEMENT', 'Bổ sung minh chứng')
+      expect(fetcher).toHaveBeenLastCalledWith(base + '/submission%2F1/resolve', {
+        method: 'POST',
+        body: { expectedRevision: 5, action: 'REQUEST_SUPPLEMENT', note: 'Bổ sung minh chứng' },
+        credentials: 'include',
+      })
+      for (const status of ['NEEDS_SUPPLEMENT', 'APPROVED', 'REJECTED'] as const) {
+        await api.list(status)
+        expect(fetcher).toHaveBeenLastCalledWith(base, {
+          query: { status },
+          credentials: 'include',
+        })
+      }
+      expect(api.roundDownloadUrl('submission/1', 2, 'file/1')).toBe(
+        base + '/submission%2F1/rounds/2/files/file%2F1',
+      )
       expect(api.downloadUrl('submission/1', 'file/1')).toBe(
         base + '/submission%2F1/files/file%2F1',
       )

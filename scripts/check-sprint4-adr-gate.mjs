@@ -8,12 +8,22 @@ const tableAdrMap = new Map([
   ['workflow_steps', 'docs/adr/0001-submission-workflow.md'],
   [
     'submissions',
-    ['docs/adr/0003-student-drafts-and-evidence.md', 'docs/adr/0004-submission-and-intake.md'],
+    [
+      'docs/adr/0003-student-drafts-and-evidence.md',
+      'docs/adr/0004-submission-and-intake.md',
+      'docs/adr/0005-submission-resolution.md',
+    ],
   ],
   [
     'submission_files',
-    ['docs/adr/0003-student-drafts-and-evidence.md', 'docs/adr/0004-submission-and-intake.md'],
+    [
+      'docs/adr/0003-student-drafts-and-evidence.md',
+      'docs/adr/0004-submission-and-intake.md',
+      'docs/adr/0005-submission-resolution.md',
+    ],
   ],
+  ['submission_rounds', 'docs/adr/0005-submission-resolution.md'],
+  ['submission_events', 'docs/adr/0005-submission-resolution.md'],
   ['form_versions', 'docs/adr/0001-submission-workflow.md'],
   ['reviewer_queue', 'docs/adr/0001-submission-workflow.md'],
 ])
