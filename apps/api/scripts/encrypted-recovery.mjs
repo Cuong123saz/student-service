@@ -316,6 +316,112 @@ async function inspectPackage(packageRoot, keyPath, projectRoot, consume) {
 export async function verifyEncryptedRecoveryBundle({ packageRoot, keyPath, projectRoot }) {
   return inspectPackage(packageRoot, keyPath, projectRoot)
 }
+// Authenticate all packages with the explicitly selected key. This is a read-only
+// proposal: one invalid/unverifiable entry blocks all retirement candidates.
+export async function inspectEncryptedRecoveryArchive({
+  archiveRoot,
+  keyPath,
+  projectRoot,
+  policy,
+  now = new Date(),
+}) {
+  const { keepLatest, minAgeDays } = policy || {}
+  if (
+    !Number.isInteger(keepLatest) ||
+    keepLatest < 1 ||
+    keepLatest > 10000 ||
+    !Number.isInteger(minAgeDays) ||
+    minAgeDays < 1 ||
+    minAgeDays > 36500 ||
+    !(now instanceof Date) ||
+    !Number.isFinite(now.getTime())
+  )
+    fail('INVALID_RETENTION_POLICY')
+  const state = await validateEncryptedArchiveDestination({ archiveRoot, keyPath, projectRoot })
+  if (!state.exists) fail('ENCRYPTED_ARCHIVE_NOT_FOUND')
+  const names = (await readdir(archiveRoot)).filter((name) => name !== markerName).sort()
+  if (names.length > 10000) fail('ARCHIVE_ENTRY_LIMIT_EXCEEDED')
+  const entries = []
+  for (const name of names) {
+    // Unknown filenames may contain personal information; never echo them.
+    if (!uuid.test(name)) {
+      entries.push({ status: 'INVALID', code: 'UNEXPECTED_ARCHIVE_ENTRY' })
+      continue
+    }
+    try {
+      const { header, manifest } = await verifyEncryptedRecoveryBundle({
+        packageRoot: join(archiveRoot, name),
+        keyPath,
+        projectRoot,
+      })
+      if (manifest.runId !== name) fail('ARCHIVE_RUN_ID_MISMATCH')
+      if (Date.parse(manifest.createdAt) > now.getTime()) fail('INVALID_BUNDLE_DATE')
+      entries.push({
+        runId: name,
+        keyId: header.keyId,
+        status: 'VERIFIED',
+        createdAt: manifest.createdAt,
+        dumpBytes: manifest.database.size,
+        files: manifest.files.length,
+        fileBytes: manifest.files.reduce((sum, file) => sum + file.size, 0),
+      })
+    } catch (error) {
+      // A different keyId means this key cannot authenticate the package. Do not
+      // mislabel that package as corrupt, or trust its unauthenticated metadata.
+      entries.push(
+        error.message === 'RECOVERY_KEY_ID_MISMATCH'
+          ? { runId: name, status: 'UNVERIFIED', code: 'KEY_UNAVAILABLE_FOR_PACKAGE' }
+          : { runId: name, status: 'INVALID', code: 'PACKAGE_VERIFICATION_FAILED' },
+      )
+    }
+  }
+  // Catch observed additions/removals and recheck root ownership. This is not an
+  // atomic filesystem snapshot; the operator must keep archive writers paused.
+  const finalState = await validateEncryptedArchiveDestination({
+    archiveRoot,
+    keyPath,
+    projectRoot,
+  })
+  if (!finalState.exists || finalState.keyId !== state.keyId)
+    fail('ENCRYPTED_ARCHIVE_OR_KEY_CHANGED')
+  const finalNames = (await readdir(archiveRoot)).filter((name) => name !== markerName).sort()
+  if (!same(finalNames, names))
+    entries.push({ status: 'INVALID', code: 'ARCHIVE_CHANGED_DURING_INSPECTION' })
+  const invalid = entries.filter((entry) => entry.status === 'INVALID').length
+  const unverified = entries.filter((entry) => entry.status === 'UNVERIFIED').length
+  const attention = invalid > 0 || unverified > 0
+  const verified = entries
+    .filter((entry) => entry.status === 'VERIFIED')
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.runId.localeCompare(b.runId))
+  for (const [index, entry] of verified.entries()) {
+    const oldEnough = now.getTime() - Date.parse(entry.createdAt) >= minAgeDays * 86400000
+    entry.proposal = !attention && index >= keepLatest && oldEnough ? 'CANDIDATE' : 'KEEP'
+    entry.reason = attention
+      ? 'ARCHIVE_REQUIRES_ATTENTION'
+      : index < keepLatest
+        ? 'LATEST_PROTECTED'
+        : !oldEnough
+          ? 'MINIMUM_AGE_PROTECTED'
+          : 'POLICY_EXCEEDED'
+  }
+  return {
+    version: 1,
+    fakeDataOnly: true,
+    encrypted: true,
+    mode: 'READ_ONLY_ENCRYPTED_RETENTION_PROPOSAL',
+    status: attention ? 'ATTENTION' : entries.length ? 'OK' : 'EMPTY',
+    inspectedAt: now.toISOString(),
+    keyId: state.keyId,
+    policy: { keepLatest, minAgeDays },
+    deletionPerformed: false,
+    restoreTestedByThisInspection: false,
+    verified: verified.length,
+    invalid,
+    unverified,
+    candidates: verified.filter((entry) => entry.proposal === 'CANDIDATE').length,
+    entries: [...verified, ...entries.filter((entry) => entry.status !== 'VERIFIED')],
+  }
+}
 export async function encryptRecoveryBundle({ bundleRoot, archiveRoot, keyPath, projectRoot }) {
   const state = await validateEncryptedArchiveDestination({ archiveRoot, keyPath, projectRoot })
   const manifest = await verifyRecoveryBundle(bundleRoot)

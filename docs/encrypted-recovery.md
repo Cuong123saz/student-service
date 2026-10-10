@@ -48,11 +48,12 @@ Các lệnh thao tác riêng (script npm đã thêm cờ `--fake-data-only`):
 ```powershell
 npm run recovery:encrypted --workspace @student-service/api -- keygen '<đường dẫn key file mới, trong thư mục riêng đã cấp quyền>'
 npm run recovery:encrypted --workspace @student-service/api -- encrypt '<bundle của drill>' '<kho mã hóa>' '<key file>'
+npm run recovery:encrypted --workspace @student-service/api -- inspect '<kho mã hóa>' '<key file>' 3 30
 npm run recovery:encrypted --workspace @student-service/api -- verify '<package trong kho mã hóa>' '<key file>'
 npm run recovery:encrypted --workspace @student-service/api -- decrypt '<package trong kho mã hóa>' '<key file>' '<runRoot của đúng runId>\decrypted-bundle'
 ```
 
-Nguồn mã hóa phải đúng `run/recovery-drills/<runId>/bundle` của repository. Giải mã chỉ vào thư mục `decrypted-bundle` chưa tồn tại thuộc đúng runId; không nhận đích database/kho ứng dụng thật. Có sẵn package hoặc đích, kể cả thư mục rỗng, thì từ chối. Exit 0 chỉ khi hoàn tất xác thực/thao tác; mọi lỗi exit 1 với mã an toàn, không in secret. `verify` chỉ xác thực package đã chọn; **chưa có catalog/retention cho kho mã hóa**. Báo cáo runner ghi `retentionSupported=false`; công cụ kho chưa mã hóa không được dùng để dọn kho này.
+Nguồn mã hóa phải đúng `run/recovery-drills/<runId>/bundle` của repository. Giải mã chỉ vào thư mục `decrypted-bundle` chưa tồn tại thuộc đúng runId; không nhận đích database/kho ứng dụng thật. Có sẵn package hoặc đích, kể cả thư mục rỗng, thì từ chối. Exit 0 chỉ khi hoàn tất xác thực/thao tác; lỗi thao tác exit 1 với mã an toàn, không in secret. Riêng `inspect` trả exit 2 khi kho EMPTY hoặc ATTENTION. `verify` chỉ xác thực package đã chọn; **đã có [kiểm tra toàn kho và đề xuất giữ bản](encrypted-archive-inspection.md)** qua thao tác `inspect` riêng, chưa có thao tác xóa. Runner chưa tích hợp quét toàn kho và vẫn ghi `retentionSupported=false`; công cụ kho chưa mã hóa không được dùng để dọn kho này.
 
 ## Kết quả
 
@@ -82,6 +83,6 @@ Gói mã hóa được ghi độc quyền, envelope hoàn tất được ghi cu�
 
 Nguồn gói, dump nguồn, các gói thử **chưa mã hóa trước đó** và plaintext đã giải mã vẫn tồn tại trong phạm vi dữ liệu giả. Increment này không tự chuyển đổi hoặc xóa chúng, không có xóa an toàn, khóa bộ nhớ hoặc bảo đảm xóa secret khỏi RAM. Không tuyên bố toàn máy hoặc mọi bản sao cũ đã được mã hóa.
 
-Giới hạn: tối đa 5.000 tệp, 5 MiB/tệp, dump 512 MiB; manifest mã hóa tối đa 4 MiB, envelope 4 KiB. Đọc/ghi payload theo luồng; manifest nhỏ được giữ trong RAM. Kho/nguồn/thư mục tạm phải do người vận hành tin cậy kiểm soát; stat/hash không chống người có quyền sửa filesystem trong lúc chạy. Chưa kiểm thử mất điện, thiết bị từ xa, dung lượng đại diện, đồng bộ bền vững, kho bất biến hoặc retention mã hóa.
+Giới hạn: tối đa 5.000 tệp, 5 MiB/tệp, dump 512 MiB; manifest mã hóa tối đa 4 MiB, envelope 4 KiB. Đọc/ghi payload theo luồng; manifest nhỏ được giữ trong RAM. Kho/nguồn/thư mục tạm phải do người vận hành tin cậy kiểm soát; stat/hash không chống người có quyền sửa filesystem trong lúc chạy. Chưa kiểm thử mất điện, thiết bị từ xa, dung lượng đại diện, đồng bộ bền vững, kho bất biến hoặc thực thi xóa theo retention mã hóa. Công cụ đề xuất giữ bản chỉ đọc đã được bổ sung riêng.
 
 Xác thực gói mã hóa là cơ chế bảo vệ bản sao, không phải xác minh chữ ký số trên giấy tờ hoặc công nhận hiệu lực dấu đỏ. Giấy xác nhận sinh viên tiếp tục làm trực tiếp tại CTSV. Các việc trước production trong [runbook phục hồi](recovery-rehearsal.md) và [kho riêng](recovery-archive.md) vẫn còn hiệu lực.

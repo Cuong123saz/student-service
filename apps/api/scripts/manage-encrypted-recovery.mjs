@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { assertDrillInvocation } from './recovery-bundle.mjs'
 import {
   createRecoveryKey,
+  inspectEncryptedRecoveryArchive,
   encryptRecoveryBundle,
   decryptRecoveryBundle,
   verifyEncryptedRecoveryBundle,
@@ -34,6 +35,18 @@ try {
       keyId: data.header.keyId,
       files: data.manifest.files.length,
     }
+  } else if (
+    action === 'inspect' &&
+    args.length === 4 &&
+    /^[1-9][0-9]*$/.test(args[2]) &&
+    /^[1-9][0-9]*$/.test(args[3])
+  ) {
+    result = await inspectEncryptedRecoveryArchive({
+      archiveRoot: args[0],
+      keyPath: args[1],
+      projectRoot,
+      policy: { keepLatest: Number(args[2]), minAgeDays: Number(args[3]) },
+    })
   } else if (action === 'decrypt' && args.length === 3) {
     const manifest = await decryptRecoveryBundle({
       packageRoot: args[0],
@@ -50,6 +63,7 @@ try {
     }
   } else throw new Error('INVALID_ENCRYPTED_RECOVERY_OPTIONS')
   console.log(JSON.stringify(result, null, 2))
+  if (result.status === 'ATTENTION' || result.status === 'EMPTY') process.exitCode = 2
 } catch (error) {
   console.error(
     /^[A-Z_]+$/.test(error.message) ? error.message : 'ENCRYPTED_RECOVERY_OPERATION_FAILED',
