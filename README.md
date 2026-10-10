@@ -56,7 +56,7 @@ Kịch bản demo và biểu mẫu nghiệm thu được ghi tại [`docs/sprint
 
 Đã có cấu hình thủ tục có phiên bản: hình thức thực hiện, đơn vị/cán bộ xử lý, trường biểu mẫu, yêu cầu minh chứng, xem trước và áp dụng. Giấy xác nhận sinh viên mặc định xử lý trực tiếp tại Phòng CTSV.
 
-Mở mục **Biểu mẫu và nơi xử lý** trong quản trị. [Hướng dẫn cấu hình](docs/procedure-configuration.md) mô tả các bước và quyền cần có. Phần nộp hồ sơ và xét duyệt online thuộc các bước sau; kê khai nháp và upload minh chứng đã có ở increment Sprint 5 bên dưới.
+Mở mục **Biểu mẫu và nơi xử lý** trong quản trị. [Hướng dẫn cấu hình](docs/procedure-configuration.md) mô tả các bước và quyền cần có. Kê khai nháp, upload minh chứng và gửi/tiếp nhận online đã có ở các increment Sprint 5 bên dưới; quyết định duyệt và ký thuộc bước sau.
 
 [ADR cấu hình thủ tục](docs/adr/0001-submission-workflow.md) đã Accepted trước migration; [kế hoạch và kết quả Sprint 4](docs/sprint-4-plan.md) ghi rõ phạm vi kiểm chứng local. Sprint 4 vẫn IN_PROGRESS, chưa có xác nhận đóng sprint.
 
@@ -66,7 +66,13 @@ Migration chạm các bảng cấu hình phải có ADR Accepted và trạng th�
 
 Sinh viên có thể bắt đầu/tiếp tục nháp của thủ tục ONLINE/HYBRID, nhận dữ liệu hồ sơ từ máy chủ, lưu thiếu thông tin, tải/gỡ minh chứng riêng và xem lại nội dung. **Thủ tục của tôi** nằm trong cổng sinh viên. Giấy xác nhận sinh viên tiếp tục OFFLINE tại CTSV.
 
-[Hướng dẫn và kiểm chứng Sprint 5](docs/sprint-5-drafts.md) ghi rõ cách thử, API, kho tệp riêng và giới hạn. Chưa mở gửi hồ sơ, xét duyệt hoặc ký; tệp tải lên luôn có trạng thái chữ ký chưa xác minh.
+[Hướng dẫn và kiểm chứng Sprint 5](docs/sprint-5-drafts.md) ghi rõ cách thử, API, kho tệp riêng và giới hạn. Phạm vi ban đầu dừng ở bản nháp; bước gửi/tiếp nhận được triển khai tiếp ở increment bên dưới. Tệp tải lên luôn có trạng thái chữ ký chưa xác minh.
+
+### Sprint 5 — Gửi hồ sơ và tiếp nhận xử lý
+
+Sinh viên gửi bản đã lưu sau khi xem lại và xác nhận; máy chủ kiểm tra đủ nội dung/minh chứng và chốt snapshot. Cán bộ xem hàng đợi đúng quyền/phạm vi, đọc tệp gốc và nhận xử lý. Trạng thái Bản nháp → Đã gửi → Đang xử lý; nội dung đã gửi được khóa. Chưa có quyết định duyệt, trả/bổ sung, ký hoặc phát hành.
+
+[Hướng dẫn gửi và tiếp nhận](docs/submission-intake.md) mô tả cách dùng, quyền, API và kiểm chứng. Giấy xác nhận sinh viên tiếp tục xử lý trực tiếp tại CTSV.
 
 ## Luồng đã chạy được
 

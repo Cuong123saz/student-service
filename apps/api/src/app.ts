@@ -103,6 +103,7 @@ import { DrizzleSubmissionRepository } from './modules/submissions/submission.re
 import { SubmissionService } from './modules/submissions/submission.service.js'
 import { LocalEvidenceStorage } from './modules/submissions/submission.storage.js'
 import { submissionRoutes } from './modules/submissions/submission.routes.js'
+import { submissionReviewRoutes } from './modules/submissions/submission-review.routes.js'
 export interface BuildAppOptions {
   submissionService?: SubmissionService
   procedureService?: ProcedureUseCase
@@ -340,11 +341,19 @@ export function buildApp(options: BuildAppOptions = {}) {
     authorizationService,
   })
   app.register(procedurePublicRoutes, { procedureService })
-  app.register(submissionRoutes, {
+  const submissionService =
+    options.submissionService ??
+    new SubmissionService(new DrizzleSubmissionRepository(), new LocalEvidenceStorage())
+  app.register(submissionRoutes, { prefix: USER_API_PREFIX, submissionService })
+  app.register(submissionReviewRoutes, {
     prefix: USER_API_PREFIX,
-    submissionService:
-      options.submissionService ??
-      new SubmissionService(new DrizzleSubmissionRepository(), new LocalEvidenceStorage()),
+    submissionService,
+    portal: 'user',
+  })
+  app.register(submissionReviewRoutes, {
+    prefix: ADMIN_API_PREFIX,
+    submissionService,
+    portal: 'admin',
   })
   app.register(serviceRoutes)
 

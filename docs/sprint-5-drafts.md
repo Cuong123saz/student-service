@@ -72,3 +72,8 @@ Demo trình duyệt dùng tài khoản và thủ tục giả định trong datab
 Rà soát độc lập tập trung vào quyền sở hữu/role/status, Origin, revision, giới hạn tệp, byte/hash, đối chiếu commit và che dữ liệu nhạy cảm. Đã sửa lỗi trả lượt tải trước khi lưu xong; ca HTTP hồi quy thất bại trên mã cũ và đạt sau sửa. Lần chạy lại đạt 184/184 integration; kiểm tra kiểu dữ liệu, lint và build API được cập nhật ở các log có hậu tố reviewed. Các kiểm tra Web và trình duyệt ở trên giữ kết quả của bản giao diện không đổi.
 
 Bằng chứng local, được bỏ qua trong Git: run/sprint5-api-tests-final.log, run/sprint5-web-tests-final.log, run/sprint5-adr-tests-final.log, run/sprint5-api-quality-final.log, run/sprint5-format-final.log, run/sprint5-build-final.log, run/sprint5-browser-smoke.log, run/sprint5-api-integration-reviewed.log, run/sprint5-api-quality-reviewed.log, run/sprint5-api-build-reviewed.log; ảnh run/sprint5-student-1440.png và run/sprint5-student-375.png. Web đang chạy bản mới tại http://localhost:3001; API tại http://localhost:3000. Chưa tạo/áp dụng cấu hình nghiệp vụ mới trên development hoặc đổi thông tin đăng nhập.
+
+
+## Increment gửi và tiếp nhận
+
+Bước [gửi hồ sơ và tiếp nhận xử lý](submission-intake.md) được triển khai tiếp theo yêu cầu chủ dự án. Các câu “chưa gửi/xét” và số liệu phía trên là phạm vi lịch sử của increment tương ứng. Bước mới chỉ gửi và nhận xử lý, chưa duyệt/ký/trả kết quả; giấy xác nhận sinh viên vẫn OFFLINE tại CTSV.

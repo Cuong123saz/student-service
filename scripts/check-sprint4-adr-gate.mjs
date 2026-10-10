@@ -6,8 +6,14 @@ const tableAdrMap = new Map([
   ['attachment_requirements', 'docs/adr/0001-submission-workflow.md'],
   ['workflow_definitions', 'docs/adr/0001-submission-workflow.md'],
   ['workflow_steps', 'docs/adr/0001-submission-workflow.md'],
-  ['submissions', 'docs/adr/0003-student-drafts-and-evidence.md'],
-  ['submission_files', 'docs/adr/0003-student-drafts-and-evidence.md'],
+  [
+    'submissions',
+    ['docs/adr/0003-student-drafts-and-evidence.md', 'docs/adr/0004-submission-and-intake.md'],
+  ],
+  [
+    'submission_files',
+    ['docs/adr/0003-student-drafts-and-evidence.md', 'docs/adr/0004-submission-and-intake.md'],
+  ],
   ['form_versions', 'docs/adr/0001-submission-workflow.md'],
   ['reviewer_queue', 'docs/adr/0001-submission-workflow.md'],
 ])
@@ -49,11 +55,13 @@ const requirements = new Map()
 for (const migration of changedMigrations) {
   const sql = runGit('show', `${headRevision}:${migration}`)
 
-  for (const [table, adr] of tableAdrMap) {
+  for (const [table, adrs] of tableAdrMap) {
     if (new RegExp(`\\b${table}\\b`, 'iu').test(sql)) {
-      const migrations = requirements.get(adr) || []
-      migrations.push(`${migration} (${table})`)
-      requirements.set(adr, migrations)
+      for (const adr of [adrs].flat()) {
+        const migrations = requirements.get(adr) || []
+        migrations.push(`${migration} (${table})`)
+        requirements.set(adr, migrations)
+      }
     }
   }
 }

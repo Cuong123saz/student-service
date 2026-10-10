@@ -5,6 +5,7 @@ export const MAX_FILE_BYTES = 5 * 1024 * 1024
 export function validateAnswers(
   procedure: PublicProcedure,
   values: DraftValues,
+  includeProfile = false,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   for (const key of Object.keys(values)) {
@@ -15,7 +16,7 @@ export function validateAnswers(
       issues.push({ path, message: 'Trường này không có trong biểu mẫu.' })
       continue
     }
-    if (field.source === 'PROFILE') {
+    if (field.source === 'PROFILE' && !includeProfile) {
       issues.push({ path, message: 'Thông tin hồ sơ do hệ thống điền.' })
       continue
     }
@@ -47,7 +48,8 @@ export function completionIssues(
       .filter(
         (f) =>
           f.required &&
-          (values[f.key] === undefined ||
+          (!Object.hasOwn(values, f.key) ||
+            values[f.key] === undefined ||
             values[f.key] === null ||
             (typeof values[f.key] === 'string' && !String(values[f.key]).trim())),
       )

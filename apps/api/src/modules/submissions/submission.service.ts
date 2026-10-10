@@ -1,11 +1,29 @@
 import { createHash } from 'node:crypto'
 import type { DrizzleSubmissionRepository } from './submission.repository.js'
 import type { EvidenceStorage } from './submission.storage.js'
-import { SubmissionError, type SubmissionActor, type DraftValues } from './submission.types.js'
+import {
+  SubmissionError,
+  integrityFailure,
+  type SubmissionActor,
+  type DraftValues,
+  type StoredFileIntegrity,
+} from './submission.types.js'
 import { inspectEvidence } from './submission.validation.js'
 export type SubmissionRepository = Pick<
   DrizzleSubmissionRepository,
-  'list' | 'get' | 'create' | 'save' | 'addFile' | 'removeFile' | 'file' | 'hasStoredFile'
+  | 'list'
+  | 'get'
+  | 'create'
+  | 'save'
+  | 'addFile'
+  | 'removeFile'
+  | 'file'
+  | 'hasStoredFile'
+  | 'submit'
+  | 'reviewList'
+  | 'reviewGet'
+  | 'claim'
+  | 'reviewFile'
 >
 export class SubmissionService {
   constructor(
@@ -26,6 +44,21 @@ export class SubmissionService {
   }
   remove(actor: SubmissionActor, id: string, revision: number, fileId: string) {
     return this.repository.removeFile(actor, id, revision, fileId)
+  }
+  submit(actor: SubmissionActor, id: string, revision: number) {
+    // The repository calls this before committing, while holding service/draft locks.
+    return this.repository.submit(actor, id, revision, async (files) => {
+      for (const file of files) await this.readVerified(file)
+    })
+  }
+  reviewList(userId: string, status?: 'SUBMITTED' | 'IN_REVIEW') {
+    return this.repository.reviewList(userId, status)
+  }
+  reviewGet(userId: string, id: string) {
+    return this.repository.reviewGet(userId, id)
+  }
+  claim(actor: SubmissionActor, id: string, revision: number) {
+    return this.repository.claim(actor, id, revision)
   }
   async upload(
     actor: SubmissionActor,
@@ -51,21 +84,37 @@ export class SubmissionService {
         throw new SubmissionError(
           503,
           'STORAGE_RECONCILIATION',
-          'Chưa xác định được kết quả lưu minh chứng. Hãy tải lại bản nháp để kiểm tra trước khi tải tệp lần nữa.',
+          'Chưa xác định được kết quả lưu minh chứng. Hãy tải lại hồ sơ để kiểm tra trước khi tải tệp lần nữa.',
         )
       }
       throw error
     }
   }
+  private async readVerified(file: StoredFileIntegrity) {
+    let bytes: Buffer
+    try {
+      bytes = await this.storage.read(file.key)
+    } catch {
+      throw integrityFailure()
+    }
+    if (
+      bytes.length !== file.size ||
+      createHash('sha256').update(bytes).digest('hex') !== file.sha256
+    )
+      throw integrityFailure()
+    return bytes
+  }
   async download(userId: string, id: string, fileId: string) {
     const file = await this.repository.file(userId, id, fileId)
-    const bytes = await this.storage.read(file.key)
-    if (createHash('sha256').update(bytes).digest('hex') !== file.sha256)
-      throw new SubmissionError(
-        503,
-        'FILE_INTEGRITY',
-        'Tệp lưu trữ không vượt qua kiểm tra toàn vẹn. Vui lòng liên hệ đơn vị xử lý.',
-      )
+    const bytes = await this.readVerified(file)
+    // Storage may be slow: eligibility or linkage can change before bytes are returned.
+    await this.repository.file(userId, id, fileId)
+    return { bytes, name: file.name, mimeType: file.mimeType }
+  }
+  async reviewDownload(userId: string, id: string, fileId: string) {
+    const file = await this.repository.reviewFile(userId, id, fileId)
+    const bytes = await this.readVerified(file)
+    await this.repository.reviewFile(userId, id, fileId)
     return { bytes, name: file.name, mimeType: file.mimeType }
   }
 }

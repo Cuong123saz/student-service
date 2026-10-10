@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatSubmissionTime, submissionStatusLabels } from '~/utils/submission'
 import type { DraftSummary } from '~/types/submission'
 definePageMeta({ middleware: 'user-auth' })
 const api = useSubmissions()
@@ -12,7 +13,7 @@ async function load() {
   try {
     drafts.value = await api.list()
   } catch (e) {
-    failure.value = (e as { message?: string }).message ?? 'Không tải được bản nháp.'
+    failure.value = (e as { message?: string }).message ?? 'Không tải được hồ sơ.'
   } finally {
     loading.value = false
   }
@@ -27,16 +28,17 @@ onMounted(() => {
     <p class="page-eyebrow">Cổng sinh viên</p>
     <h1 class="page-title">Thủ tục của tôi</h1>
     <p class="page-description">
-      Các bản nháp chưa được gửi đến đơn vị xử lý. Hiển thị tối đa 50 bản được cập nhật gần nhất.
+      Theo dõi bản nháp, hồ sơ đã gửi và tình trạng xử lý. Hiển thị tối đa 50 hồ sơ được cập nhật
+      gần nhất.
     </p>
     <p v-if="!user?.roles.includes('STUDENT')" role="alert">Chức năng này dành cho sinh viên.</p>
-    <p v-else-if="loading" role="status">Đang tải bản nháp…</p>
+    <p v-else-if="loading" role="status">Đang tải hồ sơ…</p>
     <div v-else-if="failure" role="alert">
       <p>{{ failure }}</p>
       <BaseButton @click="load">Thử lại</BaseButton>
     </div>
     <div v-else-if="!drafts.length" class="draft-empty">
-      <h2>Bạn chưa có bản nháp</h2>
+      <h2>Bạn chưa có hồ sơ</h2>
       <p>Chọn một dịch vụ có biểu mẫu trực tuyến để bắt đầu kê khai.</p>
       <NuxtLink to="/services">Xem dịch vụ sinh viên →</NuxtLink>
     </div>
@@ -44,9 +46,15 @@ onMounted(() => {
       <li v-for="draft in drafts" :key="draft.id">
         <NuxtLink :to="'/submissions/' + draft.id">
           <strong>{{ draft.serviceName }}</strong>
-          <span>Bản nháp · Chưa gửi</span>
+          <span>{{ submissionStatusLabels[draft.status] }}</span>
+          <small v-if="draft.submittedAt"
+            >Đã gửi {{ formatSubmissionTime(draft.submittedAt) }}</small
+          >
+          <small v-if="draft.reviewStartedAt"
+            >Bắt đầu xử lý {{ formatSubmissionTime(draft.reviewStartedAt) }}</small
+          >
           <small>Cập nhật {{ new Date(draft.updatedAt).toLocaleString('vi-VN') }}</small>
-          <b>Tiếp tục kê khai →</b>
+          <b>{{ draft.status === 'DRAFT' ? 'Tiếp tục kê khai →' : 'Xem hồ sơ đã gửi →' }}</b>
         </NuxtLink>
       </li>
     </ul>

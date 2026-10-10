@@ -46,6 +46,8 @@ export interface ProcedureIssue {
 }
 export interface ProcedureApiError {
   status?: number
+  code?: string
+  requestId?: string
   message: string
   issues: ProcedureIssue[]
 }

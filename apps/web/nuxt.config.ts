@@ -34,6 +34,7 @@ export default defineNuxtConfig({
   routeRules: {
     '/admin/**': { ssr: false },
     '/submissions/**': { ssr: false },
+    '/review-submissions/**': { ssr: false },
   },
 
   runtimeConfig: {

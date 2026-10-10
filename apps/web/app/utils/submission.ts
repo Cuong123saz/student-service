@@ -1,0 +1,24 @@
+import type { ProcedureField } from '~/types/procedure'
+import type { DraftValues, SubmissionStatus } from '~/types/submission'
+
+export const submissionStatusLabels: Record<SubmissionStatus, string> = {
+  DRAFT: 'Bản nháp · Chưa gửi',
+  SUBMITTED: 'Đã gửi · Chờ tiếp nhận',
+  IN_REVIEW: 'Đang xử lý',
+}
+export function formatSubmissionTime(value: string | null) {
+  return value ? new Date(value).toLocaleString('vi-VN') : 'Chưa có'
+}
+export function formatSubmissionAnswer(field: ProcedureField, values: DraftValues) {
+  const value = values[field.key]
+  if (value === null || value === undefined || value === '') return 'Chưa điền'
+  if (field.type === 'BOOLEAN') return value ? 'Có' : 'Không'
+  if (field.type === 'DATE') return String(value).split('-').reverse().join('/')
+  if (field.type === 'SELECT')
+    return field.options.find((option) => option.value === value)?.label ?? String(value)
+  return String(value)
+}
+export function submissionIssueAnchor(path: string) {
+  const key = path.split('.').at(-1)
+  return path.startsWith('attachments.') ? '#attachment-' + key : '#field-' + key
+}

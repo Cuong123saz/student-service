@@ -78,6 +78,7 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
   if (adr !== undefined) {
     write(adrPath, '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0003-student-drafts-and-evidence.md', '---\nstatus: ' + adr + '\n---\n')
+    write('docs/adr/0004-submission-and-intake.md', '---\nstatus: ' + adr + '\n---\n')
   }
   const base = commit()
   return { write, commit, run, base }
@@ -208,5 +209,21 @@ test('student evidence requires its own ADR before migration even when workflow 
   const result = repo.run(base)
   assert.equal(result.status, 1, result.output)
   assert.match(result.output, /0003-student-drafts-and-evidence/u)
+  assert.match(result.output, /was not Accepted before/u)
+})
+
+test('submission intake ADR must be accepted before changing submitted records', (t) => {
+  const repo = fixture(t, { adr: 'Accepted' })
+  repo.write('docs/adr/0004-submission-and-intake.md', '---\nstatus: Proposed\n---\n')
+  const base = repo.commit()
+  repo.write('docs/adr/0004-submission-and-intake.md', '---\nstatus: Accepted\n---\n')
+  repo.write(
+    'apps/api/drizzle/0016_intake.sql',
+    'ALTER TABLE submissions ADD COLUMN submitted_at timestamptz;\n',
+  )
+  repo.commit()
+  const result = repo.run(base)
+  assert.equal(result.status, 1, result.output)
+  assert.match(result.output, /0004-submission-and-intake/u)
   assert.match(result.output, /was not Accepted before/u)
 })

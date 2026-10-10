@@ -12,9 +12,10 @@ import {
 } from 'drizzle-orm/pg-core'
 import { services } from '../../db/schema.js'
 import { users } from '../auth/auth.schema.js'
+import { organizationalUnits } from '../organizations/organization.schema.js'
 import { procedureVersions } from '../procedures/procedure.schema.js'
 import type { PublicProcedure } from '../procedures/procedure.contract.js'
-import type { DraftValues } from './submission.types.js'
+import type { DraftValues, StudentSnapshot, SubmissionStatus } from './submission.types.js'
 export const submissions = pgTable(
   'submissions',
   {
@@ -29,7 +30,17 @@ export const submissions = pgTable(
       .notNull()
       .references(() => procedureVersions.id, { onDelete: 'restrict' }),
     serviceName: varchar('service_name', { length: 255 }).notNull(),
-    status: varchar('status', { length: 20 }).$type<'DRAFT'>().notNull().default('DRAFT'),
+    status: varchar('status', { length: 20 }).$type<SubmissionStatus>().notNull().default('DRAFT'),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    processingUnitId: uuid('processing_unit_id').references(() => organizationalUnits.id, {
+      onDelete: 'restrict',
+    }),
+    designatedReviewerId: uuid('designated_reviewer_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    studentSnapshot: jsonb('student_snapshot').$type<StudentSnapshot>(),
+    reviewerUserId: uuid('reviewer_user_id').references(() => users.id, { onDelete: 'restrict' }),
+    reviewStartedAt: timestamp('review_started_at', { withTimezone: true }),
     revision: integer('revision').notNull().default(1),
     procedure: jsonb('procedure').$type<PublicProcedure>().notNull(),
     values: jsonb('values').$type<DraftValues>().notNull(),
@@ -42,7 +53,22 @@ export const submissions = pgTable(
       table.procedureVersionId,
     ),
     index('submissions_student_updated_idx').on(table.studentUserId, table.updatedAt),
-    check('submissions_draft_check', sql`${table.status} = 'DRAFT' AND ${table.revision} > 0`),
+    index('submissions_intake_idx').on(table.processingUnitId, table.submittedAt),
+    check(
+      'submissions_state_check',
+      sql`
+      ${table.revision} > 0 AND (
+        (${table.status} = 'DRAFT' AND ${table.submittedAt} IS NULL AND ${table.processingUnitId} IS NULL AND ${table.designatedReviewerId} IS NULL AND ${table.studentSnapshot} IS NULL AND ${table.reviewerUserId} IS NULL AND ${table.reviewStartedAt} IS NULL)
+        OR
+        (${table.status} = 'SUBMITTED' AND ${table.submittedAt} IS NOT NULL AND ${table.processingUnitId} IS NOT NULL AND ${table.studentSnapshot} IS NOT NULL AND ${table.reviewerUserId} IS NULL AND ${table.reviewStartedAt} IS NULL)
+        OR
+        (${table.status} = 'IN_REVIEW' AND ${table.submittedAt} IS NOT NULL AND ${table.processingUnitId} IS NOT NULL AND ${table.studentSnapshot} IS NOT NULL AND ${table.reviewerUserId} IS NOT NULL AND ${table.reviewStartedAt} IS NOT NULL)
+      )`,
+    ),
+    check(
+      'submissions_student_snapshot_check',
+      sql`${table.studentSnapshot} IS NULL OR jsonb_typeof(${table.studentSnapshot}) = 'object'`,
+    ),
     check(
       'submissions_json_check',
       sql`jsonb_typeof(${table.procedure}) = 'object' AND jsonb_typeof(${table.values}) = 'object'`,

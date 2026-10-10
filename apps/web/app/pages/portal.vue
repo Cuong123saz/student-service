@@ -15,7 +15,7 @@ interface PortalItem {
 const allItems: PortalItem[] = [
   {
     label: 'Thủ tục của tôi',
-    description: 'Tiếp tục kê khai và xem các bản nháp chưa gửi.',
+    description: 'Kê khai, gửi hồ sơ và theo dõi tình trạng tiếp nhận.',
     to: '/submissions',
     roles: ['STUDENT'],
   },
@@ -46,9 +46,10 @@ const allItems: PortalItem[] = [
     roles: ['STUDENT'],
   },
   {
-    label: 'Hồ sơ chờ duyệt',
-    description: 'Xem các hồ sơ đang chờ bạn xử lý.',
-    roles: ['ACADEMIC_ADVISOR', 'FACULTY_REVIEWER', 'DOCUMENT_SIGNER'],
+    label: 'Tiếp nhận hồ sơ',
+    description: 'Xem hồ sơ được phân công và nhận xử lý theo quyền hiện tại.',
+    to: '/review-submissions',
+    roles: ['SYSTEM_ADMIN', 'ADMIN', 'ACADEMIC_ADVISOR', 'FACULTY_REVIEWER', 'DOCUMENT_SIGNER'],
   },
 ]
 

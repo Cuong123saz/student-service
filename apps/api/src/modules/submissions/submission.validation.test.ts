@@ -114,3 +114,12 @@ test('private storage generates separate keys, preserves bytes and rejects trave
   await storage.remove(first)
   assert.deepEqual(await readdir(root), [second])
 })
+test('trusted profile values still obey field type and length limits during final submission validation', () => {
+  assert.deepEqual(validateAnswers(procedure, { fullName: 'An' }, true), [])
+  assert.equal(
+    validateAnswers(procedure, { fullName: 'Too long' }, true)[0]?.path,
+    'values.fullName',
+  )
+  assert.equal(validateAnswers(procedure, { fullName: 42 }, true)[0]?.path, 'values.fullName')
+  assert.equal(validateAnswers(procedure, { fullName: 'An' })[0]?.path, 'values.fullName')
+})

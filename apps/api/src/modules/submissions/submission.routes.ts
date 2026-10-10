@@ -1,10 +1,15 @@
 import { Type } from '@sinclair/typebox'
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import { env } from '../../config/env.js'
-import { getAuditRequestContext } from '../audit/audit-request-context.js'
-import { requireStudentRole, requireUserSession } from '../auth/user-auth.guard.js'
+import type { FastifyInstance } from 'fastify'
 import type { SubmissionService } from './submission.service.js'
-import { SubmissionError, type DraftValues, type SubmissionActor } from './submission.types.js'
+import { SubmissionError, type DraftValues } from './submission.types.js'
+import {
+  configureSubmissionErrors,
+  executeSubmission as execute,
+  requireSubmissionSession,
+  submissionActor as actor,
+  submissionOrigin as origin,
+  sendEvidence,
+} from './submission.http.js'
 import { MAX_FILE_BYTES } from './submission.validation.js'
 const uuid = Type.String({ format: 'uuid' })
 const params = Type.Object({ id: uuid }, { additionalProperties: false })
@@ -12,51 +17,13 @@ const revisionQuery = Type.Object(
   { revision: Type.Integer({ minimum: 1 }) },
   { additionalProperties: false },
 )
-function actor(request: FastifyRequest): SubmissionActor {
-  return {
-    userId: request.userSession!.sub,
-    username: request.userSession!.username,
-    ...getAuditRequestContext(request),
-  }
-}
-async function origin(request: FastifyRequest, reply: FastifyReply) {
-  if (request.headers.origin !== env.corsOrigin)
-    return reply.code(403).send({
-      code: 'ORIGIN_REJECTED',
-      message: 'Yêu cầu phải được gửi từ cổng sinh viên.',
-      requestId: request.id,
-    })
-}
-async function execute(
-  request: FastifyRequest,
-  reply: FastifyReply,
-  action: () => Promise<unknown>,
-) {
-  try {
-    return await action()
-  } catch (error) {
-    if (error instanceof SubmissionError)
-      return reply.code(error.statusCode).send({
-        code: error.code,
-        message: error.message,
-        issues: error.issues,
-        requestId: request.id,
-      })
-    // Database errors can contain query parameters (student answers).
-    request.log.error({ requestId: request.id }, 'Submission operation failed')
-    return reply.code(500).send({
-      code: 'SUBMISSION_FAILED',
-      message: 'Chưa thể xử lý bản nháp. Vui lòng thử lại.',
-      requestId: request.id,
-    })
-  }
-}
 export async function submissionRoutes(
   app: FastifyInstance,
   options: { submissionService: SubmissionService },
 ) {
   const service = options.submissionService
-  const guards = [requireUserSession, requireStudentRole]
+  configureSubmissionErrors(app)
+  const guards = [requireSubmissionSession('user', true)]
   const writeGuards = [...guards, origin]
   let activeUploads = 0
   app.get('/submissions', { preHandler: guards }, async (request, reply) =>
@@ -113,6 +80,23 @@ export async function submissionRoutes(
           request.body.expectedRevision,
           request.body.values,
         ),
+      ),
+  )
+  app.post<{ Params: { id: string }; Body: { expectedRevision: number } }>(
+    '/submissions/:id/submit',
+    {
+      preHandler: writeGuards,
+      schema: {
+        params,
+        body: Type.Object(
+          { expectedRevision: Type.Integer({ minimum: 1 }) },
+          { additionalProperties: false },
+        ),
+      },
+    },
+    async (request, reply) =>
+      execute(request, reply, () =>
+        service.submit(actor(request), request.params.id, request.body.expectedRevision),
       ),
   )
   app.post<{ Params: { id: string; key: string }; Querystring: { revision: number } }>(
@@ -213,19 +197,7 @@ export async function submissionRoutes(
           request.params.id,
           request.params.fileId,
         )
-        reply
-          .header('Content-Type', file.mimeType)
-          .header(
-            'Content-Disposition',
-            'attachment; filename="evidence"; filename*=UTF-8\'\'' +
-              encodeURIComponent(file.name).replace(
-                /['()*]/g,
-                (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase(),
-              ),
-          )
-          .header('X-Content-Type-Options', 'nosniff')
-          .header('Cache-Control', 'private, no-store')
-        return reply.send(file.bytes)
+        return sendEvidence(reply, file)
       }),
   )
 }

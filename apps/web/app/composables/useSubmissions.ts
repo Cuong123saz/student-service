@@ -1,5 +1,6 @@
 import type { DraftValues, DraftSummary, StudentDraft } from '~/types/submission'
 import type { ProcedureApiError } from '~/types/procedure'
+import { getApiErrorContext } from '~/utils/api-error'
 export function useSubmissions() {
   const base = String(useRuntimeConfig().public.apiBase) + '/api/v1/user/submissions'
   async function request<T>(path: string, options: Parameters<typeof $fetch<T>>[1] = {}) {
@@ -11,9 +12,10 @@ export function useSubmissions() {
         response?: { status?: number }
         data?: { message?: string; issues?: ProcedureApiError['issues'] }
       }
-      const status = e.statusCode ?? e.response?.status
+      const context = getApiErrorContext(error)
+      const status = context.status
       throw {
-        status,
+        ...context,
         message:
           status === 401
             ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
@@ -29,6 +31,8 @@ export function useSubmissions() {
     get: (id: string) => request<StudentDraft>('/' + id),
     save: (id: string, expectedRevision: number, values: DraftValues) =>
       request<StudentDraft>('/' + id, { method: 'PUT', body: { expectedRevision, values } }),
+    submit: (id: string, expectedRevision: number) =>
+      request<StudentDraft>('/' + id + '/submit', { method: 'POST', body: { expectedRevision } }),
     upload: (id: string, revision: number, key: string, file: File) => {
       const body = new FormData()
       body.append('file', file)

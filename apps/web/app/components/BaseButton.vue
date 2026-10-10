@@ -1,11 +1,13 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
+    disabled?: boolean
     loading?: boolean
     variant?: 'primary' | 'secondary' | 'danger'
     block?: boolean
   }>(),
   {
+    disabled: false,
     loading: false,
     variant: 'primary',
     block: false,
@@ -18,7 +20,7 @@ withDefaults(
     class="base-button"
     :class="[`base-button--${variant}`, { 'base-button--block': block }]"
     :aria-busy="loading"
-    :disabled="loading || $attrs.disabled === true"
+    :disabled="loading || disabled"
   >
     <span v-if="loading" class="base-button__spinner" aria-hidden="true" />
     <slot />

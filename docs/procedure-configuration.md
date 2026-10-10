@@ -42,3 +42,8 @@ Trang local đã được bật tại http://localhost:3001/admin/procedures, AP
 ## Phạm vi increment
 
 Đã có cấu hình, xem trước và hướng dẫn công khai cho OFFLINE. Chưa có nộp hồ sơ, upload thật, hàng đợi xét duyệt, sinh DOCX/PDF hoặc ký. Đó là phạm vi increment cấu hình Sprint 4. Increment kế tiếp đã có [kê khai bản nháp và tải minh chứng ở Sprint 5](sprint-5-drafts.md); gửi hồ sơ/xét/ký vẫn chưa mở.
+
+
+## Increment gửi và tiếp nhận
+
+Bước [gửi hồ sơ và tiếp nhận xử lý](submission-intake.md) được triển khai tiếp theo yêu cầu chủ dự án. Các câu “chưa gửi/xét” và số liệu phía trên là phạm vi lịch sử của increment tương ứng. Bước mới chỉ gửi và nhận xử lý, chưa duyệt/ký/trả kết quả; giấy xác nhận sinh viên vẫn OFFLINE tại CTSV.

@@ -13,7 +13,7 @@ async function load() {
   try {
     draft.value = await api.get(String(route.params.id))
   } catch (e) {
-    failure.value = (e as { message?: string }).message ?? 'Không tải được bản nháp.'
+    failure.value = (e as { message?: string }).message ?? 'Không tải được hồ sơ.'
   } finally {
     loading.value = false
   }
@@ -27,7 +27,7 @@ onMounted(() => {
   <section class="submission-page">
     <NuxtLink to="/submissions" class="draft-back">← Thủ tục của tôi</NuxtLink>
     <p v-if="!user?.roles.includes('STUDENT')" role="alert">Chức năng này dành cho sinh viên.</p>
-    <p v-else-if="loading" role="status">Đang tải bản nháp…</p>
+    <p v-else-if="loading" role="status">Đang tải hồ sơ…</p>
     <div v-else-if="failure" role="alert">
       <p>{{ failure }}</p>
       <BaseButton @click="load">Thử lại</BaseButton>
