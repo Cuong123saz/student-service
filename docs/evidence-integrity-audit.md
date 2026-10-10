@@ -77,3 +77,8 @@ Lệnh này nằm trong `npm run test` của API, nên workflow CI hiện có c�
 Xây dựng và diễn tập sao lưu **cả database và kho tệp riêng**, gồm cả byte đã gỡ hoặc chỉ còn trong lịch sử. Cần chốt cách ngừng mọi nguồn ghi trong thời gian chụp, lưu bản sao ở nơi riêng có kiểm soát truy cập, và khôi phục vào môi trường trống tách biệt. Chỉ đánh giá phục hồi đạt sau khi đối chiếu lại byte/metadata và thử quyền truy cập hồ sơ/tệp; không phục hồi đè development để thử. Git hiện chỉ giữ mã nguồn.
 
 Backup/restore, retention, kho bền vững và quét mã độc theo [ADR0003](adr/0003-student-drafts-and-evidence.md) vẫn là điều kiện vận hành chưa hoàn thành. Không tự đóng Sprint4/5 hoặc mở production từ kết quả increment này.
+
+
+## Diễn tập phục hồi đã bổ sung
+
+Ngày 10/10/2026, [diễn tập phục hồi bằng dữ liệu giả](recovery-rehearsal.md) đã hoàn thành: dừng writer, sao lưu, xóa database nguồn giả, phục hồi vào PostgreSQL mới, đối chiếu dữ liệu/tệp và thử quyền qua API. Phạm vi này chưa thay cho backup vận hành dữ liệu thật, retention, kho bền vững hoặc quét mã độc.

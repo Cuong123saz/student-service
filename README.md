@@ -102,6 +102,10 @@ Hàng đợi hai cổng tải 20 hồ sơ mỗi lần, tìm theo tên/mã sinh v
 
 Đã thêm công cụ chỉ đọc để phát hiện tệp thiếu/sai byte, metadata lịch sử không khớp và tệp chưa liên kết; không tự xóa hoặc sửa hồ sơ. [Cách chạy và phạm vi bảo đảm](docs/evidence-integrity-audit.md) ghi 22 kiểm thử mới, trạng thái kho local và bước chuẩn bị sao lưu cả database lẫn tệp.
 
+### Sprint 5 — Diễn tập phục hồi hồ sơ
+
+Đã diễn tập sao lưu database cùng kho minh chứng, xóa nguồn giả và phục hồi vào PostgreSQL mới; kiểm chứng lịch sử, tệp đã gỡ, quyền truy cập và khả năng ghi tiếp. [Kết quả, cách chạy và giới hạn](docs/recovery-rehearsal.md) ghi lượt thử bằng dữ liệu giả, không thay cho backup vận hành dữ liệu thật.
+
 ## Luồng đã chạy được
 
 ### Admin
