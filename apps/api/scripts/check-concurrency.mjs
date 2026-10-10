@@ -244,6 +244,7 @@ async function main() {
       "INSERT INTO users(id,username,full_name,status,must_change_password) SELECT gen_random_uuid(),$1||n,'Sinh viên tải thử '||n,'ACTIVE',false FROM generate_series(1,10000)n",
       [prefix + 'bulk'],
     )
+    const bulkStarted = performance.now()
     await q(
       `INSERT INTO submissions(student_user_id,service_id,procedure_version_id,service_name,status,submitted_at,round_number,last_submitted_at,processing_unit_id,designated_reviewer_id,student_snapshot,reviewer_user_id,review_started_at,revision,procedure,values)
       SELECT p.id,$2,$3,CASE WHEN n=6999 THEN 'Giấy 50%_ literal' ELSE 'Thủ tục tải thử' END,
@@ -268,6 +269,7 @@ async function main() {
         procedure,
       ],
     )
+    report.bulkDossierInsertMs = performance.now() - bulkStarted
     // Synthetic history for notification query load, with valid round/event/recipient binding.
     await q(
       "INSERT INTO submission_rounds(submission_id,round_number,submitted_at,student_snapshot,values,files,source) SELECT id,1,submitted_at,student_snapshot,values,'[]'::jsonb,'LIVE' FROM submissions WHERE service_id=$1 AND status='IN_REVIEW'",
@@ -443,6 +445,24 @@ async function main() {
       }
       report.phases.push(phase)
       console.log('CONCURRENCY_PHASE ' + JSON.stringify(phase))
+    }
+    if (process.argv.includes('--profile-search')) {
+      const { profileReviewSearch } = await import('./profile-review-search.mjs')
+      report.searchProfile = await profileReviewSearch({
+        actors,
+        cleanPending: process.argv.includes('--clean-pending-experiment'),
+      })
+      console.log(
+        'SEARCH_PROFILE ' +
+          JSON.stringify({
+            indexBytes: report.searchProfile.indexBytes,
+            plans: report.searchProfile.plans.map((p) => ({
+              name: p.name,
+              executionMs: p.plan['Execution Time'],
+            })),
+            repositoryPhases: report.searchProfile.repositoryPhases,
+          }),
+      )
     }
     // Twenty distinct actors contend for one genuinely submitted dossier via the HTTP workflow.
     const draft = (await request(owner, '/submissions', { serviceId, versionId })).data

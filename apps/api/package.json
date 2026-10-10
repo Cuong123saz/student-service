@@ -21,7 +21,8 @@
     "test:unit": "node scripts/run-tests.mjs unit",
     "test:integration": "npm run db:migrate:test && node scripts/run-tests.mjs integration",
     "test": "npm run test:unit && npm run test:integration",
-    "test:concurrency": "node --test scripts/check-concurrency.test.mjs && npm run build && node --env-file=.env.test scripts/check-concurrency.mjs"
+    "test:concurrency": "node --test scripts/check-concurrency.test.mjs && npm run build && node --env-file=.env.test scripts/check-concurrency.mjs",
+    "test:search-profile": "node --test scripts/check-concurrency.test.mjs && npm run build && node --env-file=.env.test scripts/check-concurrency.mjs --profile-search"
   },
   "type": "module",
   "dependencies": {

@@ -94,6 +94,10 @@ Hàng đợi hai cổng tải 20 hồ sơ mỗi lần, tìm theo tên/mã sinh v
 
 Đã bổ sung bài thử HTTP độc lập với 20 tài khoản cán bộ, 10000 hồ sơ giả và kiểm tra tranh chấp nhận hồ sơ/thông báo cá nhân. [Cách chạy và số đo](docs/concurrent-access-check.md) ghi hai lượt kiểm chứng, chốt bảo vệ DB test và giới hạn diễn giải hiệu năng.
 
+### Sprint 5 — Tối ưu tìm kiếm hàng đợi
+
+Đã thêm chỉ mục tìm kiếm và cập nhật trực tiếp để giảm quét toàn bảng sau khi ghi hồ sơ. [Số đo trước/sau và giới hạn](docs/review-search-performance.md) ghi truy vấn thật, tải đồng thời, kiểm chứng dữ liệu và chi phí đọc/ghi.
+
 ## Luồng đã chạy được
 
 ### Admin

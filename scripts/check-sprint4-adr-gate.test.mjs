@@ -79,6 +79,7 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
     )
   }
   if (adr !== undefined) {
+    write('docs/adr/0008-review-search-index.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0007-review-queue-pagination.md', '---\nstatus: ' + adr + '\n---\n')
     write(adrPath, '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0003-student-drafts-and-evidence.md', '---\nstatus: ' + adr + '\n---\n')
@@ -292,4 +293,19 @@ test('queue pagination ADR must predate a submission index migration', (t) => {
   const result = repo.run(base)
   assert.equal(result.status, 1, result.output)
   assert.match(result.output, /0007-review-queue-pagination/u)
+})
+
+test('search-index ADR cannot be accepted together with its submissions migration', (t) => {
+  const repo = fixture(t, { adr: 'Accepted' })
+  repo.write('docs/adr/0008-review-search-index.md', '---\nstatus: Proposed\n---\n')
+  const before = repo.commit()
+  repo.write('docs/adr/0008-review-search-index.md', '---\nstatus: Accepted\n---\n')
+  repo.write(
+    'apps/api/drizzle/0020_search.sql',
+    'CREATE INDEX search_idx ON submissions (service_name);',
+  )
+  repo.commit()
+  const result = repo.run(before)
+  assert.equal(result.status, 1, result.output)
+  assert.match(result.output, /0008-review-search-index/)
 })

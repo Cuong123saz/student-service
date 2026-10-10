@@ -66,3 +66,5 @@ Sau khi máy chủ con dừng, công cụ khóa các bảng hồ sơ, kiểm tra
 Báo cáo PASS chỉ ghi sau khi kiểm tra nghiệp vụ và dọn dữ liệu thành công. Báo cáo cũ được bỏ trước khi bắt đầu seed, tránh dùng nhầm kết quả cũ sau lỗi. Nếu process bị kết thúc đột ngột, dữ liệu thử có thể còn lại; lần chạy sau sẽ từ chối DB không trống, không tự reset để che lỗi. Advisory lock không thay cho việc chạy độc quyền với các test khác không dùng cùng khóa.
 
 Công cụ có trong repository: apps/api/scripts/check-concurrency.mjs, check-concurrency.test.mjs và npm script test:concurrency. Bằng chứng local (git ignore): run/concurrency-check-first.log, run/concurrency-check-second.log, run/concurrency-report-first.json, run/concurrency-report.json, run/concurrency-api.log và run/concurrency-*.log của các kiểm tra mã. Báo cáo JSON có điều kiện máy, số request/status, số đo từng endpoint, kiểm tra tranh chấp và cleanupVerified.
+
+Cập nhật tiếp theo: [tối ưu tìm kiếm theo ADR0008](review-search-performance.md) đã thêm migrations0020–0021. Các số đo trong tài liệu này là baseline trước thay đổi; chạy công cụ trên phiên bản hiện tại dùng chỉ mục mới.

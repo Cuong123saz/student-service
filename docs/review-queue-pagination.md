@@ -18,7 +18,7 @@ Giữ thứ tự gửi đầu tiên sớm nhất, không đổi vị trí chỉ 
 
 GET /api/v1/{user|admin}/review-submissions nhận status,assignment,q,cursor, trả {items,nextCursor}; thay hợp đồng mảng50 cũ trên hai cổng local. Không nhận offset/limit do client chọn. Cursor có timestamp UTC6 chữ số và UUID, gắn người/bộ lọc đã chuẩn hóa; cursor không hợp lệ hoặc dùng với bộ lọc khác trả 400. Mỗi trang vẫn kiểm tra authority/visibility DB hiện tại trước seek/limit. Summary chỉ lấy trường cần hiển thị qua join, không lấy câu trả lời/procedure/history và không truy vấn từng dòng. Không tính tổng đếm.
 
-Migration0019 chỉ thêm hai btree status/submitted_at/id và processing_unit_id/status/submitted_at/id. Không thay trạng thái, tài khoản/grant/cấu hình thủ tục. Tìm substring chưa có chỉ mục text riêng, có thể phải scan trong phạm vi: dữ liệu lớn hơn và nhiều người dùng đồng thời cần đo tiếp trước khi chọn giải pháp search.
+Migration0019 chỉ thêm hai btree status/submitted_at/id và processing_unit_id/status/submitted_at/id. Không thay trạng thái, tài khoản/grant/cấu hình thủ tục. Số đo bên dưới là baseline trước chỉ mục text. Increment tiếp theo đã thêm [GIN và kiểm chứng tìm kiếm](review-search-performance.md) theo ADR0008, giữ nguyên hợp đồng và quyền; từ khóa ngắn/rộng vẫn có thể scan.
 
 ## Kiểm chứng
 

@@ -21,7 +21,7 @@ interface MigratedRound {
   files: RoundEvidence[]
 }
 after(() => databaseClient.end())
-test('0017 backfills immutable rounds and 0018–0019 preserve existing dossiers without invented notifications', async () => {
+test('0017 backfills immutable rounds and 0018–0021 preserve existing dossiers without invented notifications', async () => {
   const url = new URL(process.env.DATABASE_URL ?? 'http://invalid')
   assert.equal(url.port, '5434')
   assert.equal(url.pathname, '/student_service_test')
@@ -166,6 +166,47 @@ test('0017 backfills immutable rounds and 0018–0019 preserve existing dossiers
       ).length,
       2,
     )
+    const search = await readFile(
+      new URL('../../../drizzle/0020_review_queue_search.sql', import.meta.url),
+      'utf8',
+    )
+    await temporary.begin(async (tx) => {
+      for (const statement of search
+        .split('--> statement-breakpoint')
+        .filter((part) => part.trim()))
+        await tx.unsafe(statement)
+    })
+    assert.deepEqual(await temporary`SELECT * FROM submissions ORDER BY id`, beforeQueue)
+    const [searchIndex] = await temporary<
+      { indexdef: string }[]
+    >`SELECT indexdef FROM pg_indexes WHERE tablename='submissions' AND indexname='submissions_queue_search_idx'`
+    assert.ok(searchIndex)
+    assert.match(searchIndex.indexdef, /USING gin/)
+    assert.equal((searchIndex.indexdef.match(/gin_trgm_ops/g) ?? []).length, 3)
+    assert.ok(
+      searchIndex.indexdef.includes('fullName') &&
+        searchIndex.indexdef.includes('studentCode') &&
+        searchIndex.indexdef.includes('service_name'),
+    )
+    assert.equal(
+      (await temporary`SELECT extname FROM pg_extension WHERE extname='pg_trgm'`).length,
+      1,
+    )
+    const directUpdates = await readFile(
+      new URL('../../../drizzle/0021_review_search_direct_updates.sql', import.meta.url),
+      'utf8',
+    )
+    await temporary.begin(async (tx) => {
+      for (const statement of directUpdates
+        .split('--> statement-breakpoint')
+        .filter((part) => part.trim()))
+        await tx.unsafe(statement)
+    })
+    assert.deepEqual(await temporary`SELECT * FROM submissions ORDER BY id`, beforeQueue)
+    const [settings] = await temporary<
+      { reloptions: string[] }[]
+    >`SELECT reloptions FROM pg_class WHERE oid='public.submissions_queue_search_idx'::regclass`
+    assert.ok(settings!.reloptions.includes('fastupdate=off'))
   } finally {
     await temporary?.end()
     if (created) await base.unsafe('DROP DATABASE "' + temporaryName + '"')

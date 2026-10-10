@@ -3423,3 +3423,33 @@ for (const portal of ['user', 'admin'] as const)
       401,
     )
   })
+
+test('indexed queue search preserves short terms, Vietnamese accents and complete seek pages', async () => {
+  const f = await queueFixture()
+  for (const q of ['Q', 'Q0']) {
+    const ids = new Set<string>()
+    let cursor: string | undefined
+    do {
+      const page = await f.service.reviewList(f.reviewer.userId, {
+        q,
+        ...(cursor ? { cursor } : {}),
+      })
+      for (const row of page.items) {
+        assert.match(row.student.studentCode, /^Q[0-9]{3}$/)
+        assert.ok(!ids.has(row.id))
+        ids.add(row.id)
+      }
+      cursor = page.nextCursor ?? undefined
+    } while (cursor)
+    assert.equal(ids.size, 67)
+  }
+  assert.equal(
+    (await f.service.reviewList(f.reviewer.userId, { q: 'Nguyễn An 66' })).items.length,
+    1,
+  )
+  assert.equal(
+    (await f.service.reviewList(f.reviewer.userId, { q: 'Nguyen An 66' })).items.length,
+    0,
+  )
+  assert.equal((await f.service.reviewList(f.reviewer.userId, { q: 'An 6' })).items.length, 8)
+})

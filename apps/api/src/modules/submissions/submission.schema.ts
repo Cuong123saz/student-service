@@ -72,6 +72,14 @@ export const submissions = pgTable(
       table.submittedAt,
       table.id,
     ),
+    index('submissions_queue_search_idx')
+      .using(
+        'gin',
+        sql`(${table.studentSnapshot}->>'fullName') gin_trgm_ops`,
+        sql`(${table.studentSnapshot}->>'studentCode') gin_trgm_ops`,
+        sql`${table.serviceName} gin_trgm_ops`,
+      )
+      .with({ fastupdate: false }),
     check(
       'submissions_state_check',
       sql`

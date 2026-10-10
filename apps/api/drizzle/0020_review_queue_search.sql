@@ -1,0 +1,2 @@
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";--> statement-breakpoint
+CREATE INDEX "submissions_queue_search_idx" ON "submissions" USING gin (("student_snapshot"->>'fullName') gin_trgm_ops,("student_snapshot"->>'studentCode') gin_trgm_ops,"service_name" gin_trgm_ops);
