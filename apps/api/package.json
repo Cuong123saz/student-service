@@ -25,11 +25,14 @@
     "test:search-profile": "node --test scripts/check-concurrency.test.mjs && npm run build && node --env-file=.env.test scripts/check-concurrency.mjs --profile-search",
     "audit:storage": "node --env-file=.env scripts/audit-evidence.mjs",
     "test:storage": "node --test scripts/evidence-integrity.test.mjs && node --env-file=.env.test --test scripts/evidence-integrity.sql.test.mjs",
-    "test:recovery": "npm run test:fixtures && node --test scripts/recovery-bundle.test.mjs scripts/recovery-archive.test.mjs scripts/encrypted-recovery.test.mjs scripts/encrypted-recovery-archive.test.mjs",
+    "test:recovery": "npm run test:fixtures && node --test scripts/recovery-bundle.test.mjs scripts/recovery-archive.test.mjs scripts/encrypted-recovery.test.mjs scripts/encrypted-recovery-archive.test.mjs && npm run test:workflow-demo",
     "recovery:encrypted": "node scripts/manage-encrypted-recovery.mjs --fake-data-only",
     "recovery:archive": "node scripts/manage-recovery-archive.mjs --fake-data-only",
     "rehearse:recovery": "npm run test:recovery && npm run build && node scripts/rehearse-recovery.mjs --fake-data-only",
-    "test:fixtures": "node --import tsx --test scripts/recovery-fixture.test.mjs"
+    "test:fixtures": "node --import tsx --test scripts/recovery-fixture.test.mjs",
+    "demo:workflow": "node scripts/workflow-demo.mjs --fake-data-only",
+    "demo:workflow:check": "node scripts/check-workflow-demo.mjs --fake-data-only",
+    "test:workflow-demo": "node --test scripts/workflow-demo.contract.test.mjs"
   },
   "type": "module",
   "dependencies": {

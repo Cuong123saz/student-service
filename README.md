@@ -106,6 +106,10 @@ Hàng đợi hai cổng tải 20 hồ sơ mỗi lần, tìm theo tên/mã sinh v
 
 Đã diễn tập sao lưu database cùng kho minh chứng, xóa nguồn giả và phục hồi vào PostgreSQL mới; kiểm chứng lịch sử, tệp đã gỡ, quyền truy cập và khả năng ghi tiếp. [Kết quả, cách chạy và giới hạn](docs/recovery-rehearsal.md) ghi lượt thử bằng dữ liệu giả, không thay cho backup vận hành dữ liệu thật. Đã bổ sung [chép sang kho riêng, kiểm tra từng gói và đề xuất giữ bản cũ](docs/recovery-archive.md); diễn tập phục hồi từ chính bản đã chép. Công cụ chỉ dùng dữ liệu giả, chưa tự xóa hoặc bật lịch backup. Có thể chọn nơi lưu bằng `--archive-root`; đã chọn `D:\student-service-fake-backups` cho thử nghiệm cục bộ. Đã diễn tập [bản sao mã hóa với khóa riêng](docs/encrypted-recovery.md), giải mã và phục hồi sau khi xóa nguồn giả.
 
+### Sprint 5 — Demo toàn bộ quy trình bằng dữ liệu giả
+
+Đã có môi trường riêng để thử kê khai, gửi hồ sơ, yêu cầu bổ sung, gửi lại và duyệt/từ chối bằng tài khoản giả. [Hướng dẫn demo](docs/workflow-demo.md) có địa chỉ, tài khoản, cách tự thực hành, khởi động/dừng và bằng chứng kiểm thử giao diện. Giấy xác nhận sinh viên tiếp tục trực tiếp tại CTSV; demo không cấp văn bản.
+
 ## Luồng đã chạy được
 
 ### Admin
