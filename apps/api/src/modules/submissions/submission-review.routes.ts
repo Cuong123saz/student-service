@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox'
 import type { FastifyInstance } from 'fastify'
-import type { SubmittedStatus, ResolutionAction } from './submission.types.js'
+import type { ReviewQueueQuery, ResolutionAction } from './submission.types.js'
 import type { SubmissionService } from './submission.service.js'
 import {
   configureSubmissionErrors,
@@ -21,13 +21,31 @@ export async function submissionReviewRoutes(
     { additionalProperties: false },
   )
   configureSubmissionErrors(app)
-  app.get<{ Querystring: { status?: SubmittedStatus } }>(
+  app.get<{ Querystring: ReviewQueueQuery }>(
     '/review-submissions',
     {
       preHandler: guards,
+      preValidation: async (request, reply) => {
+        if (
+          Object.keys(request.query).some(
+            (key) => !['status', 'assignment', 'q', 'cursor'].includes(key),
+          )
+        )
+          return reply.code(400).send({
+            code: 'INVALID_FILTER',
+            message: 'Tham số bộ lọc không hợp lệ.',
+            issues: [],
+            requestId: request.id,
+          })
+      },
       schema: {
         querystring: Type.Object(
           {
+            assignment: Type.Optional(
+              Type.Union([Type.Literal('ALL'), Type.Literal('MINE'), Type.Literal('UNASSIGNED')]),
+            ),
+            q: Type.Optional(Type.String({ maxLength: 300 })),
+            cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
             status: Type.Optional(
               Type.Union([
                 Type.Literal('SUBMITTED'),
@@ -44,7 +62,7 @@ export async function submissionReviewRoutes(
     },
     async (request, reply) =>
       executeSubmission(request, reply, () =>
-        service.reviewList(submissionActor(request).userId, request.query.status),
+        service.reviewList(submissionActor(request).userId, request.query),
       ),
   )
   app.get<{ Params: { id: string } }>(

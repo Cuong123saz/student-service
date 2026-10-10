@@ -65,6 +65,13 @@ export const submissions = pgTable(
     ),
     index('submissions_student_updated_idx').on(table.studentUserId, table.updatedAt),
     index('submissions_intake_idx').on(table.processingUnitId, table.submittedAt),
+    index('submissions_queue_status_idx').on(table.status, table.submittedAt, table.id),
+    index('submissions_queue_unit_status_idx').on(
+      table.processingUnitId,
+      table.status,
+      table.submittedAt,
+      table.id,
+    ),
     check(
       'submissions_state_check',
       sql`

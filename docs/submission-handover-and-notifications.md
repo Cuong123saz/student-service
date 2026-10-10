@@ -1,6 +1,6 @@
 # Bàn giao hồ sơ và thông báo
 
-Cập nhật 10/10/2026. Đã hoàn tất và kiểm chứng local theo [ADR 0006](adr/0006-submission-reassignment-and-notifications.md), đã Accepted và commit 68bd721 trước migration0018. Chủ dự án chấp nhận đợt gần nhất gồm bàn giao và thông báo trong ứng dụng; phân trang hàng đợi và production là bước sau. Giấy xác nhận sinh viên vẫn trực tiếp tại CTSV.
+Cập nhật 10/10/2026. Đã hoàn tất và kiểm chứng local theo [ADR 0006](adr/0006-submission-reassignment-and-notifications.md), đã Accepted và commit 68bd721 trước migration0018. Chủ dự án chấp nhận đợt gần nhất gồm bàn giao và thông báo trong ứng dụng; [phân trang hàng đợi](review-queue-pagination.md) đã bổ sung ở đợt tiếp theo; production vẫn ngoài phạm vi. Giấy xác nhận sinh viên vẫn trực tiếp tại CTSV.
 
 ## Bàn giao có kiểm soát
 
@@ -35,4 +35,4 @@ Migration0018 chỉ áp dụng DB development local sau khi kiểm tra đúng ho
 
 Bằng chứng chạy máy này nằm trong run/handover-api-{unit,integration,typecheck,lint,build}.log, run/handover-web-{tests,build}.log, run/handover-adr-tests.log, run/handover-format.log, run/handover-browser-smoke.log, run/handover-dev-migration.log, run/handover-local-health.log và ảnh run/handover-*.png. Đây là artifact local bị git ignore, không chứa tài khoản demo dùng lại; dữ liệu demo đã được dọn khỏi DB test.
 
-Chưa ký/cấp văn bản, chưa phân trang hàng đợi/lịch sử lần gửi, chưa production và không tự đóng Sprint4/5. Kho tệp, backup/retention/quét mã độc vẫn theo ADR0003. Bước tiếp theo nên ưu tiên phân trang và bộ lọc hàng đợi, kiểm chứng với lượng hồ sơ lớn trước khi mở rộng tính năng. Không nên đưa vào vận hành chỉ vì luồng demo đã chạy đúng.
+Phân trang hàng đợi đã bổ sung theo ADR0007. Chưa ký/cấp văn bản, chưa phân trang lịch sử lần gửi, chưa production và không tự đóng Sprint4/5. Kho tệp, backup/retention/quét mã độc vẫn theo ADR0003. Không nên đưa vào vận hành chỉ vì luồng demo đã chạy đúng.

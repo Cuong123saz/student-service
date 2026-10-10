@@ -79,6 +79,7 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
     )
   }
   if (adr !== undefined) {
+    write('docs/adr/0007-review-queue-pagination.md', '---\nstatus: ' + adr + '\n---\n')
     write(adrPath, '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0003-student-drafts-and-evidence.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0004-submission-and-intake.md', '---\nstatus: ' + adr + '\n---\n')
@@ -277,3 +278,18 @@ for (const table of ['submissions', 'submission_events', 'personal_notifications
     assert.match(result.output, /was not Accepted before/u)
   })
 }
+
+test('queue pagination ADR must predate a submission index migration', (t) => {
+  const repo = fixture(t, { adr: 'Accepted' })
+  repo.write('docs/adr/0007-review-queue-pagination.md', '---\nstatus: Proposed\n---\n')
+  const base = repo.commit()
+  repo.write('docs/adr/0007-review-queue-pagination.md', '---\nstatus: Accepted\n---\n')
+  repo.write(
+    'apps/api/drizzle/0019_queue.sql',
+    'CREATE INDEX queue_idx ON submissions (status,submitted_at,id);\n',
+  )
+  repo.commit()
+  const result = repo.run(base)
+  assert.equal(result.status, 1, result.output)
+  assert.match(result.output, /0007-review-queue-pagination/u)
+})

@@ -97,3 +97,14 @@ export interface ReviewSubmissionDetail extends ReviewSubmissionSummary, Submiss
   allowedActions: ResolutionAction[]
   canReassign: boolean
 }
+
+export interface ReviewQueueQuery {
+  status?: ReviewSubmissionSummary['status']
+  assignment?: 'ALL' | 'MINE' | 'UNASSIGNED'
+  q?: string
+  cursor?: string
+}
+export interface ReviewQueuePage {
+  items: ReviewSubmissionSummary[]
+  nextCursor: string | null
+}

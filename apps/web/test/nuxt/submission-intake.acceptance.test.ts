@@ -1,8 +1,11 @@
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
+import { defineComponent } from 'vue'
+import { clearNuxtState, useState } from '#imports'
+import type { SessionUser } from '../../app/types/auth'
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import SubmissionIntake from '../../app/components/SubmissionIntake.vue'
-import type { ReviewSubmissionDetail } from '../../app/types/submission'
+import type { ReviewSubmissionDetail, ReviewQueuePage } from '../../app/types/submission'
 
 function sample(): ReviewSubmissionDetail {
   return {
@@ -154,6 +157,7 @@ mockNuxtImport('useReviewSubmissions', () => (portal: string) => {
   return api
 })
 beforeEach(() => {
+  clearNuxtState()
   api = createApi()
   requestedPortal = ''
 })
@@ -163,18 +167,18 @@ function button(wrapper: Awaited<ReturnType<typeof mountSuspended>>, label: stri
 
 describe('submission intake', () => {
   it('shows loading, then the empty queue without inventing counts outside scope', async () => {
-    let resolve!: (value: []) => void
+    let resolve!: (value: ReviewQueuePage) => void
     api.list.mockReturnValue(
-      new Promise<[]>((done) => {
+      new Promise<ReviewQueuePage>((done) => {
         resolve = done
       }),
     )
     const wrapper = await mountSuspended(SubmissionIntake, { props: { portal: 'user' } })
     expect(wrapper.text()).toContain('Đang tải hồ sơ…')
-    resolve([])
+    resolve({ items: [], nextCursor: null })
     await flushPromises()
     expect(wrapper.text()).toContain('Chưa có hồ sơ chờ tiếp nhận')
-    expect(api.list).toHaveBeenCalledWith('SUBMITTED')
+    expect(api.list).toHaveBeenCalledWith({ status: 'SUBMITTED', assignment: 'ALL', q: '' })
     expect(wrapper.find('.intake-list').exists()).toBe(false)
     expect(requestedPortal).toBe('user')
     wrapper.unmount()
@@ -189,7 +193,7 @@ describe('submission intake', () => {
     }
     api.list
       .mockRejectedValueOnce({ status: 503, message: 'Chưa tải được hàng đợi', issues: [] })
-      .mockResolvedValueOnce([first, second])
+      .mockResolvedValueOnce({ items: [first, second], nextCursor: null })
     const wrapper = await mountSuspended(SubmissionIntake, { props: { portal: 'admin' } })
     await flushPromises()
     expect(wrapper.get('[role="alert"]').text()).toContain('Chưa tải được hàng đợi')
@@ -203,7 +207,7 @@ describe('submission intake', () => {
     expect(links[0]!.text()).toContain('SV001')
     expect(links[0]!.text()).toContain('Đã gửi · Chờ tiếp nhận')
     expect(links[1]!.text()).toContain('Đã gửi · Chờ tiếp nhận')
-    expect(api.list).toHaveBeenLastCalledWith('SUBMITTED')
+    expect(api.list).toHaveBeenLastCalledWith({ status: 'SUBMITTED', assignment: 'ALL', q: '' })
     expect(requestedPortal).toBe('admin')
     wrapper.unmount()
   })
@@ -315,33 +319,36 @@ describe('submission intake', () => {
     wrapper.unmount()
   })
   it('loads each status from the server, clears old rows while loading, and shows an empty group', async () => {
-    let resolve!: (value: ReviewSubmissionDetail[]) => void
+    let resolve!: (value: ReviewQueuePage) => void
     api.list
-      .mockResolvedValueOnce([sample()])
+      .mockResolvedValueOnce({ items: [sample()], nextCursor: null })
       .mockReturnValueOnce(
-        new Promise<ReviewSubmissionDetail[]>((done) => {
+        new Promise<ReviewQueuePage>((done) => {
           resolve = done
         }),
       )
-      .mockResolvedValueOnce([])
-      .mockResolvedValue([])
+      .mockResolvedValueOnce({ items: [], nextCursor: null })
+      .mockResolvedValue({ items: [], nextCursor: null })
     const wrapper = await mountSuspended(SubmissionIntake, { props: { portal: 'user' } })
     await flushPromises()
     expect(button(wrapper, 'Chờ tiếp nhận').attributes('aria-pressed')).toBe('true')
     expect(button(wrapper, 'Đang xử lý').attributes('aria-pressed')).toBe('false')
-    expect(wrapper.text()).toContain('Tối đa 50 hồ sơ trong nhóm đang chọn')
+    expect(wrapper.text()).toContain('Mỗi lần tải tối đa 20 hồ sơ')
     await button(wrapper, 'Đang xử lý').trigger('click')
-    expect(api.list).toHaveBeenLastCalledWith('IN_REVIEW')
+    expect(api.list).toHaveBeenLastCalledWith({ status: 'IN_REVIEW', assignment: 'ALL', q: '' })
     expect(wrapper.find('.intake-list').exists()).toBe(false)
     expect(wrapper.text()).toContain('Đang tải hồ sơ…')
-    expect(button(wrapper, 'Đang xử lý').attributes('disabled')).toBeDefined()
-    resolve([{ ...sample(), status: 'IN_REVIEW', canClaim: false, reviewerName: 'Cán bộ B' }])
+    expect(button(wrapper, 'Đang xử lý').attributes('aria-pressed')).toBe('true')
+    resolve({
+      items: [{ ...sample(), status: 'IN_REVIEW', canClaim: false, reviewerName: 'Cán bộ B' }],
+      nextCursor: null,
+    })
     await flushPromises()
     expect(button(wrapper, 'Đang xử lý').attributes('aria-pressed')).toBe('true')
     expect(wrapper.get('.intake-list').text()).toContain('Cán bộ B')
     await button(wrapper, 'Chờ tiếp nhận').trigger('click')
     await flushPromises()
-    expect(api.list).toHaveBeenLastCalledWith('SUBMITTED')
+    expect(api.list).toHaveBeenLastCalledWith({ status: 'SUBMITTED', assignment: 'ALL', q: '' })
     expect(wrapper.find('.intake-list').exists()).toBe(false)
     expect(wrapper.text()).toContain('Chưa có hồ sơ chờ tiếp nhận')
     await button(wrapper, 'Đang xử lý').trigger('click')
@@ -606,7 +613,7 @@ describe('submission resolution', () => {
   it.each(['NEEDS_SUPPLEMENT', 'APPROVED', 'REJECTED'] as const)(
     'loads the separate %s queue before limit is applied by the server',
     async (status) => {
-      api.list.mockResolvedValue([])
+      api.list.mockResolvedValue({ items: [], nextCursor: null })
       const wrapper = await mountSuspended(SubmissionIntake, { props: { portal: 'user' } })
       await flushPromises()
       expect(wrapper.findAll('.intake-filters button')).toHaveLength(5)
@@ -618,7 +625,7 @@ describe('submission resolution', () => {
             : 'Không chấp thuận'
       await button(wrapper, label).trigger('click')
       await flushPromises()
-      expect(api.list).toHaveBeenLastCalledWith(status)
+      expect(api.list).toHaveBeenLastCalledWith({ status, assignment: 'ALL', q: '' })
       expect(button(wrapper, label).attributes('aria-pressed')).toBe('true')
       expect(wrapper.get('.intake-empty').text()).toContain('Chưa có hồ sơ')
       wrapper.unmount()
@@ -755,5 +762,116 @@ describe('handover in intake', () => {
     expect(wrapper.get('#handover-note').element.value).toBe('Giữ lý do bàn giao')
     expect(wrapper.text()).toContain('Cán bộ mới')
     wrapper.unmount()
+  })
+  it('applies filters explicitly, appends server pages and retries the same cursor after failure', async () => {
+    api.list.mockResolvedValueOnce({ items: [sample()], nextCursor: 'next' })
+    const wrapper = await mountSuspended(SubmissionIntake, { props: { portal: 'admin' } })
+    await flushPromises()
+    api.list.mockRejectedValueOnce({ status: 503, message: 'Tải thêm thất bại' })
+    await button(wrapper, 'Tải thêm 20 hồ sơ').trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.intake-list a')).toHaveLength(1)
+    api.list.mockResolvedValueOnce({
+      items: [sample(), { ...sample(), id: 'second' }],
+      nextCursor: null,
+    })
+    await button(wrapper, 'Thử lại').trigger('click')
+    await flushPromises()
+    expect(api.list).toHaveBeenLastCalledWith({
+      status: 'SUBMITTED',
+      assignment: 'ALL',
+      q: '',
+      cursor: 'next',
+    })
+    expect(wrapper.findAll('.intake-list a')).toHaveLength(2)
+    expect(wrapper.text()).toContain('Đang hiển thị 2 hồ sơ')
+    await wrapper.get('#queue-search').setValue('  SV001  ')
+    await wrapper.get('#queue-assignment').setValue('MINE')
+    expect(api.list).toHaveBeenCalledTimes(3)
+    api.list.mockResolvedValueOnce({ items: [], nextCursor: null })
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(api.list).toHaveBeenLastCalledWith({
+      status: 'SUBMITTED',
+      assignment: 'MINE',
+      q: 'SV001',
+    })
+    expect(wrapper.get('.intake-empty h2').text()).toBe('Không tìm thấy hồ sơ phù hợp')
+    expect(wrapper.find('.intake-list').exists()).toBe(false)
+    api.list.mockResolvedValueOnce({ items: [], nextCursor: null })
+    await button(wrapper, 'Xóa bộ lọc').trigger('click')
+    await flushPromises()
+    expect(api.list).toHaveBeenLastCalledWith({ status: 'SUBMITTED', assignment: 'ALL', q: '' })
+    wrapper.unmount()
+  })
+  it('drops a delayed next page when the status filter has changed', async () => {
+    api.list.mockResolvedValueOnce({ items: [sample()], nextCursor: 'next' })
+    const wrapper = await mountSuspended(SubmissionIntake, { props: { portal: 'user' } })
+    await flushPromises()
+    let finish!: (page: ReviewQueuePage) => void
+    api.list.mockReturnValueOnce(
+      new Promise<ReviewQueuePage>((done) => {
+        finish = done
+      }),
+    )
+    await button(wrapper, 'Tải thêm 20 hồ sơ').trigger('click')
+    api.list.mockResolvedValueOnce({
+      items: [{ ...sample(), id: 'new-status', status: 'IN_REVIEW' }],
+      nextCursor: null,
+    })
+    await button(wrapper, 'Đang xử lý').trigger('click')
+    await flushPromises()
+    finish({ items: [{ ...sample(), id: 'late-old' }], nextCursor: null })
+    await flushPromises()
+    expect(wrapper.findAll('.intake-list a').map((a) => a.attributes('href'))).toEqual([
+      '/review-submissions/new-status',
+    ])
+    wrapper.unmount()
+  })
+  it('clears private rows on permission loss and discards a response after logout and same-user login', async () => {
+    let account!: ReturnType<typeof useState<SessionUser | null>>
+    const host = await mountSuspended(
+      defineComponent({
+        setup() {
+          account = useState<SessionUser | null>('user-session-user', () => null)
+          account.value = {
+            id: 'one',
+            username: 'one',
+            roles: ['FACULTY_REVIEWER'],
+            mustChangePassword: false,
+          }
+          return () => null
+        },
+      }),
+    )
+    api.list.mockResolvedValueOnce({ items: [sample()], nextCursor: 'next' })
+    const wrapper = await mountSuspended(SubmissionIntake, { props: { portal: 'user' } })
+    await flushPromises()
+    api.list.mockRejectedValueOnce({ status: 403, message: 'Đã mất quyền' })
+    await button(wrapper, 'Tải thêm 20 hồ sơ').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.intake-list').exists()).toBe(false)
+    let finish!: (page: ReviewQueuePage) => void
+    api.list.mockReturnValueOnce(
+      new Promise<ReviewQueuePage>((done) => {
+        finish = done
+      }),
+    )
+    await button(wrapper, 'Thử lại').trigger('click')
+    const person = account.value!
+    account.value = null
+    api.list.mockResolvedValueOnce({
+      items: [{ ...sample(), id: 'new-session' }],
+      nextCursor: null,
+    })
+    account.value = person
+    await flushPromises()
+    finish({ items: [{ ...sample(), id: 'old-secret' }], nextCursor: 'old-cursor' })
+    await flushPromises()
+    expect(wrapper.findAll('.intake-list a').map((a) => a.attributes('href'))).toEqual([
+      '/review-submissions/new-session',
+    ])
+    wrapper.unmount()
+    host.unmount()
   })
 })

@@ -7,7 +7,7 @@ import {
   type SubmissionActor,
   type DraftValues,
   type StoredFileIntegrity,
-  type SubmittedStatus,
+  type ReviewQueueQuery,
   type ResolutionAction,
 } from './submission.types.js'
 import { inspectEvidence } from './submission.validation.js'
@@ -58,8 +58,8 @@ export class SubmissionService {
       for (const file of files) await this.readVerified(file)
     })
   }
-  reviewList(userId: string, status?: SubmittedStatus) {
-    return this.repository.reviewList(userId, status)
+  reviewList(userId: string, query: ReviewQueueQuery = {}) {
+    return this.repository.reviewList(userId, query)
   }
   reviewGet(userId: string, id: string) {
     return this.repository.reviewGet(userId, id)

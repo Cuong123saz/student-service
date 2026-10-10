@@ -89,6 +89,16 @@ export interface ReviewSummary {
   reviewerName: string | null
   canClaim: boolean
 }
+export interface ReviewQueueQuery {
+  status?: SubmittedStatus
+  assignment?: 'ALL' | 'MINE' | 'UNASSIGNED'
+  q?: string
+  cursor?: string
+}
+export interface ReviewQueuePage {
+  items: ReviewSummary[]
+  nextCursor: string | null
+}
 export interface ReviewDetail extends ReviewSummary, SubmissionHistory {
   allowedActions: ResolutionAction[]
   canReassign: boolean

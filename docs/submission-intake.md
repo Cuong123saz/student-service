@@ -11,7 +11,7 @@ Ngày cập nhật: 10/10/2026. Trạng thái: đã triển khai và kiểm ch�
 5. Cán bộ đăng nhập cổng người dùng, mở **Tiếp nhận hồ sơ**. Tài khoản quản trị đủ quyền cũng có mục này trong quản trị. Hàng đợi chỉ hiện hồ sơ đã gửi đúng phạm vi; bản nháp không xuất hiện.
 6. Mở hồ sơ, đối chiếu nội dung/minh chứng và chọn **Nhận xử lý**. Trạng thái chuyển **Đang xử lý**, ghi nhận người và thời gian nhận. Nhận xử lý chưa phải kết quả duyệt hoặc ký.
 
-Hàng đợi có hai nhóm **Chờ tiếp nhận** và **Đang xử lý**; mỗi nhóm hiển thị tối đa 50 hồ sơ theo thời gian gửi, không phải tổng số hồ sơ toàn hệ thống. Quyền xét và phạm vi phải thuộc cùng một role assignment; ORGANIZATION đúng đơn vị hoặc GLOBAL. Hồ sơ chỉ định cán bộ cụ thể chỉ người đó được tiếp nhận, kể cả khi người khác có GLOBAL. Không tự xử lý hồ sơ của chính mình.
+Hàng đợi hiện có năm nhóm trạng thái, tải từng trang20 hồ sơ theo thời gian gửi đầu tiên sớm nhất. Có tìm tên/mã sinh viên hoặc thủ tục và lọc phân công; xem [hướng dẫn phân trang](review-queue-pagination.md). Số đang hiển thị không phải tổng số hồ sơ toàn hệ thống. Quyền xét và phạm vi phải thuộc cùng một role assignment; ORGANIZATION đúng đơn vị hoặc GLOBAL. Hồ sơ chỉ định cán bộ cụ thể chỉ người đó được tiếp nhận, kể cả khi người khác có GLOBAL. Không tự xử lý hồ sơ của chính mình.
 
 ## Điều gì được chốt khi gửi
 

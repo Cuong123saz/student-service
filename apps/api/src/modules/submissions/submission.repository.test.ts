@@ -29,6 +29,7 @@ import {
   type SubmissionActor,
   type DraftView,
   type ReviewDetail,
+  type ReviewQueuePage,
 } from './submission.types.js'
 import {
   submissionFiles,
@@ -1071,7 +1072,7 @@ test('review scope requires permission and scope on one role; self-review and DR
   const reviewer = await addReviewer(f.unitId)
   const selfReviewer = await addReviewer(f.unitId, 'GLOBAL', f.actor.userId)
   const ready = await complete(f)
-  assert.deepEqual(await f.service.reviewList(reviewer.userId), [])
+  assert.deepEqual((await f.service.reviewList(reviewer.userId)).items, [])
   await assert.rejects(() => f.service.reviewGet(reviewer.userId, ready.id), errorCode(404))
   await assert.rejects(
     () => f.service.reviewDownload(reviewer.userId, ready.id, ready.files[0]!.id),
@@ -1079,7 +1080,7 @@ test('review scope requires permission and scope on one role; self-review and DR
   )
   await assert.rejects(() => f.service.claim(reviewer, ready.id, ready.revision), errorCode(404))
   const sent = await f.service.submit(f.actor, ready.id, ready.revision)
-  assert.deepEqual(await f.service.reviewList(selfReviewer.userId), [])
+  assert.deepEqual((await f.service.reviewList(selfReviewer.userId)).items, [])
   await assert.rejects(() => f.service.reviewGet(selfReviewer.userId, sent.id), errorCode(404))
   await assert.rejects(() => f.service.claim(selfReviewer, sent.id, sent.revision), errorCode(404))
   await assert.rejects(
@@ -1121,8 +1122,8 @@ test('designated routing excludes other reviewers even with GLOBAL and never rer
     .set({ mustChangePassword: false })
     .where(eq(users.id, f.designatedReviewer!.userId))
   const sent = await f.service.submit(f.actor, ready.id, ready.revision)
-  assert.equal((await f.service.reviewList(f.designatedReviewer!.userId)).length, 1)
-  assert.deepEqual(await f.service.reviewList(global.userId), [])
+  assert.equal((await f.service.reviewList(f.designatedReviewer!.userId)).items.length, 1)
+  assert.deepEqual((await f.service.reviewList(global.userId)).items, [])
   await assert.rejects(() => f.service.reviewGet(global.userId, sent.id), errorCode(404))
   await assert.rejects(() => f.service.claim(global, sent.id, sent.revision), errorCode(404))
   await assert.rejects(
@@ -1141,7 +1142,7 @@ test('review filters current unit scope and rejects FACULTY/CLASS scopes and rev
   const outsider = await addReviewer(foreignId)
   const ready = await complete(f)
   const sent = await f.service.submit(f.actor, ready.id, ready.revision)
-  assert.deepEqual(await f.service.reviewList(outsider.userId, 'SUBMITTED'), [])
+  assert.deepEqual((await f.service.reviewList(outsider.userId, { status: 'SUBMITTED' })).items, [])
   await assert.rejects(() => f.service.reviewGet(outsider.userId, sent.id), errorCode(404))
   await assert.rejects(
     () => f.service.reviewDownload(outsider.userId, sent.id, sent.files[0]!.id),
@@ -1189,7 +1190,7 @@ test('review filters current unit scope and rejects FACULTY/CLASS scopes and rev
     .where(eq(organizationalUnits.id, f.unitId))
   await assert.rejects(() => f.service.reviewGet(reviewer.userId, sent.id), errorCode(403))
   const global = await addReviewer(foreignId, 'GLOBAL')
-  assert.deepEqual(await f.service.reviewList(global.userId), [])
+  assert.deepEqual((await f.service.reviewList(global.userId)).items, [])
   await assert.rejects(() => f.service.claim(global, sent.id, sent.revision), errorCode(404))
 })
 
@@ -1262,19 +1263,20 @@ test('status filter applies before oldest-first limit so old claimed work cannot
     })),
   )
   const all = await f.service.reviewList(reviewer.userId)
-  assert.equal(all.length, 50)
-  assert.ok(all.every((row) => row.status === 'IN_REVIEW'))
-  const pending = await f.service.reviewList(reviewer.userId, 'SUBMITTED')
+  assert.equal(all.items.length, 20)
+  assert.ok(all.nextCursor)
+  assert.ok(all.items.every((row) => row.status === 'IN_REVIEW'))
+  const pending = await f.service.reviewList(reviewer.userId, { status: 'SUBMITTED' })
   assert.deepEqual(
-    pending.map((row) => row.id),
+    pending.items.map((row) => row.id),
     [sent.id],
   )
-  const processing = await f.service.reviewList(reviewer.userId, 'IN_REVIEW')
-  assert.equal(processing.length, 50)
-  assert.ok(processing.every((row) => row.status === 'IN_REVIEW'))
+  const processing = await f.service.reviewList(reviewer.userId, { status: 'IN_REVIEW' })
+  assert.equal(processing.items.length, 20)
+  assert.ok(processing.items.every((row) => row.status === 'IN_REVIEW'))
   assert.ok(
-    processing.every(
-      (row, index) => !index || row.submittedAt >= processing[index - 1]!.submittedAt,
+    processing.items.every(
+      (row, index) => !index || row.submittedAt >= processing.items[index - 1]!.submittedAt,
     ),
   )
 })
@@ -1763,7 +1765,7 @@ for (const portal of ['user', 'admin'] as const) {
     const queue = await f.app.inject({ url: base + '?status=SUBMITTED', headers: { cookie } })
     assert.equal(queue.statusCode, 200, queue.body)
     assert.deepEqual(
-      queue.json<Array<{ id: string }>>().map((row) => row.id),
+      queue.json<ReviewQueuePage>().items.map((row) => row.id),
       [sent.id],
     )
     assert.equal(
@@ -1772,7 +1774,7 @@ for (const portal of ['user', 'admin'] as const) {
     )
     assert.deepEqual(
       (await f.app.inject({ url: base + '?status=IN_REVIEW', headers: { cookie } })).json(),
-      [],
+      { items: [], nextCursor: null },
     )
     const detail = await f.app.inject({ url: base + '/' + sent.id, headers: { cookie } })
     assert.equal(detail.statusCode, 200, detail.body)
@@ -1838,7 +1840,7 @@ for (const portal of ['user', 'admin'] as const) {
     assert.equal(claimed.json<{ status: string }>().status, 'IN_REVIEW')
     assert.deepEqual(
       (await f.app.inject({ url: base + '?status=SUBMITTED', headers: { cookie } })).json(),
-      [],
+      { items: [], nextCursor: null },
     )
     await db.delete(rolePermissions).where(eq(rolePermissions.roleId, reviewer.roleId))
     for (const url of [base, base + '/' + sent.id, filePath])
@@ -2069,7 +2071,9 @@ test('two supplement cycles keep submitted rounds private, original bytes/histor
   assert.equal(row!.reviewerUserId, f.reviewer.userId)
   assert.equal((await f.service.list(f.actor.userId))[0]!.roundNumber, 3)
   assert.deepEqual(
-    (await f.service.reviewList(f.reviewer.userId, 'APPROVED')).map((row) => row.id),
+    (await f.service.reviewList(f.reviewer.userId, { status: 'APPROVED' })).items.map(
+      (row) => row.id,
+    ),
     [approved.id],
   )
   for (const operation of [
@@ -2625,15 +2629,15 @@ for (const portal of ['user', 'admin'] as const) {
       assert.equal(detail.events.at(-1)!.note, validNote)
       assert.ok(!accepted.body.includes('storageKey') && !accepted.body.includes('actorUserId'))
       assert.equal(
-        (await f.app.inject({ url: base + '?status=NEEDS_SUPPLEMENT', headers: { cookie } })).json<
-          unknown[]
-        >().length,
+        (
+          await f.app.inject({ url: base + '?status=NEEDS_SUPPLEMENT', headers: { cookie } })
+        ).json<ReviewQueuePage>().items.length,
         1,
       )
       for (const state of ['APPROVED', 'REJECTED'])
         assert.deepEqual(
           (await f.app.inject({ url: base + '?status=' + state, headers: { cookie } })).json(),
-          [],
+          { items: [], nextCursor: null },
         )
       const filePath = base + '/' + sent.id + '/rounds/1/files/' + sent.files[0]!.id
       assert.equal((await f.app.inject({ url: filePath })).statusCode, 401)
@@ -2677,9 +2681,9 @@ for (const portal of ['user', 'admin'] as const) {
       assert.equal(reject.statusCode, 200, reject.body)
       assert.equal(reject.json<{ status: string }>().status, 'REJECTED')
       assert.equal(
-        (await f.app.inject({ url: base + '?status=REJECTED', headers: { cookie } })).json<
-          unknown[]
-        >().length,
+        (
+          await f.app.inject({ url: base + '?status=REJECTED', headers: { cookie } })
+        ).json<ReviewQueuePage>().items.length,
         1,
       )
       await db.delete(rolePermissions).where(eq(rolePermissions.roleId, reviewer.roleId))
@@ -3228,3 +3232,194 @@ for (const portal of ['user', 'admin'] as const)
       )
     },
   )
+
+async function queueFixture(count = 67) {
+  const f = await fixture()
+  const reviewer = await addReviewer(f.unitId)
+  const ready = await complete(f)
+  const sent = await f.service.submit(f.actor, ready.id, ready.revision)
+  const [template] = await db.select().from(submissions).where(eq(submissions.id, sent.id))
+  const people = Array.from({ length: count }, () => randomUUID())
+  await db.insert(users).values(
+    people.map((id) => ({
+      id,
+      username: 's5t-' + id,
+      fullName: 'Sinh viên hàng đợi',
+      mustChangePassword: false,
+    })),
+  )
+  await db.insert(submissions).values(
+    people.map((studentUserId, index) => ({
+      ...template!,
+      id: randomUUID(),
+      studentUserId,
+      submittedAt: sql`'2024-01-01T00:00:00.000000Z'::timestamptz + ${Math.floor(index / 3)} * interval '1 microsecond'`,
+      studentSnapshot: {
+        ...template!.studentSnapshot!,
+        fullName: 'Nguyễn An ' + index,
+        studentCode: 'Q' + String(index).padStart(3, '0'),
+      },
+      serviceName: index === 65 ? 'Giấy 50%_\\test' : template!.serviceName,
+    })),
+  )
+  return { ...f, reviewer, sent, template: template! }
+}
+test('queue seeks more than50 rows with tied microsecond timestamps and never skips or repeats', async () => {
+  const f = await queueFixture()
+  const expected = await db
+    .select({ id: submissions.id })
+    .from(submissions)
+    .orderBy(submissions.submittedAt, submissions.id)
+  const seen: string[] = []
+  let cursor: string | undefined
+  do {
+    const page = await f.service.reviewList(f.reviewer.userId, {
+      status: 'SUBMITTED',
+      ...(cursor ? { cursor } : {}),
+    })
+    assert.ok(page.items.length <= 20)
+    seen.push(...page.items.map((row) => row.id))
+    if (page.nextCursor)
+      assert.match(
+        (JSON.parse(Buffer.from(page.nextCursor, 'base64url').toString('utf8')) as string[])[0]!,
+        /\.\d{6}Z$/,
+      )
+    cursor = page.nextCursor ?? undefined
+  } while (cursor)
+  assert.deepEqual(
+    seen,
+    expected.map((row) => row.id),
+  )
+  assert.equal(new Set(seen).size, 68)
+  const first = await f.service.reviewList(f.reviewer.userId, { status: 'SUBMITTED' })
+  assert.ok(first.nextCursor)
+  await assert.rejects(
+    () =>
+      f.service.reviewList(f.reviewer.userId, {
+        status: 'SUBMITTED',
+        q: 'An',
+        cursor: first.nextCursor!,
+      }),
+    errorCode(400, 'INVALID_CURSOR'),
+  )
+  const other = await addReviewer(f.unitId)
+  await assert.rejects(
+    () => f.service.reviewList(other.userId, { status: 'SUBMITTED', cursor: first.nextCursor! }),
+    errorCode(400, 'INVALID_CURSOR'),
+  )
+  await db.delete(userRoleScopes).where(eq(userRoleScopes.userId, f.reviewer.userId))
+  await assert.rejects(
+    () =>
+      f.service.reviewList(f.reviewer.userId, { status: 'SUBMITTED', cursor: first.nextCursor! }),
+    errorCode(403),
+  )
+})
+test('queue search and assignment filter before limit, literal wildcards cannot expose answers or foreign scope', async () => {
+  const f = await queueFixture()
+  const target = await f.service.reviewList(f.reviewer.userId, { q: 'q065' })
+  assert.equal(target.items.length, 1)
+  assert.equal(target.items[0]!.student.studentCode, 'Q065')
+  for (const q of ['50%_\\test', '%', '\\'])
+    assert.equal((await f.service.reviewList(f.reviewer.userId, { q })).items.length, 1)
+  for (const q of ["' OR 1=1 --", 'Nội dung riêng tư', 'Không tồn tại'])
+    assert.deepEqual((await f.service.reviewList(f.reviewer.userId, { q })).items, [])
+  assert.equal(
+    (await f.service.reviewList(f.reviewer.userId, { q: 'nguyễn an 66' })).items.length,
+    1,
+  )
+  assert.equal(
+    (await f.service.reviewList(f.reviewer.userId, { assignment: 'MINE' })).items.length,
+    0,
+  )
+  await f.service.claim(f.reviewer, f.sent.id, f.sent.revision)
+  const mine = await f.service.reviewList(f.reviewer.userId, { assignment: 'MINE' })
+  assert.deepEqual(
+    mine.items.map((row) => row.id),
+    [f.sent.id],
+  )
+  assert.equal(mine.nextCursor, null)
+  assert.equal(
+    (
+      await f.service.reviewList(f.reviewer.userId, {
+        status: 'SUBMITTED',
+        assignment: 'UNASSIGNED',
+      })
+    ).items.length,
+    20,
+  )
+  const outsiderUnit = randomUUID()
+  await db
+    .insert(organizationalUnits)
+    .values({ id: outsiderUnit, code: 'S5T_' + randomUUID(), name: 'Khác' })
+  const outsider = await addReviewer(outsiderUnit)
+  assert.deepEqual((await f.service.reviewList(outsider.userId, { q: 'Q065' })).items, [])
+  assert.deepEqual(
+    Object.keys(target.items[0]!).sort(),
+    [
+      'id',
+      'serviceName',
+      'status',
+      'revision',
+      'submittedAt',
+      'roundNumber',
+      'lastSubmittedAt',
+      'decisionAt',
+      'processingUnitName',
+      'student',
+      'reviewerName',
+      'canClaim',
+    ].sort(),
+  )
+})
+for (const portal of ['user', 'admin'] as const)
+  test('HTTP paginated queue validates filters and cookies on ' + portal, async (t) => {
+    const f = await queueFixture(23)
+    await portalRole(f.reviewer.userId, portal === 'admin' ? 'ADMIN' : 'FACULTY_REVIEWER')
+    const app = buildApp({ submissionService: f.service })
+    t.after(() => app.close())
+    await app.ready()
+    const base = '/api/v1/' + portal + '/review-submissions',
+      cookie = reviewCookie(app, f.reviewer, portal)
+    const first = await app.inject({
+      method: 'GET',
+      url: base + '?status=SUBMITTED',
+      headers: { cookie },
+    })
+    assert.equal(first.statusCode, 200, first.body)
+    const page = first.json<ReviewQueuePage>()
+    assert.equal(page.items.length, 20)
+    assert.ok(page.nextCursor)
+    const second = await app.inject({
+      method: 'GET',
+      url: base + '?status=SUBMITTED&cursor=' + page.nextCursor,
+      headers: { cookie },
+    })
+    assert.equal(second.statusCode, 200, second.body)
+    assert.equal(second.json<ReviewQueuePage>().items.length, 4)
+    for (const query of [
+      'status=DRAFT',
+      'assignment=OTHER',
+      'cursor=invalid',
+      'q=' + 'a'.repeat(101),
+      'limit=100',
+      'offset=20',
+      'status=SUBMITTED&status=IN_REVIEW',
+    ]) {
+      const response = await app.inject({
+        method: 'GET',
+        url: base + '?' + query,
+        headers: { cookie },
+      })
+      assert.equal(response.statusCode, 400, query + ' ' + response.body)
+    }
+    assert.equal(
+      (
+        await app.inject({
+          method: 'GET',
+          url: base,
+          headers: { cookie: reviewCookie(app, f.reviewer, portal === 'user' ? 'admin' : 'user') },
+        })
+      ).statusCode,
+      401,
+    )
+  })

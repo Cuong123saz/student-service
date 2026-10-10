@@ -1,5 +1,6 @@
 import type {
-  ReviewSubmissionSummary,
+  ReviewQueueQuery,
+  ReviewQueuePage,
   ReviewSubmissionDetail,
   ResolutionAction,
 } from '~/types/submission'
@@ -26,8 +27,7 @@ export function useReviewSubmissions(portal: 'user' | 'admin') {
     }
   }
   return {
-    list: (status?: ReviewSubmissionSummary['status']) =>
-      request<ReviewSubmissionSummary[]>('', status ? { query: { status } } : {}),
+    list: (query: ReviewQueueQuery = {}) => request<ReviewQueuePage>('', { query }),
     get: (id: string) => request<ReviewSubmissionDetail>('/' + encodeURIComponent(id)),
     claim: (id: string, expectedRevision: number) =>
       request<ReviewSubmissionDetail>('/' + encodeURIComponent(id) + '/claim', {

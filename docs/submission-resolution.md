@@ -11,7 +11,7 @@ Cập nhật 10/10/2026. Đã hoàn tất và kiểm chứng increment local the
 
 Duyệt nội dung dùng submission.review; yêu cầu bổ sung và không chấp thuận cần thêm submission.reject trên cùng role assignment có scope phù hợp. ADMIN không tự có quyền. Các nút do quyền hiện tại của máy chủ quyết định; máy chủ kiểm tra lại khi ghi.
 
-Hàng đợi có năm nhóm riêng, mỗi nhóm tối đa 50 hồ sơ trong phạm vi: Chờ tiếp nhận, Đang xử lý, Chờ bổ sung, Đã duyệt nội dung, Không chấp thuận. Bộ lọc thực hiện trước giới hạn 50, không phải tổng số hồ sơ hệ thống.
+Hàng đợi có năm nhóm riêng: Chờ tiếp nhận, Đang xử lý, Chờ bổ sung, Đã duyệt nội dung, Không chấp thuận. [Phân trang và bộ lọc](review-queue-pagination.md) tải20 hồ sơ mỗi lần, có thể tải tiếp; quyền và bộ lọc thực hiện trước giới hạn, không phải tổng số hồ sơ hệ thống.
 
 ## Sinh viên bổ sung
 

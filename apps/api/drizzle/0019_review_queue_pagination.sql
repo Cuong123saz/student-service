@@ -1,0 +1,2 @@
+CREATE INDEX "submissions_queue_status_idx" ON "submissions" USING btree ("status","submitted_at","id");--> statement-breakpoint
+CREATE INDEX "submissions_queue_unit_status_idx" ON "submissions" USING btree ("processing_unit_id","status","submitted_at","id");

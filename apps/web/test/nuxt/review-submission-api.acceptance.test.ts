@@ -28,19 +28,19 @@ describe('review submission API', () => {
     async (portal) => {
       const api = await setupApi(portal)
       const base = 'http://localhost:3000/api/v1/' + portal + '/review-submissions'
-      fetcher.mockResolvedValue([])
-      await api.list('SUBMITTED')
+      fetcher.mockResolvedValue({ items: [], nextCursor: null })
+      await api.list({ status: 'SUBMITTED', assignment: 'MINE', q: 'SV001', cursor: 'next' })
       expect(fetcher).toHaveBeenLastCalledWith(base, {
-        query: { status: 'SUBMITTED' },
+        query: { status: 'SUBMITTED', assignment: 'MINE', q: 'SV001', cursor: 'next' },
         credentials: 'include',
       })
-      await api.list('IN_REVIEW')
+      await api.list({ status: 'IN_REVIEW' })
       expect(fetcher).toHaveBeenLastCalledWith(base, {
         query: { status: 'IN_REVIEW' },
         credentials: 'include',
       })
       await api.list()
-      expect(fetcher).toHaveBeenLastCalledWith(base, { credentials: 'include' })
+      expect(fetcher).toHaveBeenLastCalledWith(base, { query: {}, credentials: 'include' })
       await api.get('submission/1')
       expect(fetcher).toHaveBeenLastCalledWith(base + '/submission%2F1', { credentials: 'include' })
       await api.claim('submission/1', 4)
@@ -56,7 +56,7 @@ describe('review submission API', () => {
         credentials: 'include',
       })
       for (const status of ['NEEDS_SUPPLEMENT', 'APPROVED', 'REJECTED'] as const) {
-        await api.list(status)
+        await api.list({ status })
         expect(fetcher).toHaveBeenLastCalledWith(base, {
           query: { status },
           credentials: 'include',

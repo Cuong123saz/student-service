@@ -3,7 +3,9 @@ import type {
   ReviewSubmissionDetail,
   ReviewSubmissionSummary,
   ResolutionAction,
+  ReviewQueueQuery,
 } from '~/types/submission'
+import type { SessionUser } from '~/types/auth'
 import type { ProcedureApiError } from '~/types/procedure'
 import {
   formatSubmissionAnswer,
@@ -16,6 +18,14 @@ const api = useReviewSubmissions(props.portal)
 const basePath = props.portal === 'admin' ? '/admin/review-submissions' : '/review-submissions'
 const selectedStatus = ref<ReviewSubmissionSummary['status']>('SUBMITTED')
 const entries = ref<ReviewSubmissionSummary[]>([])
+const sessionUser = useState<SessionUser | null>(props.portal + '-session-user', () => null)
+const searchText = ref('')
+const assignment = ref<NonNullable<ReviewQueueQuery['assignment']>>('ALL')
+const queueApplied = ref<ReviewQueueQuery>({ status: 'SUBMITTED', assignment: 'ALL', q: '' })
+const queueCursor = ref<string | null>(null)
+const queueRetryMore = ref(false)
+const queueMoreLoading = ref(false)
+let mounted = false
 const detail = ref<ReviewSubmissionDetail | null>(null)
 const loading = ref(true)
 const claiming = ref(false)
@@ -142,10 +152,17 @@ function fail(error: unknown) {
   failure.value = error as ProcedureApiError
   void nextTick(() => errorSummary.value?.focus())
 }
-async function load() {
+async function load(more = false) {
   if (claiming.value || resolving.value || handingOver.value) return
   resetResolutionConfirmation()
   const sequence = ++loadSequence
+  const identity = sessionUser.value?.id ?? null
+  queueRetryMore.value = more
+  queueMoreLoading.value = more
+  if (!props.id && !more) {
+    entries.value = []
+    queueCursor.value = null
+  }
   loading.value = true
   message.value = ''
   try {
@@ -156,28 +173,62 @@ async function load() {
       if (resolutionAction.value && !current.allowedActions.includes(resolutionAction.value))
         resolutionAction.value = ''
     } else {
-      const current = await api.list(selectedStatus.value)
-      if (sequence !== loadSequence) return
-      entries.value = current
+      const current = await api.list({
+        ...queueApplied.value,
+        ...(more && queueCursor.value ? { cursor: queueCursor.value } : {}),
+      })
+      if (sequence !== loadSequence || identity !== (sessionUser.value?.id ?? null)) return
+      entries.value = more
+        ? [
+            ...entries.value,
+            ...current.items.filter((row) => !entries.value.some((old) => old.id === row.id)),
+          ]
+        : current.items
+      queueCursor.value = current.nextCursor
     }
     failure.value = null
     reloadRequired.value = false
   } catch (error) {
     if (sequence === loadSequence) {
       if (detail.value) reloadRequired.value = true
+      const status = (error as ProcedureApiError).status
+      if (!props.id && (status === 401 || status === 403)) {
+        entries.value = []
+        queueCursor.value = null
+        queueRetryMore.value = false
+      }
       fail(error)
     }
   } finally {
-    if (sequence === loadSequence) loading.value = false
+    if (sequence === loadSequence) {
+      loading.value = false
+      queueMoreLoading.value = false
+    }
   }
+}
+function applyFilters() {
+  if (props.id) return
+  queueApplied.value = {
+    status: selectedStatus.value,
+    assignment: assignment.value,
+    q: searchText.value.trim(),
+  }
+  failure.value = null
+  reloadRequired.value = false
+  void load()
+}
+function clearFilters() {
+  searchText.value = ''
+  assignment.value = 'ALL'
+  applyFilters()
+}
+function retryLoad() {
+  void load(props.id ? false : queueRetryMore.value)
 }
 function selectStatus(status: ReviewSubmissionSummary['status']) {
   if (props.id || status === selectedStatus.value) return
   selectedStatus.value = status
-  entries.value = []
-  failure.value = null
-  reloadRequired.value = false
-  void load()
+  applyFilters()
 }
 async function claim() {
   if (
@@ -208,8 +259,39 @@ async function claim() {
     if (sequence === loadSequence) claiming.value = false
   }
 }
-onMounted(load)
+onMounted(() => {
+  mounted = true
+  void load()
+})
+watch(
+  () => sessionUser.value?.id ?? null,
+  () => {
+    loadSequence++
+    entries.value = []
+    queueCursor.value = null
+    detail.value = null
+    failure.value = null
+    message.value = ''
+    loading.value = false
+    claiming.value = false
+    resolving.value = false
+    handingOver.value = false
+    resolutionAction.value = ''
+    resolutionNote.value = ''
+    resetResolutionConfirmation()
+    queueRetryMore.value = false
+    queueMoreLoading.value = false
+    searchText.value = ''
+    assignment.value = 'ALL'
+    selectedStatus.value = 'SUBMITTED'
+    queueApplied.value = { status: 'SUBMITTED', assignment: 'ALL', q: '' }
+    reloadRequired.value = false
+    if (mounted && sessionUser.value) void load()
+  },
+  { flush: 'sync' },
+)
 onBeforeUnmount(() => {
+  mounted = false
   loadSequence += 1
 })
 watch(
@@ -241,7 +323,7 @@ watch(
           {{
             id
               ? 'Đối chiếu thông tin và minh chứng đã được sinh viên gửi.'
-              : 'Tối đa 50 hồ sơ trong nhóm đang chọn và phạm vi được phân công, theo thời gian gửi sớm nhất.'
+              : 'Mỗi lần tải tối đa 20 hồ sơ trong phạm vi được phân công, theo thời gian gửi đầu tiên sớm nhất.'
           }}
         </p>
       </div>
@@ -250,7 +332,7 @@ watch(
         type="button"
         variant="secondary"
         :loading="claiming || resolving"
-        @click="load"
+        @click="load()"
         >Tải lại</BaseButton
       >
     </header>
@@ -261,11 +343,40 @@ watch(
         type="button"
         :variant="selectedStatus === group.status ? 'primary' : 'secondary'"
         :aria-pressed="selectedStatus === group.status"
-        :disabled="loading"
         @click="selectStatus(group.status)"
         >{{ group.label }}</BaseButton
       >
     </div>
+    <form
+      v-if="!id"
+      class="queue-search"
+      aria-label="Bộ lọc hàng đợi"
+      @submit.prevent="applyFilters"
+    >
+      <div>
+        <label for="queue-search">Tìm hồ sơ</label
+        ><input
+          id="queue-search"
+          v-model="searchText"
+          type="search"
+          maxlength="100"
+          placeholder="Tên, mã sinh viên hoặc thủ tục"
+          aria-describedby="queue-search-help"
+        /><small id="queue-search-help"
+          >Tìm trong thông tin khi gửi; có phân biệt dấu tiếng Việt.</small
+        >
+      </div>
+      <div>
+        <label for="queue-assignment">Phân công</label
+        ><select id="queue-assignment" v-model="assignment">
+          <option value="ALL">Tất cả trong phạm vi</option>
+          <option value="MINE">Tôi đang xử lý</option>
+          <option value="UNASSIGNED">Chưa có người nhận</option>
+        </select>
+      </div>
+      <BaseButton type="submit">Áp dụng bộ lọc</BaseButton>
+      <BaseButton type="button" variant="secondary" @click="clearFilters">Xóa bộ lọc</BaseButton>
+    </form>
     <div v-if="failure" ref="errorSummary" class="intake-error" role="alert" tabindex="-1">
       <strong>{{ failure.message }}</strong>
       <p v-if="detail">
@@ -277,7 +388,7 @@ watch(
         lại; chưa thể xác định thao tác trước đã được ghi hay chưa.
       </p>
       <p v-if="failure.requestId">Mã hỗ trợ: {{ failure.requestId }}</p>
-      <BaseButton type="button" variant="secondary" :loading="loading" @click="load">{{
+      <BaseButton type="button" variant="secondary" :loading="loading" @click="retryLoad">{{
         reloadRequired ? 'Tải lại trạng thái hồ sơ' : 'Thử lại'
       }}</BaseButton>
       <NuxtLink v-if="failure.status === 401" :to="portal === 'admin' ? '/admin/login' : '/login'"
@@ -512,14 +623,25 @@ watch(
         "
       />
     </template>
-    <template v-else-if="!id && !loading && !failure">
-      <div v-if="!entries.length" class="intake-panel intake-empty">
+    <template v-else-if="!id">
+      <p v-if="entries.length" class="intake-help" role="status" aria-atomic="true">
+        Đang hiển thị {{ entries.length }} hồ sơ theo bộ lọc đã áp dụng.
+        {{ queueCursor ? 'Còn hồ sơ để tải thêm.' : 'Đã tải hết kết quả hiện có.' }}
+      </p>
+      <div v-if="!entries.length && !loading && !failure" class="intake-panel intake-empty">
         <h2>
-          {{ queueEmptyLabels[selectedStatus] }}
+          {{
+            queueApplied.q || queueApplied.assignment !== 'ALL'
+              ? 'Không tìm thấy hồ sơ phù hợp'
+              : queueEmptyLabels[selectedStatus]
+          }}
         </h2>
-        <p>Nhóm đang chọn chưa có hồ sơ trong phạm vi được phân công.</p>
+        <p>
+          Không có hồ sơ khớp bộ lọc trong phạm vi được phân công. Thử đổi trạng thái hoặc xóa bộ
+          lọc.
+        </p>
       </div>
-      <ul v-else class="intake-list">
+      <ul v-if="entries.length" class="intake-list" :aria-busy="loading">
         <li v-for="entry in entries" :key="entry.id">
           <NuxtLink :to="basePath + '/' + entry.id">
             <span class="intake-badge">{{ submissionStatusLabels[entry.status] }}</span>
@@ -549,11 +671,55 @@ watch(
           </NuxtLink>
         </li>
       </ul>
+      <BaseButton
+        v-if="queueCursor && !failure"
+        type="button"
+        variant="secondary"
+        :disabled="loading"
+        @click="load(true)"
+        >{{ queueMoreLoading ? 'Đang tải thêm…' : 'Tải thêm 20 hồ sơ' }}</BaseButton
+      >
     </template>
   </section>
 </template>
 
 <style scoped>
+.queue-search {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.queue-search > div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 230px;
+}
+.queue-search label {
+  font-weight: 700;
+}
+.queue-search input,
+.queue-search select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  min-height: 44px;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.queue-search small {
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+.queue-search :focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
 .resolution-error {
   color: var(--color-error);
 }

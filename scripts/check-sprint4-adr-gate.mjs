@@ -13,6 +13,7 @@ const tableAdrMap = new Map([
       'docs/adr/0004-submission-and-intake.md',
       'docs/adr/0005-submission-resolution.md',
       'docs/adr/0006-submission-reassignment-and-notifications.md',
+      'docs/adr/0007-review-queue-pagination.md',
     ],
   ],
   [

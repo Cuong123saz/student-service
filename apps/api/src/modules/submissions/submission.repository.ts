@@ -34,12 +34,15 @@ import {
   type SubmissionEventAction,
   type RoundEvidence,
   type ReviewSummary,
+  type ReviewQueueQuery,
+  type ReviewQueuePage,
   type VerifySubmissionFiles,
   type DraftValues,
   type DraftView,
   type SubmissionActor,
   type StoredEvidence,
 } from './submission.types.js'
+import { queueFilters, queueFingerprint, queueCursor, queueSearch } from './submission-queue.js'
 import { personalNotifications } from '../notifications/notification.schema.js'
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type DraftRow = typeof submissions.$inferSelect
@@ -994,23 +997,72 @@ export class DrizzleSubmissionRepository {
       return this.reviewDetail(tx, updated, actor.userId)
     })
   }
-  async reviewList(userId: string, status?: SubmittedStatus): Promise<ReviewSummary[]> {
+  async reviewList(userId: string, query: ReviewQueueQuery = {}): Promise<ReviewQueuePage> {
+    const filters = queueFilters(query)
+    const fingerprint = queueFingerprint(userId, filters)
+    const cursor = queueCursor(query.cursor, fingerprint)
     return this.database.transaction(async (tx) => {
       const authority = await this.reviewAuthority(tx, userId)
+      const search = filters.q ? queueSearch(filters.q) : null
       const rows = await tx
-        .select()
+        .select({
+          id: submissions.id,
+          serviceName: submissions.serviceName,
+          status: submissions.status,
+          revision: submissions.revision,
+          submittedAt: submissions.submittedAt,
+          roundNumber: submissions.roundNumber,
+          lastSubmittedAt: submissions.lastSubmittedAt,
+          decisionAt: submissions.decisionAt,
+          processingUnitName: organizationalUnits.name,
+          fullName: sql<string>`${submissions.studentSnapshot}->>'fullName'`,
+          studentCode: sql<string>`${submissions.studentSnapshot}->>'studentCode'`,
+          reviewerName: users.fullName,
+          cursorAt: sql<string>`to_char(${submissions.submittedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+        })
         .from(submissions)
+        .innerJoin(organizationalUnits, eq(organizationalUnits.id, submissions.processingUnitId))
+        .leftJoin(users, eq(users.id, submissions.reviewerUserId))
         .where(
           and(
             this.reviewVisibility(userId, authority),
-            status ? eq(submissions.status, status) : undefined,
+            filters.status ? eq(submissions.status, filters.status) : undefined,
+            filters.assignment === 'MINE' ? eq(submissions.reviewerUserId, userId) : undefined,
+            filters.assignment === 'UNASSIGNED' ? isNull(submissions.reviewerUserId) : undefined,
+            search
+              ? sql`(${submissions.studentSnapshot}->>'fullName' ILIKE ${search} OR ${submissions.studentSnapshot}->>'studentCode' ILIKE ${search} OR ${submissions.serviceName} ILIKE ${search})`
+              : undefined,
+            cursor
+              ? sql`(${submissions.submittedAt},${submissions.id}) > (${cursor[0]}::timestamptz,${cursor[1]}::uuid)`
+              : undefined,
           ),
         )
         .orderBy(asc(submissions.submittedAt), asc(submissions.id))
-        .limit(50)
-      const result: ReviewSummary[] = []
-      for (const row of rows) result.push(await this.reviewSummary(tx, row))
-      return result
+        .limit(21)
+      const page = rows.slice(0, 20)
+      const last = page.at(-1)
+      return {
+        items: page.map((row) => ({
+          id: row.id,
+          serviceName: row.serviceName,
+          status: row.status as SubmittedStatus,
+          revision: row.revision,
+          submittedAt: row.submittedAt!.toISOString(),
+          roundNumber: row.roundNumber,
+          lastSubmittedAt: row.lastSubmittedAt?.toISOString() ?? null,
+          decisionAt: row.decisionAt?.toISOString() ?? null,
+          processingUnitName: row.processingUnitName,
+          student: { fullName: row.fullName, studentCode: row.studentCode },
+          reviewerName: row.reviewerName,
+          canClaim: row.status === 'SUBMITTED',
+        })),
+        nextCursor:
+          rows.length > 20 && last
+            ? Buffer.from(JSON.stringify([last.cursorAt, last.id, fingerprint])).toString(
+                'base64url',
+              )
+            : null,
+      }
     })
   }
   async reviewGet(userId: string, id: string): Promise<ReviewDetail> {
