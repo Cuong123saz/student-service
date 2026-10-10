@@ -1,9 +1,87 @@
 import assert from 'node:assert/strict'
-import { createHmac, randomUUID } from 'node:crypto'
+import { createHash, createHmac, randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 
 export const origin = 'http://localhost:3011'
-export const oldBytes = Buffer.from('%PDF-1.4\nFake evidence, first round.\n')
-export const newBytes = Buffer.from('%PDF-1.4\nFake evidence, second round.\n')
+export const oldBytes = readFileSync(
+  new URL('./fixtures/recovery/evidence-round-1.pdf', import.meta.url),
+)
+export const newBytes = readFileSync(
+  new URL('./fixtures/recovery/evidence-round-2.pdf', import.meta.url),
+)
+export const recoveryStudent = Object.freeze({
+  fullName: 'Nguyễn Minh An (giả định)',
+  studentCode: 'GIA240001',
+  classCode: 'DRILL_CLASS',
+  facultyCode: 'DRILL_FACULTY',
+})
+export function recoveryValues(round) {
+  assert.ok(round === 1 || round === 2, 'Only the two fictional submission rounds are supported')
+  return {
+    reference: 'TEST-2026-00' + round,
+    purpose: 'Mục đích giả định lần ' + round,
+    completedCredits: round === 1 ? 0 : 15,
+    neededOn: round === 1 ? '2026-10-10' : '2026-10-11',
+    purposeType: round === 1 ? 'SCHOLARSHIP' : 'OTHER',
+    instructionsReceived: round === 2,
+  }
+}
+export function recoveryConfig(unitId) {
+  const input = (key, label, type, options = []) => ({
+    key,
+    label,
+    type,
+    source: 'STUDENT_INPUT',
+    profileKey: null,
+    required: true,
+    maxLength: 200,
+    options,
+  })
+  return {
+    processingMode: 'ONLINE',
+    processingUnitId: unitId,
+    processorUserId: null,
+    contactInstructions: 'Diễn tập dữ liệu giả, không áp dụng cho giấy xác nhận tại CTSV.',
+    fields: [
+      ...Object.entries({
+        fullName: 'Họ tên',
+        studentCode: 'Mã sinh viên',
+        classCode: 'Mã lớp',
+        facultyCode: 'Mã khoa',
+      }).map(([key, label]) => ({
+        key,
+        label,
+        type: 'TEXT',
+        source: 'PROFILE',
+        profileKey: key,
+        required: true,
+        maxLength: 255,
+        options: [],
+      })),
+      input('reference', 'Mã tham chiếu giả', 'TEXT'),
+      input('purpose', 'Mục đích', 'TEXTAREA'),
+      input('completedCredits', 'Số tín chỉ đã hoàn thành', 'NUMBER'),
+      input('neededOn', 'Ngày mong muốn', 'DATE'),
+      input('purposeType', 'Nhóm mục đích', 'SELECT', [
+        { value: 'SCHOLARSHIP', label: 'Học bổng (giả định)' },
+        { value: 'OTHER', label: 'Khác (giả định)' },
+      ]),
+      input('instructionsReceived', 'Đã nhận hướng dẫn', 'BOOLEAN'),
+    ],
+    attachments: [
+      {
+        key: 'proof',
+        label: 'Minh chứng giả',
+        required: true,
+        mimeTypes: ['application/pdf'],
+        maxFiles: 1,
+        maxBytes: 4096,
+      },
+    ],
+    maxTotalAttachmentBytes: 8192,
+  }
+}
+
 export async function seedRecoveryFixture(sql) {
   const owner = { id: randomUUID(), username: 'DRILL_OWNER', roles: ['STUDENT'] }
   const other = { id: randomUUID(), username: 'DRILL_OTHER', roles: ['STUDENT'] }
@@ -31,7 +109,7 @@ export async function seedRecoveryFixture(sql) {
     await tx`INSERT INTO academic_classes(id,faculty_id,code,name) VALUES (${classId},${facultyId},'DRILL_CLASS','Lớp giả định')`
     for (const actor of [owner, other, reviewer, foreign]) {
       await tx`INSERT INTO users(id,username,full_name,status,must_change_password)
-        VALUES (${actor.id},${actor.username},${'Người dùng giả định ' + actor.username},'ACTIVE',false)`
+        VALUES (${actor.id},${actor.username},${actor.id === owner.id ? recoveryStudent.fullName : 'Người dùng giả định ' + actor.username},'ACTIVE',false)`
       for (const code of [
         ...actor.roles,
         ...(actor.roles.includes('FACULTY_REVIEWER') ? ['DRILL_REVIEW'] : []),
@@ -39,7 +117,7 @@ export async function seedRecoveryFixture(sql) {
         await tx`INSERT INTO user_roles(user_id,role_id) SELECT ${actor.id},id FROM roles WHERE code=${code}`
     }
     for (const actor of [owner, other])
-      await tx`INSERT INTO student_profiles(user_id,class_id,student_code) VALUES (${actor.id},${classId},${actor.username})`
+      await tx`INSERT INTO student_profiles(user_id,class_id,student_code) VALUES (${actor.id},${classId},${actor.id === owner.id ? recoveryStudent.studentCode : 'GIA240002'})`
     for (const [actor, unit] of [
       [reviewer, unitId],
       [foreign, foreignUnitId],
@@ -52,45 +130,7 @@ export async function seedRecoveryFixture(sql) {
   })
   const [service] = await sql`INSERT INTO services(code,name,description,processing_days,status)
     VALUES ('DRILL_SERVICE','Thủ tục phục hồi giả định','Chỉ dùng dữ liệu giả',3,'ACTIVE') RETURNING id`
-  const config = {
-    processingMode: 'ONLINE',
-    processingUnitId: unitId,
-    processorUserId: null,
-    contactInstructions: 'Diễn tập dữ liệu giả',
-    fields: [
-      {
-        key: 'fullName',
-        label: 'Họ tên',
-        type: 'TEXT',
-        source: 'PROFILE',
-        profileKey: 'fullName',
-        required: true,
-        maxLength: 255,
-        options: [],
-      },
-      {
-        key: 'purpose',
-        label: 'Mục đích',
-        type: 'TEXTAREA',
-        source: 'STUDENT_INPUT',
-        profileKey: null,
-        required: true,
-        maxLength: 200,
-        options: [],
-      },
-    ],
-    attachments: [
-      {
-        key: 'proof',
-        label: 'Minh chứng',
-        required: true,
-        mimeTypes: ['application/pdf'],
-        maxFiles: 1,
-        maxBytes: 4096,
-      },
-    ],
-    maxTotalAttachmentBytes: 8192,
-  }
+  const config = recoveryConfig(unitId)
   const [version] = await sql`INSERT INTO procedure_versions
     (service_id,owner_unit_id,version_number,status,config,created_by,updated_by,published_at)
     VALUES (${service.id},${unitId},1,'PUBLISHED',${sql.json(config)},${owner.id},${owner.id},now()) RETURNING id`
@@ -162,9 +202,26 @@ export async function createRecoveryDossier(http, fixture) {
     method: 'POST',
     body: { serviceId, versionId },
   })
+  // Exercise the real API contract before writing valid fake answers.
+  // Failed writes must not change either the draft values or its revision.
+  for (const values of [
+    { completedCredits: '0' },
+    { instructionsReceived: 'false' },
+    { neededOn: '2026-02-30' },
+    { purposeType: 'NOT_AN_OPTION' },
+    { reference: 123 },
+    { fullName: 'Tên giả mạo hồ sơ' },
+    { unknownField: 'Không có trong cấu hình' },
+  ])
+    await http(owner, `/submissions/${dossier.id}`, {
+      method: 'PUT',
+      expected: 422,
+      body: { expectedRevision: dossier.revision, values },
+    })
+  assert.deepEqual(await http(owner, `/submissions/${dossier.id}`), dossier)
   dossier = await http(owner, `/submissions/${dossier.id}`, {
     method: 'PUT',
-    body: { expectedRevision: dossier.revision, values: { purpose: 'Mục đích giả định lần 1' } },
+    body: { expectedRevision: dossier.revision, values: recoveryValues(1) },
   })
   dossier = await upload(http, owner, dossier, oldBytes, 'minh-chung-gia-lan-1.pdf')
   const oldFileId = dossier.files[0].id
@@ -195,7 +252,7 @@ export async function createRecoveryDossier(http, fixture) {
   const newFileId = dossier.files[0].id
   dossier = await http(owner, `/submissions/${dossier.id}`, {
     method: 'PUT',
-    body: { expectedRevision: dossier.revision, values: { purpose: 'Mục đích giả định lần 2' } },
+    body: { expectedRevision: dossier.revision, values: recoveryValues(2) },
   })
   dossier = await http(owner, `/submissions/${dossier.id}/submit`, {
     method: 'POST',
@@ -209,6 +266,16 @@ export async function createRecoveryDossier(http, fixture) {
   const ownerView = await http(owner, `/submissions/${dossier.id}`)
   assert.equal(ownerView.rounds.length, 2)
   assert.equal(ownerView.rounds[0].files[0].id, oldFileId)
+  assert.deepEqual(ownerView.values, { ...recoveryStudent, ...recoveryValues(2) })
+  for (const [index, bytes] of [oldBytes, newBytes].entries()) {
+    const round = ownerView.rounds[index]
+    assert.deepEqual(round.studentSnapshot, recoveryStudent)
+    assert.deepEqual(round.values, { ...recoveryStudent, ...recoveryValues(index + 1) })
+    assert.equal(round.files[0].mimeType, 'application/pdf')
+    assert.equal(round.files[0].size, bytes.length)
+    assert.equal(round.files[0].sha256, createHash('sha256').update(bytes).digest('hex'))
+    assert.equal(round.files[0].signatureStatus, 'NOT_CHECKED')
+  }
   const notices = await http(owner, '/notifications')
   assert.ok(notices.unreadCount > 0)
   return {

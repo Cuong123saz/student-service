@@ -6,6 +6,8 @@ Ngày: 10/10/2026. Phạm vi: công cụ local có thể chạy lại; không ph
 
 Lượt diễn tập tạo hồ sơ qua API thật, dừng nguồn ghi, sao lưu cả database và kho minh chứng, **xóa container database nguồn giả**, rồi khôi phục vào PostgreSQL mới. Database development/test hiện có không được dùng làm nguồn hoặc đích.
 
+Bộ dữ liệu hiện dùng [mẫu đúng kiểu](typed-recovery-fixtures.md), gồm đủ sáu kiểu trường và PDF đã phân tích/render độc lập.
+
 Bộ dữ liệu gồm 4 tài khoản giả (chủ hồ sơ, sinh viên khác, cán bộ đúng đơn vị và cán bộ khác đơn vị), 1 thủ tục ONLINE giả riêng, 1 hồ sơ, 2 lần gửi, 4 sự kiện và 2 tệp PDF giả. Tệp lần 1 đã gỡ mềm ở bản đang xử lý nhưng còn trong lịch sử; tệp lần 2 đang dùng. Sau bổ sung, hồ sơ quay về người đang xử lý nên gọi nhận lại không tạo thêm sự kiện CLAIMED.
 
 | Nội dung                                     | Kết quả                                                                                                   |
@@ -24,13 +26,13 @@ Bộ dữ liệu gồm 4 tài khoản giả (chủ hồ sơ, sinh viên khác, c
 | Giả lập tệp bị sửa                           | Download trả 503, audit phát hiện HASH_MISMATCH; trả lại byte giả đúng và kiểm tra đạt                    |
 | Cleanup                                      | API riêng đã dừng, container riêng đã xóa; gói dữ liệu giả và báo cáo được giữ để xem lại                 |
 
-Có 42 yêu cầu HTTP trong cả quá trình tạo và kiểm chứng: 29×200, 1×401, 2×403, 9×404 và 1×503 được cố ý gây ra bằng sửa byte tệp giả. Không phải kiểm thử tải hoặc 42 unit test.
+Lượt ban đầu có 42 yêu cầu HTTP trong cả quá trình tạo và kiểm chứng: 29×200, 1×401, 2×403, 9×404 và 1×503 được cố ý gây ra bằng sửa byte tệp giả. Không phải kiểm thử tải hoặc 42 unit test.
 
 PostgreSQL có thể deparse `(ARRAY['ACTIVE'::varchar, ...])::text[]` thành `ARRAY[('ACTIVE'::varchar)::text, ...]` sau dump/restore. Bộ đối chiếu chỉ chuẩn hóa đúng danh sách **literal character varying → text** này; giữ mọi literal và mọi SQL còn lại để so sánh. Có test xác nhận thay giá trị hoặc biểu thức khác không bị bỏ qua. Không loại bỏ ràng buộc khỏi kiểm tra chỉ vì khác chuỗi biểu diễn.
 
 ## Số đo local của lượt đầu, trước bước chép sang kho riêng
 
-Node 22.23.2, PostgreSQL 17.10 trong image local `postgres:17-alpine`. Gói có database dump 111,843 byte và 2 tệp tổng 75 byte. Đây là PDF giả tối thiểu để kiểm thử nghiệp vụ, không phải bộ tài liệu thực tế.
+Node 22.23.2, PostgreSQL 17.10 trong image local `postgres:17-alpine`. Gói có database dump 111,843 byte và 2 tệp tổng 75 byte. Đây là các byte giả chỉ có header PDF để kiểm thử nghiệp vụ, chưa phải PDF hoàn chỉnh. Đã thay trong bộ mẫu hiện tại; số đo lịch sử này không đổi.
 
 | Giai đoạn                                                   | Thời gian |
 | ----------------------------------------------------------- | --------- |
@@ -51,7 +53,7 @@ Từ repository, dùng terminal không nạp cấu hình database/kho tệp củ
 npm run rehearse:recovery --workspace @student-service/api
 ```
 
-Lệnh chạy toàn bộ test gói/guard (hiện 94 test, gồm gói/kho riêng, tùy chọn nơi lưu và mã hóa), build API rồi gọi runner với cờ bắt buộc `--fake-data-only`. Runner nhận `--archive-root <đường dẫn tuyệt đối>` cho kho giả và có thể thêm `--encryption-key <key file>` khi chọn kho mã hóa riêng; key bắt buộc đi cùng nơi lưu rõ ràng. Đối số khác bị từ chối. Xem [diễn tập mã hóa](encrypted-recovery.md) để chọn đúng loại kho và giữ khóa. Runner từ chối biến `DATABASE_URL` hoặc `SUBMISSION_STORAGE_ROOT` kế thừa, và `APP_ENV=production` **trước khi tạo thư mục hoặc gọi Docker**. Không đọc `.env` của dự án. Các child API chỉ nhận cấu hình giả, khóa phiên sinh ngẫu nhiên và `fake.env` trống; không chạy worker/email.
+Lệnh chạy toàn bộ test gói/guard (hiện 114 test, gồm 20 test dữ liệu giả đúng kiểu và 94 test gói/kho riêng, tùy chọn nơi lưu và mã hóa), build API rồi gọi runner với cờ bắt buộc `--fake-data-only`. Runner nhận `--archive-root <đường dẫn tuyệt đối>` cho kho giả và có thể thêm `--encryption-key <key file>` khi chọn kho mã hóa riêng; key bắt buộc đi cùng nơi lưu rõ ràng. Đối số khác bị từ chối. Xem [diễn tập mã hóa](encrypted-recovery.md) để chọn đúng loại kho và giữ khóa. Runner từ chối biến `DATABASE_URL` hoặc `SUBMISSION_STORAGE_ROOT` kế thừa, và `APP_ENV=production` **trước khi tạo thư mục hoặc gọi Docker**. Không đọc `.env` của dự án. Các child API chỉ nhận cấu hình giả, khóa phiên sinh ngẫu nhiên và `fake.env` trống; không chạy worker/email.
 
 Runner tự tạo thư mục `run/recovery-drills/<runId>` mới và container có tên/label cùng runId. Chỉ publish PostgreSQL lên `127.0.0.1` với cổng tự cấp, không dùng 5433/5434. Data PostgreSQL ở tmpfs, không mount ổ đĩa/kho thật. Trước mỗi lần xóa, kiểm tra ID, tên, label, image và không có persistent mount; không xóa container khác hoặc dùng prune/reset.
 

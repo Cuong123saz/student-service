@@ -56,6 +56,8 @@ Nguồn mã hóa phải đúng `run/recovery-drills/<runId>/bundle` của reposi
 
 ## Kết quả
 
+Lượt mới dùng dữ liệu giả đủ sáu kiểu trường và PDF hợp lệ: [kết quả kiểm tra kiểu dữ liệu](typed-recovery-fixtures.md), runId `eb48374d-b029-48da-ace7-7b1f59cf42e2`, 114 test và 50 yêu cầu HTTP đạt. Các số đo dưới đây là lượt trước khi nâng bộ mẫu; hai tệp tổng 75 byte lúc đó chỉ là byte giả có header PDF, chưa phải PDF hoàn chỉnh.
+
 Lượt `61142611-df4f-4324-89a7-ec6d5b7dc6fd` đạt, cleanup thành công. Báo cáo: `run/recovery-drills/61142611-df4f-4324-89a7-ec6d5b7dc6fd/report.json`; log: `run/encrypted-recovery-full.log`.
 
 | Nội dung                         | Kết quả                                                                                                |

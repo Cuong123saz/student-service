@@ -345,6 +345,7 @@ try {
   const fixture = await seedRecoveryFixture(source)
   let http = await startServer(sourceUrl, sourceRoot, 'source')
   const state = await createRecoveryDossier(http, fixture)
+  report.checks.fakeTypesAndRejectedInvalidWrites = true
   await stopServer()
   await source.unsafe(`ALTER DATABASE ${sourceDatabase} SET default_transaction_read_only=on`)
   await source.end()
@@ -538,6 +539,7 @@ try {
   http = await startServer(targetUrl, restoredRoot, 'restored')
   await verifyRecoveryHttp(http, fixture, state)
   report.checks.viewsHistoryNotificationsAndAccess = true
+  report.checks.typedAnswersPreservedAfterRestore = true
   const decisionBody = {
     expectedRevision: state.reviewView.revision,
     action: 'APPROVE',
