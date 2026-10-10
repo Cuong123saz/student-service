@@ -3,6 +3,8 @@ import { fork, spawn } from 'node:child_process'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createReadStream, createWriteStream } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { exportRecoveryBundle, inspectRecoveryArchive } from './recovery-archive.mjs'
 import { resolve, join } from 'node:path'
 import { pipeline, finished } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
@@ -385,8 +387,27 @@ try {
   report.checks.sourceUnchanged = true
   report.checks.sourceStoppedAndReadOnly = true
   phaseEnd('backup-database-and-evidence', tick)
+  tick = phaseStart('export-to-separate-fake-archive')
+  const archiveRoot = resolve(tmpdir(), 'student-service-fake-archive-' + runId)
+  const exported = await exportRecoveryBundle({ bundleRoot, archiveRoot, projectRoot: repo })
+  const archivedBundleRoot = exported.bundleRoot
+  const archiveInspection = await inspectRecoveryArchive({
+    archiveRoot,
+    projectRoot: repo,
+    policy: { keepLatest: 3, minAgeDays: 30 },
+  })
+  assert.equal(archiveInspection.status, 'OK')
+  assert.equal(archiveInspection.verified, 1)
+  assert.equal(archiveInspection.candidates, 0)
+  report.archive = {
+    root: archiveRoot,
+    bundleRoot: archivedBundleRoot,
+    inspection: archiveInspection,
+  }
+  report.checks.exportedCopyVerified = true
+  phaseEnd('export-to-separate-fake-archive', tick)
   tick = phaseStart('restore-to-empty-private-target')
-  await verifyRecoveryBundle(bundleRoot)
+  await verifyRecoveryBundle(archivedBundleRoot)
   // Simulate losing the fake source cluster; restore only from the saved bundle.
   await source.end({ timeout: 5 })
   source = undefined
@@ -412,7 +433,7 @@ try {
   ])
   target = connect(targetUrl)
   await assertEmptyTarget(target)
-  await restoreRecoveryFiles({ bundleRoot, targetRoot: restoredRoot })
+  await restoreRecoveryFiles({ bundleRoot: archivedBundleRoot, targetRoot: restoredRoot })
   await owned()
   await docker(
     [
@@ -429,8 +450,9 @@ try {
       '--single-transaction',
       '--exit-on-error',
     ],
-    { inputFile: join(bundleRoot, 'database.dump') },
+    { inputFile: join(archivedBundleRoot, 'database.dump') },
   )
+  report.checks.restoredFromSeparateArchive = true
   phaseEnd('restore-to-empty-private-target', tick)
   tick = phaseStart('verify-data-schema-files-and-permissions')
   const after = await snapshot(target)
@@ -511,6 +533,7 @@ try {
   report.checks.injectedByteCorruptionDetected = true
   await stopServer()
   report.checks.bundleStillIntact = Boolean(await verifyRecoveryBundle(bundleRoot))
+  report.checks.archivedBundleStillIntact = Boolean(await verifyRecoveryBundle(archivedBundleRoot))
   phaseEnd('verify-data-schema-files-and-permissions', tick)
   report.status = 'VERIFIED_PENDING_CLEANUP'
 } catch (error) {

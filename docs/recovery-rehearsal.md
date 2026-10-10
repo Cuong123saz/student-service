@@ -28,7 +28,7 @@ Có 42 yêu cầu HTTP trong cả quá trình tạo và kiểm chứng: 29×200,
 
 PostgreSQL có thể deparse `(ARRAY['ACTIVE'::varchar, ...])::text[]` thành `ARRAY[('ACTIVE'::varchar)::text, ...]` sau dump/restore. Bộ đối chiếu chỉ chuẩn hóa đúng danh sách **literal character varying → text** này; giữ mọi literal và mọi SQL còn lại để so sánh. Có test xác nhận thay giá trị hoặc biểu thức khác không bị bỏ qua. Không loại bỏ ràng buộc khỏi kiểm tra chỉ vì khác chuỗi biểu diễn.
 
-## Số đo local
+## Số đo local của lượt đầu, trước bước chép sang kho riêng
 
 Node 22.23.2, PostgreSQL 17.10 trong image local `postgres:17-alpine`. Gói có database dump 111,843 byte và 2 tệp tổng 75 byte. Đây là PDF giả tối thiểu để kiểm thử nghiệp vụ, không phải bộ tài liệu thực tế.
 
@@ -51,11 +51,11 @@ Từ repository, dùng terminal không nạp cấu hình database/kho tệp củ
 npm run rehearse:recovery --workspace @student-service/api
 ```
 
-Lệnh chạy 22 test gói/guard, build API rồi gọi runner với cờ bắt buộc `--fake-data-only`. Runner từ chối đối số khác, biến `DATABASE_URL` hoặc `SUBMISSION_STORAGE_ROOT` kế thừa, và `APP_ENV=production` **trước khi tạo thư mục hoặc gọi Docker**. Không đọc `.env` của dự án. Các child API chỉ nhận cấu hình giả, khóa phiên sinh ngẫu nhiên và `fake.env` trống; không chạy worker/email.
+Lệnh chạy toàn bộ test gói/guard (hiện 54 test, gồm 22 test ban đầu và 32 test kho riêng), build API rồi gọi runner với cờ bắt buộc `--fake-data-only`. Runner từ chối đối số khác, biến `DATABASE_URL` hoặc `SUBMISSION_STORAGE_ROOT` kế thừa, và `APP_ENV=production` **trước khi tạo thư mục hoặc gọi Docker**. Không đọc `.env` của dự án. Các child API chỉ nhận cấu hình giả, khóa phiên sinh ngẫu nhiên và `fake.env` trống; không chạy worker/email.
 
 Runner tự tạo thư mục `run/recovery-drills/<runId>` mới và container có tên/label cùng runId. Chỉ publish PostgreSQL lên `127.0.0.1` với cổng tự cấp, không dùng 5433/5434. Data PostgreSQL ở tmpfs, không mount ổ đĩa/kho thật. Trước mỗi lần xóa, kiểm tra ID, tên, label, image và không có persistent mount; không xóa container khác hoặc dùng prune/reset.
 
-Database nguồn/đích có tên riêng cố định trong container mới của lượt chạy. Không nhận URL hoặc đường dẫn phục hồi do người chạy cung cấp. Nguồn API phải đóng sạch, không còn session khác và database mặc định READ ONLY trước khi đóng gói. Gói gồm:
+Database nguồn/đích có tên riêng cố định trong container mới của lượt chạy. Không nhận URL hoặc đường dẫn phục hồi do người chạy cung cấp. Runner hiện bổ sung bước chép và kiểm tra gói ngoài dự án rồi phục hồi từ bản đã chép; xem [kho riêng và đề xuất giữ bản cũ](recovery-archive.md) để biết kết quả mới và giới hạn. Nguồn API phải đóng sạch, không còn session khác và database mặc định READ ONLY trước khi đóng gói. Gói gồm:
 
 ```text
 bundle/
@@ -88,6 +88,6 @@ Lượt độc lập đạt: `run/recovery-drills/70422dcc-e980-446b-9342-58b4e1
 
 ## Việc còn lại trước dữ liệu thật
 
-Diễn tập này hoàn thành đường đi phục hồi bằng dữ liệu giả. Còn phải chốt cơ chế ngừng mọi nguồn ghi của môi trường thật, nơi sao lưu riêng có kiểm soát truy cập/mã hóa, lịch backup và retention, giám sát lỗi/kiểm tra định kỳ, cách dựng lại role/quyền database và secret vận hành, và đo phục hồi với dung lượng đại diện. `pg_dump` chỉ sao lưu một database, không bao gồm global roles/tablespaces; công cụ này dùng role postgres của container giả mới theo phạm vi thử, không kiểm chứng quyền vận hành production.
+Diễn tập này hoàn thành đường đi phục hồi bằng dữ liệu giả. Đã bổ sung [công cụ kho riêng và đề xuất retention](recovery-archive.md) bằng dữ liệu giả; chưa thử trên ổ cứng ngoài/máy khác thực tế. Còn phải chốt cơ chế ngừng mọi nguồn ghi của môi trường thật, nơi sao lưu riêng có kiểm soát truy cập/mã hóa, lịch backup và retention, giám sát lỗi/kiểm tra định kỳ, cách dựng lại role/quyền database và secret vận hành, và đo phục hồi với dung lượng đại diện. `pg_dump` chỉ sao lưu một database, không bao gồm global roles/tablespaces; công cụ này dùng role postgres của container giả mới theo phạm vi thử, không kiểm chứng quyền vận hành production.
 
 Kho bền vững, quét mã độc và xác minh chữ ký vẫn là các việc riêng theo [ADR0003](adr/0003-student-drafts-and-evidence.md). Giấy xác nhận sinh viên tiếp tục làm trực tiếp tại CTSV; không đổi cấu hình development để tạo dữ liệu thử.

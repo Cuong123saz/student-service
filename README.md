@@ -104,7 +104,7 @@ Hàng đợi hai cổng tải 20 hồ sơ mỗi lần, tìm theo tên/mã sinh v
 
 ### Sprint 5 — Diễn tập phục hồi hồ sơ
 
-Đã diễn tập sao lưu database cùng kho minh chứng, xóa nguồn giả và phục hồi vào PostgreSQL mới; kiểm chứng lịch sử, tệp đã gỡ, quyền truy cập và khả năng ghi tiếp. [Kết quả, cách chạy và giới hạn](docs/recovery-rehearsal.md) ghi lượt thử bằng dữ liệu giả, không thay cho backup vận hành dữ liệu thật.
+Đã diễn tập sao lưu database cùng kho minh chứng, xóa nguồn giả và phục hồi vào PostgreSQL mới; kiểm chứng lịch sử, tệp đã gỡ, quyền truy cập và khả năng ghi tiếp. [Kết quả, cách chạy và giới hạn](docs/recovery-rehearsal.md) ghi lượt thử bằng dữ liệu giả, không thay cho backup vận hành dữ liệu thật. Đã bổ sung [chép sang kho riêng, kiểm tra từng gói và đề xuất giữ bản cũ](docs/recovery-archive.md); diễn tập phục hồi từ chính bản đã chép. Công cụ chỉ dùng dữ liệu giả, chưa tự xóa hoặc bật lịch backup.
 
 ## Luồng đã chạy được
 

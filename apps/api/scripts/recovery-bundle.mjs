@@ -169,6 +169,7 @@ export async function verifyRecoveryBundle(bundleRoot) {
     typeof item.sha256 === 'string' &&
     digestPattern.test(item.sha256)
   if (
+    !manifest ||
     manifest.version !== 1 ||
     manifest.fakeDataOnly !== true ||
     !uuid.test(manifest.runId || '') ||
@@ -177,7 +178,9 @@ export async function verifyRecoveryBundle(bundleRoot) {
     !validDigest(manifest.database, 536870912) ||
     !Array.isArray(manifest.files) ||
     manifest.files.length > 5000 ||
-    manifest.files.some((file) => !uuid.test(file.key || '') || !validDigest(file, 5242880)) ||
+    manifest.files.some(
+      (file) => !file || !uuid.test(file.key || '') || !validDigest(file, 5242880),
+    ) ||
     new Set(manifest.files.map((file) => file.key)).size !== manifest.files.length
   )
     fail('INVALID_MANIFEST')
