@@ -20,7 +20,8 @@
     "auth:recover-admin": "tsx src/modules/auth/recover-system-admin-password.ts",
     "test:unit": "node scripts/run-tests.mjs unit",
     "test:integration": "npm run db:migrate:test && node scripts/run-tests.mjs integration",
-    "test": "npm run test:unit && npm run test:integration"
+    "test": "npm run test:unit && npm run test:integration",
+    "test:concurrency": "node --test scripts/check-concurrency.test.mjs && npm run build && node --env-file=.env.test scripts/check-concurrency.mjs"
   },
   "type": "module",
   "dependencies": {

@@ -43,4 +43,4 @@ Migration0019 đã áp dụng đúng một migration trên DB development localh
 
 Bằng chứng local (git ignore): run/queue-api-{full,typecheck,lint,build}.log, run/queue-web-{tests,build}.log, run/queue-adr-tests.log, run/queue-format.log, run/queue-browser-smoke.log (metrics/EXPLAIN), run/queue-dev-migration.log, run/queue-local-health.log và run/queue-*.png. Quy trình test chuẩn có thể chạy lại bằng các script npm trong repository; demo browser sử dụng runtime/đường dẫn cục bộ của máy này.
 
-Các giới hạn còn lại: lịch sử nhiều lần gửi chưa phân trang; chưa có thử tải nhiều người đồng thời/production SLA; backup/restore, lưu trữ tệp, retention/quét mã độc vẫn cần chuẩn bị vận hành theo ADR0003. Demo đúng chưa đủ cơ sở mở hệ thống cho dữ liệu thật.
+Các giới hạn còn lại: lịch sử nhiều lần gửi chưa phân trang; [đã thử tải đồng thời ngắn tối đa 20 phiên](concurrent-access-check.md), chưa có thử tải duy trì hoặc production SLA; backup/restore, lưu trữ tệp, retention/quét mã độc vẫn cần chuẩn bị vận hành theo ADR0003. Demo đúng chưa đủ cơ sở mở hệ thống cho dữ liệu thật.

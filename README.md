@@ -90,6 +90,10 @@ Supervisor đủ quyền/phạm vi bàn giao hồ sơ đang xử lý hoặc ch�
 
 Hàng đợi hai cổng tải 20 hồ sơ mỗi lần, tìm theo tên/mã sinh viên hoặc thủ tục, lọc Tôi đang xử lý/Chưa có người nhận. Quyền hiện tại được lọc trước phân trang; không còn cắt âm thầm ở 50 hồ sơ. [Hướng dẫn và kiểm chứng](docs/review-queue-pagination.md) ghi hợp đồng, dữ liệu kiểm thử và giới hạn vận hành.
 
+### Sprint 5 — Kiểm tra truy cập đồng thời
+
+Đã bổ sung bài thử HTTP độc lập với 20 tài khoản cán bộ, 10000 hồ sơ giả và kiểm tra tranh chấp nhận hồ sơ/thông báo cá nhân. [Cách chạy và số đo](docs/concurrent-access-check.md) ghi hai lượt kiểm chứng, chốt bảo vệ DB test và giới hạn diễn giải hiệu năng.
+
 ## Luồng đã chạy được
 
 ### Admin
