@@ -98,6 +98,10 @@ Hàng đợi hai cổng tải 20 hồ sơ mỗi lần, tìm theo tên/mã sinh v
 
 Đã thêm chỉ mục tìm kiếm và cập nhật trực tiếp để giảm quét toàn bảng sau khi ghi hồ sơ. [Số đo trước/sau và giới hạn](docs/review-search-performance.md) ghi truy vấn thật, tải đồng thời, kiểm chứng dữ liệu và chi phí đọc/ghi.
 
+### Sprint 5 — Đối chiếu kho minh chứng
+
+Đã thêm công cụ chỉ đọc để phát hiện tệp thiếu/sai byte, metadata lịch sử không khớp và tệp chưa liên kết; không tự xóa hoặc sửa hồ sơ. [Cách chạy và phạm vi bảo đảm](docs/evidence-integrity-audit.md) ghi 22 kiểm thử mới, trạng thái kho local và bước chuẩn bị sao lưu cả database lẫn tệp.
+
 ## Luồng đã chạy được
 
 ### Admin

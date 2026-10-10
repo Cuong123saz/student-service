@@ -77,3 +77,8 @@ Bằng chứng local, được bỏ qua trong Git: run/sprint5-api-tests-final.l
 ## Increment gửi và tiếp nhận
 
 Bước [gửi hồ sơ và tiếp nhận xử lý](submission-intake.md) được triển khai tiếp theo yêu cầu chủ dự án. Các câu “chưa gửi/xét” và số liệu phía trên là phạm vi lịch sử của increment tương ứng. Bước mới chỉ gửi và nhận xử lý, chưa duyệt/ký/trả kết quả; giấy xác nhận sinh viên vẫn OFFLINE tại CTSV.
+
+
+## Increment đối chiếu minh chứng
+
+Công cụ [đối chiếu kho minh chứng](evidence-integrity-audit.md) đã bổ sung theo yêu cầu tiếp tục dự án ngày 10/10/2026. Công cụ chỉ đọc, bao gồm tệp đã gỡ và tham chiếu trong lịch sử; chưa thay cho backup/restore, retention, quét mã độc hoặc xác minh chữ ký.
