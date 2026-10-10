@@ -1,6 +1,7 @@
 ---
 status: Accepted
 date: 2026-10-09
+updated: 2026-10-10
 ---
 
 # ADR 0004: Gửi hồ sơ và tiếp nhận xử lý
@@ -20,7 +21,7 @@ Chủ dự án yêu cầu tiếp tục bước kế tiếp sau bản nháp/minh 
 
 - Hai cổng API user/admin dùng phiên tương ứng và kiểm tra quyền thực tế trong database trên mỗi thao tác. Phiên bắt buộc đổi mật khẩu không được thao tác. Không chỉ tin role trong cookie; không thay đổi quyền catalog mặc định.
 - Chỉ SUBMITTED/IN_REVIEW được đọc bởi cán bộ có submission.review + GLOBAL hoặc ORGANIZATION đúng processingUnitId trên cùng role assignment, đơn vị ACTIVE. Hồ sơ chỉ định riêng chỉ hiển thị cho designatedReviewerId, kể cả khi người khác có scope GLOBAL. Không được tự xem/nhận hồ sơ của chính mình qua vai trò cán bộ.
-- Hàng đợi sắp theo thời gian gửi, tối đa 50 hồ sơ trong phạm vi; không trả dữ liệu/đếm ngoài phạm vi. Bản nháp không xuất hiện. Detail và tải tệp kiểm tra lại cùng quyền; ngoài phạm vi trả 404, người không còn bất kỳ quyền review hợp lệ trả 403.
+- Hàng đợi tách Chờ tiếp nhận và Đang xử lý, sắp theo thời gian gửi, tối đa 50 hồ sơ trong phạm vi của từng nhóm; không trả dữ liệu/đếm ngoài phạm vi. Bản nháp không xuất hiện. Detail và tải tệp kiểm tra lại cùng quyền; ngoài phạm vi trả 404, người không còn bất kỳ quyền review hợp lệ trả 403.
 - Nhận xử lý yêu cầu expectedRevision; khóa hồ sơ, xác thực quyền và chuyển SUBMITTED → IN_REVIEW với reviewerUserId/reviewStartedAt, tăng revision, audit nguyên tử. Hai cán bộ cùng nhận chỉ một người thắng; lần sau của chính người đã nhận là idempotent, người khác nhận lại trả 409. Cán bộ đủ phạm vi vẫn có thể xem tiến độ của hàng đợi đơn vị.
 - Snapshot của hồ sơ đã gửi tiếp tục đọc/xử lý khi phiên bản nghỉ hoặc dịch vụ ngừng; quyền hiện tại và trạng thái đơn vị xử lý vẫn được kiểm tra. Sinh viên còn đủ điều kiện vẫn đọc/tải tệp của chính mình. Không lộ UUID người được chỉ định hoặc khóa lưu tệp trong DTO sinh viên.
 - Tất cả thao tác ghi kiểm tra Origin. Tải tệp owner/cán bộ có quyền dùng attachment, private/no-store, nosniff và kiểm tra toàn vẹn.
@@ -29,7 +30,7 @@ Chủ dự án yêu cầu tiếp tục bước kế tiếp sau bản nháp/minh 
 
 StudentDraft mở rộng status DRAFT|SUBMITTED|IN_REVIEW, submittedAt/reviewStartedAt nullable. POST /api/v1/user/submissions/:id/submit body { expectedRevision } trả StudentDraft. editable chỉ true với DRAFT còn hợp lệ. Danh sách sinh viên thêm submittedAt/reviewStartedAt, hiển thị trạng thái thật.
 
-Hai prefix /api/v1/user/review-submissions và /api/v1/admin/review-submissions cùng hỗ trợ GET danh sách, GET /:id, POST /:id/claim body { expectedRevision }, GET /:id/files/:fileId. DTO hàng đợi: id, serviceName, status, revision, submittedAt, processingUnitName, student { fullName, studentCode }, reviewerName nullable, canClaim. Detail thêm serviceId, procedure, values, files, studentSnapshot { fullName, studentCode, classCode, facultyCode }, reviewStartedAt nullable; không trả storageKey, designatedReviewerId hay toàn bộ hồ sơ học vụ. canClaim chỉ true cho SUBMITTED đang đủ quyền. Lỗi tương thích 401/403/404/409/422/503, code/message/issues/requestId. Validation thiếu trường/minh chứng dùng path values.key/attachments.key.
+Hai prefix /api/v1/user/review-submissions và /api/v1/admin/review-submissions cùng hỗ trợ GET danh sách, GET /:id, POST /:id/claim body { expectedRevision }, GET /:id/files/:fileId. GET danh sách nhận query status tùy chọn SUBMITTED|IN_REVIEW, lọc trước order/limit; bỏ query giữ kết quả cả hai trạng thái để tương thích. UI mặc định Chờ tiếp nhận và cho chuyển Đang xử lý, tránh hồ sơ đã nhận cũ che hồ sơ mới khi đạt 50 bản. DTO hàng đợi: id, serviceName, status, revision, submittedAt, processingUnitName, student { fullName, studentCode }, reviewerName nullable, canClaim. Detail thêm serviceId, procedure, values, files, studentSnapshot { fullName, studentCode, classCode, facultyCode }, reviewStartedAt nullable; không trả storageKey, designatedReviewerId hay toàn bộ hồ sơ học vụ. canClaim chỉ true cho SUBMITTED đang đủ quyền. Lỗi tương thích 401/403/404/409/422/503, code/message/issues/requestId. Validation thiếu trường/minh chứng dùng path values.key/attachments.key.
 
 Giao diện sinh viên có xem lại, xác nhận nội dung đã lưu và nút Gửi hồ sơ; lỗi giữ nội dung, kết quả không chắc chắn yêu cầu tải lại trạng thái trước khi thử tiếp. Đã gửi không có điều khiển sửa/tải/gỡ hoạt động. Cán bộ có danh sách, đọc hồ sơ/minh chứng và nút Nhận xử lý, tải lại khi conflict. Dùng cùng thiết kế và nhãn tiếng Việt hiện có, hỗ trợ bàn phím và mobile.
 
