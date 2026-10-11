@@ -1,3 +1,4 @@
+import { DrizzleSubmissionDocumentOperations } from './submission-document-operations.js'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { readFile, mkdtemp, rm, readdir, writeFile, unlink, lstat } from 'node:fs/promises'
@@ -112,7 +113,7 @@ test('0023 registry preserves old rows and enforces lease, publication and prove
       await client`INSERT INTO submissions(id,student_user_id,service_id,procedure_version_id,service_name,procedure,values) VALUES(${id},${student},${service!.id},${version},'Synthetic service','{}'::jsonb,'{}'::jsonb)`
       await client`UPDATE submissions SET status='SUBMITTED',revision=2,round_number=1,submitted_at=now(),last_submitted_at=now(),processing_unit_id=${unit},student_snapshot='{"fullName":"Synthetic student","studentCode":"TEST","classCode":"TEST","facultyCode":"TEST"}'::jsonb WHERE id=${id}`
       await client`INSERT INTO submission_rounds(id,submission_id,round_number,submitted_at,student_snapshot,values,files,source,declaration_template) VALUES(${round},${id},1,now(),'{}'::jsonb,'{}'::jsonb,'[]'::jsonb,'LIVE',${client.json({ ...newDeclarationTemplateBinding() })})`
-      return { id, round }
+      return { id, round, unit, student }
     }
     const existing = await fixture()
     const oldTables = await client<
@@ -145,11 +146,52 @@ test('0023 registry preserves old rows and enforces lease, publication and prove
         assert.equal((await registry.ensureSet(existing.id, 1)).roundId, existing.round)
       },
     )
+    const preservedSet = await registry.ensureSet(existing.id, 1)
+    for (const format of ['DOCX', 'PDF'] as const) {
+      const jobId = randomUUID(),
+        attemptId = randomUUID()
+      await client`INSERT INTO submission_document_jobs(id,set_id,format) VALUES(${jobId},${preservedSet.id},${format})`
+      await client`UPDATE submission_document_jobs SET state='RUNNING',attempts=1,attempt_id=${attemptId},lease_until=clock_timestamp()+interval '30 seconds' WHERE id=${jobId}`
+      await registry.publish({ jobId, setId: preservedSet.id, format, attemptId }, metadata(format))
+    }
+    const preserved = new Map<string, unknown>()
+    for (const table of [
+      'submission_document_sets',
+      'submission_documents',
+      'submission_document_jobs',
+      'audit_logs',
+    ])
+      preserved.set(
+        table,
+        await client.unsafe('SELECT row_to_json(t) AS value FROM ' + table + ' t ORDER BY id'),
+      )
+    await client`INSERT INTO roles(code,name) VALUES('SYSTEM_ADMIN','Synthetic system admin'),('ADMIN','Synthetic admin') ON CONFLICT(code) DO NOTHING`
+    await migrate('0024_document_retry')
+    await t.test(
+      '0024 preserves completed documents, leases and audits; new permission defaults only to SYSTEM_ADMIN',
+      async () => {
+        for (const [table, before] of preserved) {
+          const query =
+            table === 'submission_document_jobs'
+              ? "SELECT to_jsonb(t)-'retry_allowance' AS value FROM submission_document_jobs t ORDER BY id"
+              : 'SELECT row_to_json(t) AS value FROM ' + table + ' t ORDER BY id'
+          assert.deepEqual(await client.unsafe(query), before, table)
+        }
+        const holders = await client<
+          { code: string }[]
+        >`SELECT r.code FROM roles r JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE p.code='document.retry' ORDER BY r.code`
+        assert.deepEqual(
+          holders.map((row) => row.code),
+          ['SYSTEM_ADMIN'],
+        )
+      },
+    )
+    const operations = new DrizzleSubmissionDocumentOperations(drizzle(ormClient))
     async function reset() {
       const [current] = await client`SELECT current_database() AS name`
       assert.equal(current!.name, name)
       await client.unsafe(
-        'TRUNCATE submission_document_jobs, submission_documents, submission_document_sets, audit_logs',
+        'TRUNCATE submission_document_retries, submission_document_jobs, submission_documents, submission_document_sets, audit_logs',
       )
     }
     async function set() {
@@ -160,6 +202,357 @@ test('0023 registry preserves old rows and enforces lease, publication and prove
       await reset()
       await t.test(label, fn)
     }
+    async function operator(
+      unitId: string,
+      codes = ['submission.review', 'document.retry'],
+      userId = randomUUID(),
+    ) {
+      await client`INSERT INTO users(id,username,full_name,must_change_password) VALUES(${userId},${'operator-' + userId},'Synthetic operator',false) ON CONFLICT(id) DO NOTHING`
+      const [role] = await client<
+        { id: number }[]
+      >`INSERT INTO roles(code,name) VALUES(${'TEST-' + randomUUID()},'Synthetic role') RETURNING id`
+      await client`INSERT INTO user_roles(user_id,role_id) VALUES(${userId},${role!.id})`
+      for (const code of codes) {
+        await client`INSERT INTO permissions(code,name,description) VALUES(${code},${code},'Synthetic permission') ON CONFLICT(code) DO NOTHING`
+        await client`INSERT INTO role_permissions(role_id,permission_id) SELECT ${role!.id},id FROM permissions WHERE code=${code}`
+      }
+      await client`INSERT INTO authorization_scopes(scope_type,organizational_unit_id) VALUES('ORGANIZATION',${unitId}) ON CONFLICT DO NOTHING`
+      const [scope] = await client<
+        { id: string }[]
+      >`SELECT id FROM authorization_scopes WHERE scope_type='ORGANIZATION' AND organizational_unit_id=${unitId}`
+      await client`INSERT INTO user_role_scopes(user_id,role_id,scope_id) VALUES(${userId},${role!.id},${scope!.id})`
+      return userId
+    }
+    async function exhausted(
+      f: Awaited<ReturnType<typeof fixture>>,
+      format: 'DOCX' | 'PDF' = 'DOCX',
+    ) {
+      const docset = await registry.ensureSet(f.id, 1)
+      if (format === 'PDF')
+        await registry.publish(lease(await registry.claim(docset.id, 'DOCX')), metadata())
+      let last: DocumentLease | undefined
+      for (let i = 0; i < 3; i++) {
+        last = lease(await registry.claim(docset.id, format))
+        await registry.fail(last, format === 'PDF' ? 'CONVERT_FAILED' : 'RENDER_FAILED')
+      }
+      assert.equal((await registry.claim(docset.id, format)).state, 'EXHAUSTED')
+      return { docset, last: last! }
+    }
+    const conflictRetry = (e: unknown) =>
+      e instanceof SubmissionError && e.code === 'DOCUMENT_RETRY_CONFLICT'
+    const forbiddenRetry = (e: unknown) =>
+      e instanceof SubmissionError && e.code === 'DOCUMENT_RETRY_FORBIDDEN'
+    await run('status reads create no set or job and owner cannot open a retry', async () => {
+      const f = await fixture(),
+        status = await operations.status(f.student, f.id, 1, false)
+      assert.equal(status.enabled, true)
+      assert.deepEqual(
+        status.documents.map((d) => [d.state, d.retryAllowed]),
+        [
+          ['NOT_STARTED', false],
+          ['NOT_STARTED', false],
+        ],
+      )
+      assert.equal((await client`SELECT count(*)::int AS n FROM submission_document_sets`)[0]!.n, 0)
+      assert.equal((await client`SELECT count(*)::int AS n FROM submission_document_jobs`)[0]!.n, 0)
+    })
+    await run('retry requires active same-role permission and current scope', async () => {
+      const f = await fixture(),
+        { last } = await exhausted(f)
+      const allowed = await operator(f.unit),
+        reviewOnly = await operator(f.unit, ['submission.review']),
+        retryOnly = await operator(f.unit, ['document.retry']),
+        own = await operator(f.unit, undefined, f.student),
+        foreign = await operator((await fixture()).unit)
+      await operator(f.unit, ['submission.review'], retryOnly)
+      const input = {
+        requestId: randomUUID(),
+        expectedAttemptId: last.attemptId,
+        reasonCode: 'RENDERER_FIXED' as const,
+      }
+      for (const userId of [reviewOnly, retryOnly, own, foreign])
+        await assert.rejects(operations.retry(userId, f.id, 1, 'DOCX', input), forbiddenRetry)
+      await client`UPDATE users SET must_change_password=true WHERE id=${allowed}`
+      await assert.rejects(operations.retry(allowed, f.id, 1, 'DOCX', input), forbiddenRetry)
+      await client`UPDATE users SET must_change_password=false,status='DISABLED' WHERE id=${allowed}`
+      await assert.rejects(operations.retry(allowed, f.id, 1, 'DOCX', input), forbiddenRetry)
+      assert.equal(
+        (await client`SELECT count(*)::int AS n FROM submission_document_retries`)[0]!.n,
+        0,
+      )
+      await assert.rejects(
+        client`INSERT INTO submission_document_retries(id,job_id,attempt_id,attempts,allowance,actor_user_id,reason_code) VALUES(${randomUUID()},${last.jobId},${last.attemptId},3,1,${foreign},'RENDERER_FIXED')`,
+        pgCode('42501'),
+      )
+    })
+    await run(
+      'retry is audited, idempotent and delayed; stale worker and completed document stay fenced',
+      async () => {
+        const f = await fixture(),
+          { docset, last } = await exhausted(f),
+          actor = await operator(f.unit)
+        const input = {
+          requestId: randomUUID(),
+          expectedAttemptId: last.attemptId,
+          reasonCode: 'RENDERER_FIXED' as const,
+        }
+        assert.equal(
+          (await operations.status(actor, f.id, 1, true)).documents[0]!.retryAllowed,
+          true,
+        )
+        assert.deepEqual(await operations.retry(actor, f.id, 1, 'DOCX', input), {
+          requestId: input.requestId,
+          attemptLimit: 4,
+          alreadyApplied: false,
+        })
+        assert.equal((await operations.retry(actor, f.id, 1, 'DOCX', input)).alreadyApplied, true)
+        assert.equal(
+          (
+            await client`SELECT count(*)::int AS n FROM audit_logs WHERE action='document.retry.authorized'`
+          )[0]!.n,
+          1,
+        )
+        const [before] = await client`SELECT * FROM submission_document_jobs WHERE id=${last.jobId}`
+        assert.equal(before!.attempts, 3)
+        assert.equal(before!.retry_allowance, 1)
+        assert.equal(before!.attempt_id, last.attemptId)
+        assert.equal((await registry.claim(docset.id, 'DOCX')).state, 'RETRY_LATER')
+        await delay(3100)
+        const current = lease(await registry.claim(docset.id, 'DOCX'))
+        assert.notEqual(current.attemptId, last.attemptId)
+        assert.equal(await registry.fail(last, 'RENDER_FAILED'), false)
+        await assert.rejects(
+          registry.publish(last, metadata()),
+          (e) => e instanceof SubmissionError && e.code === 'DOCUMENT_LEASE_LOST',
+        )
+        const ready = await registry.publish(current, metadata())
+        await assert.rejects(
+          operations.retry(actor, f.id, 1, 'DOCX', {
+            ...input,
+            requestId: randomUUID(),
+            expectedAttemptId: current.attemptId,
+          }),
+          conflictRetry,
+        )
+        assert.deepEqual(await registry.get(docset.id, 'DOCX'), ready)
+        await client`DELETE FROM user_role_scopes WHERE user_id=${actor}`
+        await assert.rejects(operations.retry(actor, f.id, 1, 'DOCX', input), forbiddenRetry)
+      },
+    )
+    await run(
+      'concurrent operators grant once; changed request, wrong reason/token and retry-history mutations fail',
+      async () => {
+        const f = await fixture(),
+          { last } = await exhausted(f),
+          actor = await operator(f.unit),
+          other = await operator(f.unit)
+        const input = {
+          requestId: randomUUID(),
+          expectedAttemptId: last.attemptId,
+          reasonCode: 'RENDERER_FIXED' as const,
+        }
+        await assert.rejects(
+          operations.retry(actor, f.id, 1, 'DOCX', { ...input, expectedAttemptId: randomUUID() }),
+          conflictRetry,
+        )
+        await assert.rejects(
+          operations.retry(actor, f.id, 1, 'DOCX', { ...input, reasonCode: 'STORAGE_FIXED' }),
+          conflictRetry,
+        )
+        const results = await Promise.allSettled([
+          operations.retry(actor, f.id, 1, 'DOCX', input),
+          operations.retry(other, f.id, 1, 'DOCX', { ...input, requestId: randomUUID() }),
+        ])
+        assert.equal(results.filter((v) => v.status === 'fulfilled').length, 1)
+        assert.equal(
+          results.filter((v) => v.status === 'rejected' && conflictRetry(v.reason)).length,
+          1,
+        )
+        assert.equal(
+          (await client`SELECT count(*)::int AS n FROM submission_document_retries`)[0]!.n,
+          1,
+        )
+        const [grant] = await client<
+          { id: string; actor_user_id: string }[]
+        >`SELECT id,actor_user_id FROM submission_document_retries`
+        await assert.rejects(
+          operations.retry(grant!.actor_user_id, f.id, 1, 'DOCX', {
+            ...input,
+            requestId: grant!.id,
+            reasonCode: 'STORAGE_FIXED',
+          }),
+          conflictRetry,
+        )
+        await assert.rejects(
+          client`UPDATE submission_document_retries SET reason_code='STORAGE_FIXED'`,
+          pgCode('23514'),
+        )
+        await assert.rejects(client`DELETE FROM submission_document_retries`, pgCode('23514'))
+      },
+    )
+    await run(
+      'audit failure rolls back authorization and allowance; direct allowance update fails',
+      async () => {
+        const f = await fixture(),
+          { last } = await exhausted(f),
+          actor = await operator(f.unit)
+        const before =
+          await client`SELECT row_to_json(j) AS value FROM submission_document_jobs j WHERE id=${last.jobId}`
+        await client.unsafe(
+          `CREATE FUNCTION reject_document_retry_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='document.retry.authorized' THEN RAISE EXCEPTION 'TEST_AUDIT_FAILURE'; END IF; RETURN NEW; END $$`,
+        )
+        await client.unsafe(
+          'CREATE TRIGGER reject_document_retry_audit BEFORE INSERT ON audit_logs FOR EACH ROW EXECUTE FUNCTION reject_document_retry_audit()',
+        )
+        try {
+          await assert.rejects(
+            operations.retry(actor, f.id, 1, 'DOCX', {
+              requestId: randomUUID(),
+              expectedAttemptId: last.attemptId,
+              reasonCode: 'RENDERER_FIXED',
+            }),
+            pgCode('P0001'),
+          )
+        } finally {
+          await client.unsafe('DROP TRIGGER reject_document_retry_audit ON audit_logs')
+          await client.unsafe('DROP FUNCTION reject_document_retry_audit()')
+        }
+        assert.deepEqual(
+          await client`SELECT row_to_json(j) AS value FROM submission_document_jobs j WHERE id=${last.jobId}`,
+          before,
+        )
+        assert.equal(
+          (await client`SELECT count(*)::int AS n FROM submission_document_retries`)[0]!.n,
+          0,
+        )
+        await assert.rejects(
+          client`UPDATE submission_document_jobs SET retry_allowance=1 WHERE id=${last.jobId}`,
+          pgCode('23514'),
+        )
+      },
+    )
+    await run('PDF reaches at most six attempts and retains original Word', async () => {
+      const f = await fixture(),
+        { docset, last } = await exhausted(f, 'PDF'),
+        actor = await operator(f.unit)
+      const original = await registry.get(docset.id, 'DOCX')
+      let current = last
+      for (let extra = 0; extra < 3; extra++) {
+        await operations.retry(actor, f.id, 1, 'PDF', {
+          requestId: randomUUID(),
+          expectedAttemptId: current.attemptId,
+          reasonCode: 'CONVERTER_FIXED',
+        })
+        await delay(3100)
+        current = lease(await registry.claim(docset.id, 'PDF'))
+        await registry.fail(current, 'CONVERT_FAILED')
+      }
+      assert.equal((await registry.claim(docset.id, 'PDF')).state, 'EXHAUSTED')
+      await assert.rejects(
+        operations.retry(actor, f.id, 1, 'PDF', {
+          requestId: randomUUID(),
+          expectedAttemptId: current.attemptId,
+          reasonCode: 'CONVERTER_FIXED',
+        }),
+        conflictRetry,
+      )
+      const status = await operations.status(actor, f.id, 1, true)
+      assert.equal(status.documents[1]!.attempts, 6)
+      assert.equal(status.documents[1]!.retryAllowed, false)
+      assert.equal(status.documents[1]!.remainingAuthorizations, 0)
+      assert.deepEqual(await registry.get(docset.id, 'DOCX'), original)
+    })
+    await run('permission revoked during a lock wait also rejects retry and replay', async () => {
+      const f = await fixture(),
+        { docset, last } = await exhausted(f),
+        actor = await operator(f.unit)
+      const locked = Promise.withResolvers<void>(),
+        release = Promise.withResolvers<void>()
+      const holder = client.begin(async (tx) => {
+        await tx`SELECT id FROM submission_document_sets WHERE id=${docset.id} FOR UPDATE`
+        locked.resolve()
+        await release.promise
+      })
+      await locked.promise
+      const retry = operations.retry(actor, f.id, 1, 'DOCX', {
+        requestId: randomUUID(),
+        expectedAttemptId: last.attemptId,
+        reasonCode: 'RENDERER_FIXED',
+      })
+      try {
+        let waiting = false
+        for (let i = 0; i < 100; i++) {
+          const [row] = await client<
+            { n: number }[]
+          >`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%submission_document_sets%'`
+          if (row!.n > 0) {
+            waiting = true
+            break
+          }
+          await delay(20)
+        }
+        assert.equal(waiting, true)
+        await client`DELETE FROM role_permissions WHERE role_id IN (SELECT role_id FROM user_roles WHERE user_id=${actor}) AND permission_id IN (SELECT id FROM permissions WHERE code='document.retry')`
+      } finally {
+        release.resolve()
+        await holder
+      }
+      await assert.rejects(retry, forbiddenRetry)
+      assert.equal(
+        (await client`SELECT count(*)::int AS n FROM submission_document_retries`)[0]!.n,
+        0,
+      )
+    })
+    await run(
+      'expired final lease invalidation and retry audit commit or roll back together',
+      async () => {
+        const f = await fixture(),
+          actor = await operator(f.unit),
+          docset = await registry.ensureSet(f.id, 1)
+        const short = new DrizzleSubmissionDocumentRegistry(drizzle(ormClient), 1, 0)
+        for (let i = 0; i < 2; i++)
+          await short.fail(lease(await short.claim(docset.id, 'DOCX')), 'RENDER_FAILED')
+        const last = lease(await short.claim(docset.id, 'DOCX'))
+        await delay(1100)
+        assert.equal(
+          (await operations.status(actor, f.id, 1, true)).documents[0]!.errorCode,
+          'LEASE_EXPIRED',
+        )
+        const before =
+          await client`SELECT row_to_json(j) AS value FROM submission_document_jobs j WHERE id=${last.jobId}`
+        const audit = await client`SELECT * FROM audit_logs ORDER BY id`
+        await client.unsafe(
+          `CREATE FUNCTION reject_document_retry_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='document.retry.authorized' THEN RAISE EXCEPTION 'TEST_AUDIT_FAILURE'; END IF; RETURN NEW; END $$`,
+        )
+        await client.unsafe(
+          'CREATE TRIGGER reject_document_retry_audit BEFORE INSERT ON audit_logs FOR EACH ROW EXECUTE FUNCTION reject_document_retry_audit()',
+        )
+        const input = {
+          requestId: randomUUID(),
+          expectedAttemptId: last.attemptId,
+          reasonCode: 'WORKER_RESTARTED' as const,
+        }
+        try {
+          await assert.rejects(operations.retry(actor, f.id, 1, 'DOCX', input), pgCode('P0001'))
+        } finally {
+          await client.unsafe('DROP TRIGGER reject_document_retry_audit ON audit_logs')
+          await client.unsafe('DROP FUNCTION reject_document_retry_audit()')
+        }
+        assert.deepEqual(
+          await client`SELECT row_to_json(j) AS value FROM submission_document_jobs j WHERE id=${last.jobId}`,
+          before,
+        )
+        assert.deepEqual(await client`SELECT * FROM audit_logs ORDER BY id`, audit)
+        await operations.retry(actor, f.id, 1, 'DOCX', input)
+        const [after] = await client`SELECT * FROM submission_document_jobs WHERE id=${last.jobId}`
+        assert.equal(after!.state, 'RETRYABLE')
+        assert.equal(after!.retry_allowance, 1)
+        assert.equal(after!.attempts, 3)
+        assert.equal(after!.error_code, 'LEASE_EXPIRED')
+        assert.equal(after!.attempt_id, last.attemptId)
+        assert.equal(await registry.fail(last, 'RENDER_FAILED'), false)
+      },
+    )
     await run('concurrent set creation is idempotent', async () => {
       const f = await fixture()
       const [a, b] = await Promise.all([registry.ensureSet(f.id, 1), second.ensureSet(f.id, 1)])

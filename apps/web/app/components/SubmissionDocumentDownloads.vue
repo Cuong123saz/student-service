@@ -146,6 +146,12 @@ async function download(format: DocumentFormat) {
       >
     </div>
     <p v-if="status" role="status">{{ status }}</p>
+    <SubmissionDocumentStatus
+      :submission-id="submissionId"
+      :round-number="roundNumber"
+      :review-portal="reviewPortal"
+      :disabled="busy !== null"
+    />
   </section>
 </template>
 <style scoped>

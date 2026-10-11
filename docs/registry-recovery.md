@@ -45,3 +45,7 @@ Log bị Git bỏ qua: run/registry-recovery-contract-complete.log, run/registry
 ## Việc tiếp theo
 
 Cần retry vận hành có audit sau khi khắc phục lỗi khi job đã hết3 attempt; kiểm chứng supervisor/kill converter thực, rồi mở demo vault mới và nâng development bằng backup/đối chiếu. Route mặc định hiện vẫn renderer tạm cũ. B3 đo TCP với gói lớn/nhiều worker, backup trên thiết bị khác, retention thực tế, AV và UAT còn thiếu. Mock signer chỉ sau nền tảng lưu byte; không tự gán thẩm quyền ký hoặc coi duyệt là phát hành. STUDENT_CONFIRMATION tiếp tục OFFLINE tại CTSV.
+
+## Bổ sung lượt chạy có kiểm soát
+
+Migration0024/ADR0011 mở thêm một lần thử có quyền riêng, audit và idempotency, giữ attempts cộng dồn tối đa sáu lần. Inventory/restore nhận biết allowance và bảng quyết định; diễn tập mới `f741a234-6dc1-4d3c-819f-51f8c3a182eb` đạt 30 bảng/4 sequence, lịch sử mở lượt và PDF lần5 từ cùng Word. Những giới hạn ba lần/schema0023 và số liệu diễn tập phía trên là mốc lịch sử. Chi tiết, quyền và bằng chứng hiện tại: [mở thêm lượt tạo tài liệu](controlled-document-retry.md). Chưa bật development/demo cũ.

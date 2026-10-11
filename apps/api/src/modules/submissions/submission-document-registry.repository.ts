@@ -118,6 +118,7 @@ export class DrizzleSubmissionDocumentRegistry {
           id: submissionDocumentJobs.id,
           state: submissionDocumentJobs.state,
           attempts: submissionDocumentJobs.attempts,
+          retryAllowance: submissionDocumentJobs.retryAllowance,
           expired: sql<boolean>`${submissionDocumentJobs.leaseUntil} <= clock_timestamp()`,
           due: sql<boolean>`${submissionDocumentJobs.nextAttemptAt} <= clock_timestamp()`,
         })
@@ -128,7 +129,7 @@ export class DrizzleSubmissionDocumentRegistry {
         .for('update')
       if (!job || job.state === 'COMPLETE') throw new Error('DOCUMENT_JOB_INCONSISTENT')
       if (job.state === 'RUNNING' && !job.expired) return { state: 'BUSY' }
-      if (job.attempts >= 3) {
+      if (job.attempts >= 3 + job.retryAllowance) {
         if (job.state === 'RUNNING')
           await tx
             .update(submissionDocumentJobs)

@@ -39,3 +39,7 @@ Bằng chứng local bị Git bỏ qua: run/document-registry-final-test.log, ru
 ## Điểm tiếp tục
 
 Vault, coordinator và provenance đã có, cùng kiểm thử process death/mất phản hồi ứng dụng/thu quyền. Inventory/audit/backup/restore registry thật đã đạt trong rehearsal riêng. Tiếp retry vận hành và supervisor converter. Mở route trên demo mới sau khi audit/backup/restore từ registry có dữ liệu đạt; sau đó mới nâng DB development có sao lưu/đối chiếu. Database5433 và các demo3011/3013/3015 chưa áp migration0023, runtime cũ giữ nguyên.
+
+## Bổ sung lượt chạy có kiểm soát
+
+Migration0024/ADR0011 mở thêm một lần thử có quyền riêng, audit và idempotency, giữ attempts cộng dồn tối đa sáu lần. Inventory/restore nhận biết allowance và bảng quyết định; diễn tập mới `f741a234-6dc1-4d3c-819f-51f8c3a182eb` đạt 30 bảng/4 sequence, lịch sử mở lượt và PDF lần5 từ cùng Word. Những giới hạn ba lần/schema0023 và số liệu diễn tập phía trên là mốc lịch sử. Chi tiết, quyền và bằng chứng hiện tại: [mở thêm lượt tạo tài liệu](controlled-document-retry.md). Chưa bật development/demo cũ.

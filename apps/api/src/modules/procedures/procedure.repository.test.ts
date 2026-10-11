@@ -37,7 +37,7 @@ if (
 async function cleanup() {
   await db.execute(
     sql.raw(
-      'TRUNCATE submission_document_jobs, submission_documents, submission_document_sets, personal_notifications, submission_events, submission_rounds, submission_files, submissions, procedure_versions',
+      'TRUNCATE submission_document_retries, submission_document_jobs, submission_documents, submission_document_sets, personal_notifications, submission_events, submission_rounds, submission_files, submissions, procedure_versions',
     ),
   )
   // Dedicated test database only; production audit rows are append-only.

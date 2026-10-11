@@ -24,8 +24,13 @@ export const registrySnapshotDigest = (snapshot) =>
     .update(JSON.stringify(canonical(snapshot)))
     .digest('hex')
 export async function readDocumentRegistrySnapshot(sql) {
+  const [schema] = await sql.unsafe(
+    `SELECT to_regclass('public.submission_document_retries') IS NOT NULL AS "hasRetries", EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='submission_document_jobs' AND column_name='retry_allowance') AS "hasAllowance"`,
+  )
+  if (typeof schema?.hasRetries !== 'boolean' || schema.hasRetries !== schema.hasAllowance)
+    fail('INVALID_REGISTRY_SCHEMA')
   const result = {}
-  for (const [key, query] of [
+  const queries = [
     [
       'rounds',
       `SELECT id,submission_id AS "submissionId",round_number AS "roundNumber",declaration_template AS template FROM submission_rounds ORDER BY id LIMIT 5001`,
@@ -40,11 +45,17 @@ export async function readDocumentRegistrySnapshot(sql) {
     ],
     [
       'jobs',
-      `SELECT id,set_id AS "setId",format,state,attempts,attempt_id AS "attemptId",lease_until AS "leaseUntil",next_attempt_at AS "nextAttemptAt",error_code AS "errorCode",published_document_id AS "publishedDocumentId",created_at AS "createdAt",updated_at AS "updatedAt" FROM submission_document_jobs ORDER BY id LIMIT 10001`,
+      `SELECT id,set_id AS "setId",format,state,attempts,${schema.hasRetries ? 'retry_allowance AS "retryAllowance",' : ''}attempt_id AS "attemptId",lease_until AS "leaseUntil",next_attempt_at AS "nextAttemptAt",error_code AS "errorCode",published_document_id AS "publishedDocumentId",created_at AS "createdAt",updated_at AS "updatedAt" FROM submission_document_jobs ORDER BY id LIMIT 10001`,
     ],
-  ]) {
+  ]
+  if (schema.hasRetries)
+    queries.push([
+      'retries',
+      `SELECT id,job_id AS "jobId",attempt_id AS "attemptId",attempts,allowance,actor_user_id AS "actorUserId",reason_code AS "reasonCode",created_at AS "createdAt" FROM submission_document_retries ORDER BY id LIMIT 30001`,
+    ])
+  for (const [key, query] of queries) {
     result[key] = [...(await sql.unsafe(query))]
-    if (result[key].length > (key === 'jobs' ? 10000 : 5000))
+    if (result[key].length > (key === 'jobs' ? 10000 : key === 'retries' ? 30000 : 5000))
       fail('DOCUMENT_REGISTRY_LIMIT_EXCEEDED')
   }
   return result
@@ -64,7 +75,37 @@ function validateSnapshot(snapshot) {
   const roundSets = new Set(),
     formats = new Set(),
     jobFormats = new Set()
-  unique(snapshot.jobs, 'id', 'INVALID_REGISTRY_JOB')
+  const jobs = unique(snapshot.jobs, 'id', 'INVALID_REGISTRY_JOB')
+  const retries = unique(snapshot.retries ?? [], 'id', 'INVALID_REGISTRY_RETRY')
+  const retrySlots = new Set(),
+    retryTokens = new Set()
+  for (const retry of retries.values()) {
+    const job = jobs.get(retry.jobId),
+      slot = retry.jobId + ':' + retry.allowance,
+      token = retry.jobId + ':' + retry.attemptId
+    if (
+      !job ||
+      !uuid.test(retry.actorUserId || '') ||
+      !uuid.test(retry.attemptId || '') ||
+      !Number.isInteger(retry.allowance) ||
+      retry.allowance < 1 ||
+      retry.allowance > 3 ||
+      retry.attempts !== 2 + retry.allowance ||
+      retry.allowance > (job.retryAllowance ?? 0) ||
+      retry.attempts > job.attempts ||
+      retrySlots.has(slot) ||
+      retryTokens.has(token) ||
+      !['RENDERER_FIXED', 'CONVERTER_FIXED', 'STORAGE_FIXED', 'WORKER_RESTARTED'].includes(
+        retry.reasonCode,
+      ) ||
+      (job.attempts === retry.attempts
+        ? job.attemptId !== retry.attemptId
+        : job.attemptId === retry.attemptId)
+    )
+      fail('INVALID_REGISTRY_RETRY')
+    retrySlots.add(slot)
+    retryTokens.add(token)
+  }
   for (const set of sets.values()) {
     const round = rounds.get(set.roundId)
     if (
@@ -96,10 +137,16 @@ function validateSnapshot(snapshot) {
       jobFormats.has(key) ||
       !Number.isInteger(job.attempts) ||
       job.attempts < 0 ||
-      job.attempts > 3 ||
+      !Number.isInteger(job.retryAllowance ?? 0) ||
+      (job.retryAllowance ?? 0) < 0 ||
+      (job.retryAllowance ?? 0) > 3 ||
+      (snapshot.retries && !Object.hasOwn(job, 'retryAllowance')) ||
+      job.attempts > 3 + (job.retryAllowance ?? 0) ||
       !['PENDING', 'RUNNING', 'RETRYABLE', 'COMPLETE'].includes(job.state)
     )
       fail('INVALID_REGISTRY_JOB')
+    for (let allowance = 1; allowance <= (job.retryAllowance ?? 0); allowance++)
+      if (!retrySlots.has(job.id + ':' + allowance)) fail('REGISTRY_RETRY_HISTORY_MISSING')
     jobFormats.add(key)
     if (job.state === 'COMPLETE') {
       if (

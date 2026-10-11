@@ -40,6 +40,8 @@ if (process.env.RECOVERY_DOCUMENT_REGISTRY === 'true') {
     await import('../dist/modules/submissions/submission-document-registry.repository.js')
   const { DrizzleSubmissionRepository } =
     await import('../dist/modules/submissions/submission.repository.js')
+  const { DrizzleSubmissionDocumentOperations } =
+    await import('../dist/modules/submissions/submission-document-operations.js')
   const { SubmissionService } = await import('../dist/modules/submissions/submission.service.js')
   const { LocalEvidenceStorage } = await import('../dist/modules/submissions/submission.storage.js')
   const { LocalDocumentVault } =
@@ -80,6 +82,7 @@ if (process.env.RECOVERY_DOCUMENT_REGISTRY === 'true') {
     new DrizzleSubmissionRepository(),
     new LocalEvidenceStorage(),
     documents,
+    new DrizzleSubmissionDocumentOperations(),
   )
 }
 const app = buildApp(submissionService ? { submissionService } : {})
@@ -98,7 +101,7 @@ process.on('message', (message) => {
   else if (
     registry &&
     database === sourceDatabase &&
-    message?.type === 'claim-unfinished-pdf' &&
+    ['claim-unfinished-pdf', 'exhaust-pdf-for-retry'].includes(message?.type) &&
     /^[a-f0-9-]{36}$/.test(message.submissionId) &&
     message.roundNumber === 1
   ) {
@@ -106,7 +109,21 @@ process.on('message', (message) => {
       try {
         const set = await registry.ensureSet(message.submissionId, 1),
           claim = await registry.claim(set.id, 'PDF')
-        process.send({ type: 'unfinished-pdf', state: claim.state })
+        if (message.type === 'exhaust-pdf-for-retry') {
+          let current = claim
+          for (let i = 0; i < 3; i++) {
+            if (current.state !== 'CLAIMED') throw new Error('EXPECTED_OWNED_CLAIM')
+            await registry.fail(current.lease, 'CONVERT_FAILED')
+            if (i < 2) {
+              await new Promise((res) => setTimeout(res, 3100))
+              current = await registry.claim(set.id, 'PDF')
+            }
+          }
+          process.send({
+            type: 'exhausted-pdf',
+            state: (await registry.claim(set.id, 'PDF')).state,
+          })
+        } else process.send({ type: 'unfinished-pdf', state: claim.state })
       } catch {
         process.send({ type: 'unfinished-pdf', state: 'FAILED' })
       }

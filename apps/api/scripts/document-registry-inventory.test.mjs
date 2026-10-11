@@ -124,8 +124,15 @@ async function fixture(t) {
   }
   const sql = {
     unsafe: async (query) => {
+      if (query.includes("to_regclass('public.submission_document_retries')"))
+        return [
+          {
+            hasRetries: Object.hasOwn(snapshot, 'retries'),
+            hasAllowance: Object.hasOwn(snapshot, 'retries'),
+          },
+        ]
       const table =
-        /FROM (submission_rounds|submission_document_sets|submission_documents|submission_document_jobs) /.exec(
+        /FROM (submission_rounds|submission_document_sets|submission_documents|submission_document_jobs|submission_document_retries) /.exec(
           query,
         )?.[1]
       assert.ok(table)
@@ -136,6 +143,7 @@ async function fixture(t) {
             submission_document_sets: 'sets',
             submission_documents: 'documents',
             submission_document_jobs: 'jobs',
+            submission_document_retries: 'retries',
           }[table]
         ],
       )
@@ -493,7 +501,12 @@ test('registry snapshot hashing does not depend on JSON property order', async (
 })
 test('SQL inventory refuses its row bound instead of backing up a silently truncated registry', async (t) => {
   const f = await fixture(t),
-    sql = { unsafe: async () => Array.from({ length: 5001 }, () => f.snapshot.rounds[0]) }
+    sql = {
+      unsafe: async (query) =>
+        query.includes('to_regclass')
+          ? [{ hasRetries: false, hasAllowance: false }]
+          : Array.from({ length: 5001 }, () => f.snapshot.rounds[0]),
+    }
   await assert.rejects(
     collectDocumentRegistryAssets({ ...f.options, sql }),
     /DOCUMENT_REGISTRY_LIMIT_EXCEEDED/,
@@ -533,3 +546,94 @@ for (const [label, args, extraEnv, expected] of [
       assert.ok(!result.stderr.includes(f.root))
     },
   )
+
+test('retry-aware snapshot preserves history and cumulative attempts while old snapshots keep their digest shape', async (t) => {
+  const f = await fixture(t),
+    oldDigest = registrySnapshotDigest(f.snapshot)
+  assert.equal((await f.readSnapshot()).registrySnapshotSha256, oldDigest)
+  f.snapshot.retries = []
+  for (const job of f.snapshot.jobs) job.retryAllowance = 0
+  const job = f.snapshot.jobs[1]
+  job.attempts = 4
+  job.retryAllowance = 1
+  f.snapshot.retries.push({
+    id: randomUUID(),
+    jobId: job.id,
+    attemptId: randomUUID(),
+    attempts: 3,
+    allowance: 1,
+    actorUserId: randomUUID(),
+    reasonCode: 'CONVERTER_FIXED',
+    createdAt: job.createdAt,
+  })
+  const metadata = await f.readSnapshot()
+  assert.equal(metadata.registrySnapshotSha256, registrySnapshotDigest(f.snapshot))
+  assert.notEqual(metadata.registrySnapshotSha256, oldDigest)
+  f.snapshot.retries = []
+  await assert.rejects(f.readSnapshot(), /REGISTRY_RETRY_HISTORY_MISSING/)
+})
+for (const [name, change] of [
+  [
+    'missing allowance',
+    (f) => {
+      delete f.snapshot.jobs[1].retryAllowance
+    },
+  ],
+  [
+    'allowance overflow',
+    (f) => {
+      f.snapshot.jobs[1].retryAllowance = 4
+    },
+  ],
+  [
+    'attempt overflow',
+    (f) => {
+      f.snapshot.jobs[1].attempts = 5
+    },
+  ],
+  [
+    'wrong retry attempts',
+    (f) => {
+      f.snapshot.retries[0].attempts = 4
+    },
+  ],
+  [
+    'current token reused',
+    (f) => {
+      f.snapshot.retries[0].attemptId = f.snapshot.jobs[1].attemptId
+    },
+  ],
+  [
+    'unknown reason',
+    (f) => {
+      f.snapshot.retries[0].reasonCode = 'IGNORE_FAILURE'
+    },
+  ],
+  [
+    'duplicate decision',
+    (f) => {
+      f.snapshot.retries.push({ ...f.snapshot.retries[0], id: randomUUID() })
+    },
+  ],
+])
+  test('registry inventory rejects retry ' + name, async (t) => {
+    const f = await fixture(t)
+    for (const job of f.snapshot.jobs) job.retryAllowance = 0
+    const job = f.snapshot.jobs[1]
+    job.attempts = 4
+    job.retryAllowance = 1
+    f.snapshot.retries = [
+      {
+        id: randomUUID(),
+        jobId: job.id,
+        attemptId: randomUUID(),
+        attempts: 3,
+        allowance: 1,
+        actorUserId: randomUUID(),
+        reasonCode: 'CONVERTER_FIXED',
+        createdAt: job.createdAt,
+      },
+    ]
+    change(f)
+    await assert.rejects(f.readSnapshot(), /INVALID_REGISTRY_JOB|INVALID_REGISTRY_RETRY/)
+  })

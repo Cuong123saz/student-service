@@ -67,6 +67,11 @@ export const SYSTEM_PERMISSIONS = [
     description: 'Trả hồ sơ cho người nộp bổ sung hoặc chỉnh sửa',
   },
   {
+    code: 'document.retry',
+    name: 'Mở thêm lượt tạo tài liệu',
+    description: 'Mở một lượt kỹ thuật sau khi kiểm tra lỗi, trong phạm vi hồ sơ được giao',
+  },
+  {
     code: 'document.sign',
     name: 'Ký tài liệu',
     description: 'Ký tài liệu khi được workflow phân công',

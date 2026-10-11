@@ -17,3 +17,30 @@ export function submissionDocumentUrl(
     (format === 'zip' ? '/bundle' : '/documents/' + format)
   )
 }
+
+export interface SubmissionDocumentState {
+  format: 'docx' | 'pdf'
+  state: 'NOT_STARTED' | 'RUNNING' | 'WAITING' | 'EXHAUSTED' | 'READY'
+  attempts: number
+  attemptLimit: number
+  attemptId: string | null
+  errorCode: string | null
+  nextAttemptAt: string | null
+  retryAllowed: boolean
+  remainingAuthorizations: number
+}
+export interface SubmissionDocumentStatus {
+  enabled: boolean
+  documents: SubmissionDocumentState[]
+}
+export function submissionDocumentStatusUrl(
+  apiBase: string,
+  portal: 'user' | 'admin' | undefined,
+  id: string,
+  round: number,
+) {
+  return submissionDocumentUrl(apiBase, portal, id, round, 'docx').replace(
+    /\/documents\/docx$/,
+    '/document-status',
+  )
+}

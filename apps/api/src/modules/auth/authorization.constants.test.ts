@@ -30,19 +30,26 @@ test('audit.read mặc định chỉ cấp cho SYSTEM_ADMIN', () => {
   assert.deepEqual(rolesWithAuditRead, ['SYSTEM_ADMIN'])
 })
 
-test('catalog mặc định có đúng 34 role-permission grants', () => {
+test('catalog mặc định có đúng 35 role-permission grants', () => {
   const grantCount = Object.values(SYSTEM_ROLE_PERMISSIONS).reduce(
     (total, permissionCodes) => total + permissionCodes.length,
     0,
   )
 
-  assert.equal(grantCount, 34)
+  assert.equal(grantCount, 35)
 })
 
-test('submission.assign mặc định chỉ SYSTEM_ADMIN; catalog có đúng16 quyền', () => {
-  assert.equal(SYSTEM_PERMISSIONS.length, 16)
+test('submission.assign mặc định chỉ SYSTEM_ADMIN; catalog có đúng17 quyền', () => {
+  assert.equal(SYSTEM_PERMISSIONS.length, 17)
   const holders = Object.entries(SYSTEM_ROLE_PERMISSIONS)
     .filter(([, codes]) => (codes as readonly string[]).includes('submission.assign'))
+    .map(([role]) => role)
+  assert.deepEqual(holders, ['SYSTEM_ADMIN'])
+})
+
+test('document.retry mặc định chỉ SYSTEM_ADMIN; ADMIN và người ký không được tự mở lượt', () => {
+  const holders = Object.entries(SYSTEM_ROLE_PERMISSIONS)
+    .filter(([, codes]) => (codes as readonly string[]).includes('document.retry'))
     .map(([role]) => role)
   assert.deepEqual(holders, ['SYSTEM_ADMIN'])
 })

@@ -1,3 +1,7 @@
+import type {
+  SubmissionDocumentOperations,
+  DocumentRetryInput,
+} from './submission-document-operations.js'
 import { createHash } from 'node:crypto'
 import type { DrizzleSubmissionRepository } from './submission.repository.js'
 import type { EvidenceStorage } from './submission.storage.js'
@@ -45,7 +49,41 @@ export class SubmissionService {
     private readonly repository: SubmissionRepository,
     private readonly storage: EvidenceStorage,
     private readonly documents: SubmissionDocumentRenderer = new LocalSubmissionDocumentRenderer(),
+    private readonly documentOperations?: SubmissionDocumentOperations,
   ) {}
+  async documentStatus(userId: string, id: string, roundNumber: number, review: boolean) {
+    const authorize = () =>
+      review ? this.repository.reviewGet(userId, id) : this.repository.get(userId, id)
+    const detail = await authorize()
+    if (!detail.rounds.some((round) => round.roundNumber === roundNumber))
+      throw new SubmissionError(404, 'NOT_FOUND', 'Không tìm thấy lần gửi hồ sơ.')
+    if (!this.documentOperations) return { enabled: false, documents: [] }
+    const result = await this.documentOperations.status(userId, id, roundNumber, review)
+    await authorize()
+    return result
+  }
+  async retryDocument(
+    actor: SubmissionActor,
+    id: string,
+    roundNumber: number,
+    format: 'docx' | 'pdf',
+    input: DocumentRetryInput,
+  ) {
+    await this.repository.reviewGet(actor.userId, id)
+    if (!this.documentOperations)
+      throw new SubmissionError(
+        503,
+        'DOCUMENT_REGISTRY_DISABLED',
+        'Chức năng mở lượt chưa được bật trong môi trường này.',
+      )
+    return this.documentOperations.retry(
+      actor.userId,
+      id,
+      roundNumber,
+      format === 'docx' ? 'DOCX' : 'PDF',
+      input,
+    )
+  }
   list(userId: string) {
     return this.repository.list(userId)
   }

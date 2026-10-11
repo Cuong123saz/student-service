@@ -20,6 +20,7 @@ const protectedTables = [
   'submission_document_sets',
   'submission_documents',
   'submission_document_jobs',
+  'submission_document_retries',
   'submission_events',
   'personal_notifications',
   'form_versions',
@@ -82,6 +83,7 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
     )
   }
   if (adr !== undefined) {
+    write('docs/adr/0011-controlled-document-retry.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0010-document-vault-and-recovery.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0009-immutable-generated-documents.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0008-review-search-index.md', '---\nstatus: ' + adr + '\n---\n')
@@ -355,3 +357,23 @@ for (const table of [
     )
   })
 }
+
+for (const table of ['submission_document_jobs', 'submission_document_retries'])
+  test('controlled retry requires ADR0011 before ' + table, (t) => {
+    const repo = fixture(t, { adr: 'Accepted' }),
+      path = 'docs/adr/0011-controlled-document-retry.md'
+    repo.write(path, '---\nstatus: Proposed\n---\n')
+    const base = repo.commit()
+    repo.write(path, '---\nstatus: Accepted\n---\n')
+    repo.write(
+      'apps/api/drizzle/0024_fixture.sql',
+      'ALTER TABLE ' + table + ' ADD COLUMN extra integer;\n',
+    )
+    repo.commit()
+    const result = repo.run(base)
+    assert.equal(result.status, 1, result.output)
+    assert.match(
+      result.output,
+      /0011-controlled-document-retry\.md existed but was not Accepted before/u,
+    )
+  })

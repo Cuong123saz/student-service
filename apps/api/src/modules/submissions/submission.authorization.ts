@@ -25,6 +25,7 @@ export function reviewerAuthorities(
     excludeUserId?: string
     requireReject?: boolean
     requireAssign?: boolean
+    requireDocumentRetry?: boolean
   } = {},
 ) {
   return tx
@@ -63,6 +64,9 @@ export function reviewerAuthorities(
         eq(users.status, 'ACTIVE'),
         eq(users.mustChangePassword, false),
         eq(permissions.code, 'submission.review'),
+        options.requireDocumentRetry
+          ? sql<boolean>`EXISTS (SELECT 1 FROM role_permissions retry_grant JOIN permissions retry_permission ON retry_permission.id = retry_grant.permission_id WHERE retry_grant.role_id = ${userRoles.roleId} AND retry_permission.code = 'document.retry')`
+          : undefined,
         options.requireAssign
           ? sql<boolean>`EXISTS (SELECT 1 FROM role_permissions assignment_grant JOIN permissions assignment_permission ON assignment_permission.id = assignment_grant.permission_id WHERE assignment_grant.role_id = ${userRoles.roleId} AND assignment_permission.code = 'submission.assign')`
           : undefined,

@@ -10,6 +10,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core'
+import { users } from '../auth/auth.schema.js'
 import { submissionRounds } from './submission.schema.js'
 import type { DeclarationTemplateBinding } from './submission-document-template.js'
 export interface RendererProvenance {
@@ -98,6 +99,7 @@ export const submissionDocumentJobs = pgTable(
       .notNull()
       .default('PENDING'),
     attempts: integer('attempts').notNull().default(0),
+    retryAllowance: integer('retry_allowance').notNull().default(0),
     attemptId: uuid('attempt_id'),
     leaseUntil: timestamp('lease_until', { withTimezone: true }),
     nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
@@ -119,11 +121,40 @@ export const submissionDocumentJobs = pgTable(
     }).onDelete('restrict'),
     check(
       'document_jobs_shape_check',
-      sql`(${t.format} IN ('DOCX','PDF') AND ${t.attempts} BETWEEN 0 AND 3 AND (
+      sql`(${t.format} IN ('DOCX','PDF') AND ${t.retryAllowance} BETWEEN 0 AND 3 AND ${t.attempts} BETWEEN 0 AND 3 + ${t.retryAllowance} AND (
     (${t.state} = 'PENDING' AND ${t.attempts} = 0 AND ${t.attemptId} IS NULL AND ${t.leaseUntil} IS NULL AND ${t.errorCode} IS NULL AND ${t.publishedDocumentId} IS NULL) OR
     (${t.state} = 'RUNNING' AND ${t.attempts} > 0 AND ${t.attemptId} IS NOT NULL AND ${t.leaseUntil} IS NOT NULL AND ${t.errorCode} IS NULL AND ${t.publishedDocumentId} IS NULL) OR
     (${t.state} = 'RETRYABLE' AND ${t.attempts} > 0 AND ${t.attemptId} IS NOT NULL AND ${t.leaseUntil} IS NULL AND ${t.publishedDocumentId} IS NULL AND ${t.errorCode} IN ('RENDER_FAILED','CONVERT_FAILED','STORAGE_FAILED','LEASE_EXPIRED')) OR
     (${t.state} = 'COMPLETE' AND ${t.attempts} > 0 AND ${t.attemptId} IS NOT NULL AND ${t.leaseUntil} IS NULL AND ${t.errorCode} IS NULL AND ${t.publishedDocumentId} IS NOT NULL))) IS TRUE`,
+    ),
+  ],
+)
+
+export type DocumentRetryReason =
+  'RENDERER_FIXED' | 'CONVERTER_FIXED' | 'STORAGE_FIXED' | 'WORKER_RESTARTED'
+export const submissionDocumentRetries = pgTable(
+  'submission_document_retries',
+  {
+    id: uuid('id').primaryKey(),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => submissionDocumentJobs.id, { onDelete: 'restrict' }),
+    attemptId: uuid('attempt_id').notNull(),
+    attempts: integer('attempts').notNull(),
+    allowance: integer('allowance').notNull(),
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    reasonCode: varchar('reason_code', { length: 30 }).$type<DocumentRetryReason>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('document_retries_job_attempt_unique').on(t.jobId, t.attemptId),
+    uniqueIndex('document_retries_job_allowance_unique').on(t.jobId, t.allowance),
+    check(
+      'document_retries_shape_check',
+      sql`(${t.allowance} >= 1 AND ${t.allowance} <= 3 AND ${t.attempts} = 2 + ${t.allowance}
+    AND ${t.reasonCode} IN ('RENDERER_FIXED','CONVERTER_FIXED','STORAGE_FIXED','WORKER_RESTARTED')) IS TRUE`,
     ),
   ],
 )

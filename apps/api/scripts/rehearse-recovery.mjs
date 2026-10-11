@@ -372,6 +372,10 @@ try {
   source = connect(sourceUrl)
   const fixture = await seedRecoveryFixture(source)
   if (options.documentRegistry) {
+    // Explicit synthetic operational grant, scoped by the existing assigned DRILL_REVIEW role.
+    await source`INSERT INTO role_permissions(role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code='DRILL_REVIEW' AND p.code='document.retry' ON CONFLICT DO NOTHING`
+  }
+  if (options.documentRegistry) {
     await mkdir(vaultRoot)
     for (const root of Object.values(registryRoots)) await mkdir(root)
     await copyFile(
@@ -393,6 +397,39 @@ try {
       await http(fixture.owner, `/submissions/${state.id}/rounds/${round}/documents/${format}`, {
         timeoutMs: 120000,
       })
+    const exhausted = await new Promise((res, rej) => {
+      const timer = setTimeout(() => rej(new Error('REGISTRY_EXHAUST_TIMEOUT')), 15000)
+      server.child.once('message', (message) => {
+        clearTimeout(timer)
+        res(message)
+      })
+      server.child.send({ type: 'exhaust-pdf-for-retry', submissionId: state.id, roundNumber: 1 })
+    })
+    assert.equal(exhausted.type, 'exhausted-pdf')
+    assert.equal(exhausted.state, 'EXHAUSTED')
+    const sourceStatus = await http(
+      fixture.reviewer,
+      `/review-submissions/${state.id}/rounds/1/document-status`,
+    )
+    const sourcePdf = sourceStatus.documents.find((d) => d.format === 'pdf')
+    assert.equal(sourcePdf.attempts, 3)
+    assert.equal(sourcePdf.retryAllowed, true)
+    const sourceRetry = {
+      requestId: randomUUID(),
+      expectedAttemptId: sourcePdf.attemptId,
+      reasonCode: 'CONVERTER_FIXED',
+    }
+    const retryPath = `/review-submissions/${state.id}/rounds/1/documents/pdf/retry`
+    await http(fixture.foreign, retryPath, { method: 'POST', body: sourceRetry, expected: 404 })
+    const opened = await http(fixture.reviewer, retryPath, { method: 'POST', body: sourceRetry })
+    assert.equal(opened.attemptLimit, 4)
+    assert.equal(
+      (await http(fixture.reviewer, retryPath, { method: 'POST', body: sourceRetry }))
+        .alreadyApplied,
+      true,
+    )
+    await new Promise((res) => setTimeout(res, 3100))
+    report.checks.exhaustedPdfControlledRetryBeforeBackup = true
     const unfinished = await new Promise((res, rej) => {
       const timer = setTimeout(() => rej(new Error('REGISTRY_CLAIM_TIMEOUT')), 15000)
       server.child.once('message', (message) => {
@@ -415,6 +452,9 @@ try {
       documents: documentAssets.documents.length,
       staging: documentAssets.staging.length,
       pendingRunningPdf: 1,
+      retryAuthorizations: (
+        await source`SELECT count(*)::int AS n FROM submission_document_retries`
+      )[0].n,
     }
   }
   if (options.documentAssets) {
@@ -789,6 +829,45 @@ try {
       await http(actor, `/${base}/${state.id}/rounds/2/documents/pdf`, { portal, expected })
     report.checks.storedDocumentBytesEqualAcrossOwnerReviewerAdmin = true
 
+    const restoredStatus = await http(
+      fixture.reviewer,
+      `/review-submissions/${state.id}/rounds/1/document-status`,
+      { portal: 'admin' },
+    )
+    const exhaustedPdf = restoredStatus.documents.find((d) => d.format === 'pdf')
+    assert.equal(exhaustedPdf.state, 'EXHAUSTED')
+    assert.equal(exhaustedPdf.attempts, 4)
+    assert.equal(exhaustedPdf.attemptLimit, 4)
+    const ownerStatus = await http(
+      fixture.owner,
+      `/submissions/${state.id}/rounds/1/document-status`,
+    )
+    assert.equal(ownerStatus.documents.find((d) => d.format === 'pdf').retryAllowed, false)
+    await http(fixture.owner, `/submissions/${state.id}/rounds/1/documents/pdf`, { expected: 503 })
+    const retryPath = `/review-submissions/${state.id}/rounds/1/documents/pdf/retry`
+    const restoredRetry = {
+      requestId: randomUUID(),
+      expectedAttemptId: exhaustedPdf.attemptId,
+      reasonCode: 'WORKER_RESTARTED',
+    }
+    const opened = await http(fixture.reviewer, retryPath, {
+      portal: 'admin',
+      method: 'POST',
+      body: restoredRetry,
+    })
+    assert.equal(opened.attemptLimit, 5)
+    assert.equal(
+      (
+        await http(fixture.reviewer, retryPath, {
+          portal: 'admin',
+          method: 'POST',
+          body: restoredRetry,
+        })
+      ).alreadyApplied,
+      true,
+    )
+    assert.equal((await target`SELECT count(*)::int AS n FROM submission_document_retries`)[0].n, 2)
+    report.checks.retryHistoryRestoredAndSecondAuthorizationAudited = true
     const originalWord =
       await target`SELECT * FROM submission_documents WHERE format='DOCX' ORDER BY id`
     const [wait] =
@@ -806,7 +885,7 @@ try {
     )
     const [resumed] =
       await target`SELECT d.storage_key AS key,d.size,d.sha256,d.source_docx_sha256 AS source,j.attempts,j.state,w.sha256 AS "wordSha256" FROM submission_documents d JOIN submission_document_sets s ON s.id=d.set_id JOIN submission_rounds r ON r.id=s.round_id JOIN submission_document_jobs j ON j.set_id=d.set_id AND j.format='PDF' JOIN submission_documents w ON w.set_id=d.set_id AND w.format='DOCX' WHERE r.round_number=1 AND d.format='PDF'`
-    assert.equal(resumed.attempts, 2)
+    assert.equal(resumed.attempts, 5)
     assert.equal(resumed.state, 'COMPLETE')
     assert.equal(resumed.source, resumed.wordSha256)
     assert.equal(resumedPdf.length, resumed.size)
@@ -817,6 +896,8 @@ try {
       size: resumed.size,
       sha256: resumed.sha256,
       sourceDocxSha256: resumed.source,
+      attempts: resumed.attempts,
+      authorizedExtraAttempts: 2,
     }
   }
   await verifyRecoveryHttp(http, fixture, state)
