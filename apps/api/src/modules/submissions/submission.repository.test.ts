@@ -3759,9 +3759,11 @@ test('20 MiB bundle keeps four maximum-size PDFs intact, rejects overflow and re
   const converter = realConverter
     ? new LibreOfficePdfConverter()
     : { convert: async () => Buffer.from('%PDF-1.7\n' + '.'.repeat(120) + '\n%%EOF') }
+  let batchGate: (() => Promise<void>) | undefined
   const renderer = new LocalSubmissionDocumentRenderer({
-    convert: (word) => {
+    convert: async (word) => {
       conversions++
+      await batchGate?.()
       return converter.convert(word)
     },
   })
@@ -3858,11 +3860,143 @@ test('20 MiB bundle keeps four maximum-size PDFs intact, rejects overflow and re
       response.rawPayload,
     )
   }
+  if (realConverter) {
+    let release!: () => void, entered!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const bothEntered = new Promise<void>((resolve) => {
+      entered = resolve
+    })
+    let waiting = 0
+    batchGate = async () => {
+      if (++waiting === 2) entered()
+      await gate
+    }
+    let remaining = 2
+    const baselineRss = process.memoryUsage().rss
+    let observedPeakRss = baselineRss
+    const sampleMemory = () => {
+      observedPeakRss = Math.max(observedPeakRss, process.memoryUsage().rss)
+    }
+    const sampler = setInterval(sampleMemory, 75)
+    const jobs = [0, 1].map(async () => {
+      const started = performance.now()
+      try {
+        const response = await app.inject({ url, headers: { cookie } })
+        return { response, elapsedMs: Math.round(performance.now() - started) }
+      } finally {
+        remaining--
+      }
+    })
+    const expectedWord = Buffer.from(parts['phieu-ho-so.docx']!)
+    let maxProbeTimerDriftMs = 0
+    const probes: { status: number; elapsedMs: number }[] = []
+    try {
+      let timer: ReturnType<typeof setTimeout> | undefined
+      try {
+        await Promise.race([
+          bothEntered,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error('Both full-size jobs did not reach conversion')),
+              10000,
+            )
+          }),
+        ])
+      } finally {
+        clearTimeout(timer)
+      }
+      const busyStarted = performance.now()
+      const busy = await app.inject({ url, headers: { cookie } })
+      const busyElapsedMs = Math.round(performance.now() - busyStarted)
+      assert.equal(busy.statusCode, 503)
+      assert.equal(busy.json<{ code: string }>().code, 'BUNDLE_BUSY')
+      release()
+      batchGate = undefined
+      const probe = async () => {
+        while (remaining > 0) {
+          const started = performance.now()
+          const response = await app.inject({ url: '/services' })
+          probes.push({
+            status: response.statusCode,
+            elapsedMs: Math.round(performance.now() - started),
+          })
+          assert.equal(response.statusCode, 200)
+          const nextProbeAt = performance.now() + 500
+          await new Promise<void>((resolve) => setTimeout(resolve, 500))
+          maxProbeTimerDriftMs = Math.max(
+            maxProbeTimerDriftMs,
+            Math.round(performance.now() - nextProbeAt),
+          )
+        }
+      }
+      const [results] = await Promise.all([Promise.all(jobs), probe()])
+      clearInterval(sampler)
+      sampleMemory()
+      for (const [index, result] of results.entries()) {
+        assert.equal(result.response.statusCode, 200)
+        const parts = unzipSync(result.response.rawPayload)
+        const manifest = JSON.parse(strFromU8(parts['manifest.json']!)) as SubmissionBundleManifest
+        assert.deepEqual(manifest.template, sent.rounds[0]!.declarationTemplate)
+        assert.deepEqual(Buffer.from(parts['phieu-ho-so.docx']!), expectedWord)
+        for (const file of manifest.files) {
+          assert.equal(parts[file.path]!.length, file.size)
+          assert.equal(createHash('sha256').update(parts[file.path]!).digest('hex'), file.sha256)
+          if (file.kind === 'EVIDENCE') assert.deepEqual(Buffer.from(parts[file.path]!), evidence)
+        }
+        await writeFile(
+          new URL(
+            '../../../../../run/capacity-full-20m-concurrent-' + (index + 1) + '.zip',
+            import.meta.url,
+          ),
+          result.response.rawPayload,
+        )
+      }
+      assert.equal(conversions, 3)
+      assert.ok(probes.length > 0)
+      const report = {
+        status: 'PASS',
+        fakeDataOnly: true,
+        transport: 'FASTIFY_INJECT_IN_PROCESS',
+        evidenceBytesPerJob: 4 * fileBytes,
+        jobs: results.map((result) => ({
+          status: result.response.statusCode,
+          elapsedMs: result.elapsedMs,
+          archiveBytes: result.response.rawPayload.length,
+        })),
+        excessRequest: { status: 503, code: 'BUNDLE_BUSY', elapsedMs: busyElapsedMs },
+        serviceProbes: {
+          count: probes.length,
+          allSucceeded: probes.every((p) => p.status === 200),
+          maxElapsedMs: Math.max(...probes.map((p) => p.elapsedMs)),
+          maxProbeTimerDriftMs,
+        },
+        nodeRss: {
+          baselineBytes: baselineRss,
+          observedPeakBytes: observedPeakRss,
+          includesConverterChildren: false,
+          includesDatabase: false,
+          absolutePeakGuaranteed: false,
+        },
+      }
+      await writeFile(
+        new URL('../../../../../run/capacity-20m-concurrent-report.json', import.meta.url),
+        JSON.stringify(report, null, 2),
+      )
+      t.diagnostic(JSON.stringify(report))
+    } finally {
+      release()
+      batchGate = undefined
+      clearInterval(sampler)
+      await Promise.allSettled(jobs)
+    }
+  }
   const stored = await f.repository.roundFile(f.actor.userId, draft.id, 1, proofs.at(-1)!.fileId!)
   const altered = f.storage.files.get(stored.key)!
   altered[altered.length - 1] = altered.at(-1)! ^ 1
   const corrupted = await app.inject({ url, headers: { cookie } })
   assert.equal(corrupted.statusCode, 503)
   assert.equal(corrupted.json<{ code: string }>().code, 'FILE_INTEGRITY')
-  assert.equal(conversions, 1)
+  assert.equal(conversions, realConverter ? 3 : 1)
 })

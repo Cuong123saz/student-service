@@ -86,10 +86,29 @@ Bằng chứng được Git bỏ qua: `run/bundle-api-final.log`, `run/bundle-we
 
 ## Kiểm chứng bổ sung ở giới hạn 20 MiB
 
-Sau mốc trên, đã kiểm tra qua HTTP multipart thật của Fastify: bốn PDF hợp lệ, mỗi tệp đúng 5 MiB; gửi hồ sơ rồi tải gói có converter LibreOffice thật. Gói 21.199.040 byte trả 200 trong 18.160 ms trên một lượt chạy. Tệp lớn hơn 5 MiB một byte trả 413 và không lưu vào kho; tệp bổ sung làm tổng vượt 20 MiB trả 422 ATTACHMENT_LIMIT, không đổi revision hoặc số tệp đã lưu. Không phát hiện lỗi ranh giới multipart nên không sửa giới hạn sản phẩm.
+Sau mốc trên, đã kiểm tra qua hợp đồng HTTP multipart bằng Fastify inject trong cùng tiến trình: bốn PDF hợp lệ, mỗi tệp đúng 5 MiB; gửi hồ sơ rồi tải gói có converter LibreOffice thật. Gói 21.199.040 byte trả 200 trong 18.160 ms trên một lượt chạy. Tệp lớn hơn 5 MiB một byte trả 413 và không lưu vào kho; tệp bổ sung làm tổng vượt 20 MiB trả 422 ATTACHMENT_LIMIT, không đổi revision hoặc số tệp đã lưu. Không phát hiện lỗi ranh giới multipart nên không sửa giới hạn sản phẩm.
 
 Đối chiếu độc lập bằng pypdf strict=True: PDF kê khai và cả bốn minh chứng đều có một trang, đọc được nội dung. Minh chứng tăng dung lượng bằng comment PDF trước startxref, giữ nguyên offset và cấu trúc gốc; không đổi MIME của một khối byte tùy ý thành PDF. Công cụ bundle:verify xác nhận bảy tệp được kê trong manifest đều khớp size/SHA-256. Sửa một byte của minh chứng trong kho làm tải gói trả 503 FILE_INTEGRITY trước khi gọi lại converter. Đã xem ảnh trang Word/PDF xuất từ chính lượt này, không cắt nội dung.
 
 Kiểm thử mới dùng converter giả trong CI để không phụ thuộc LibreOffice. Profile thật yêu cầu CAPACITY_REAL_CONVERTER=true cùng LIBREOFFICE_PATH được chỉ định. Toàn bộ file submission.repository.test.ts đạt 94/94 sau bổ sung. Đây là kiểm chứng một hồ sơ đủ dung lượng, chưa đo hai hồ sơ 20 MiB đồng thời, bộ nhớ cực đại hoặc tải kéo dài; không thay phép thử production.
 
-Bằng chứng local bị Git bỏ qua: run/bundle-capacity-20m-http-before.log, run/bundle-capacity-20m-http-real.log, run/bundle-capacity-20m-validation.log, run/bundle-capacity-20m-cli.log, run/bundle-capacity-integration-final.log và run/document-qa/capacity-20m. Gói fake run/capacity-full-20m.zip có SHA-256 85ff07d16eee835e2c5a697bd99479dd7c84b1a15d30385cc7a446c5a17637fe. Không chứa dữ liệu thật hoặc chữ ký số.
+Bằng chứng local bị Git bỏ qua: run/bundle-capacity-20m-http-before.log, run/bundle-capacity-20m-http-real.log, run/bundle-capacity-20m-validation.log, run/bundle-capacity-20m-cli.log, run/bundle-capacity-integration-final.log và run/document-qa/capacity-20m. Gói fake được giữ ở run/capacity-full-20m-before-binding.zip có SHA-256 85ff07d16eee835e2c5a697bd99479dd7c84b1a15d30385cc7a446c5a17637fe. Không chứa dữ liệu thật hoặc chữ ký số.
+
+
+## Hai gói đủ 20 MiB đồng thời
+
+Profile LibreOffice thật trên cùng test đã đạt: hai gói 21.199.043 byte trả200 trong21.113ms và21.415ms. Tác vụ được giữ tại cửa vào converter để chắc chắn hai slot đã chiếm trước khi gửi yêu cầu vượt mức; yêu cầu vượt trả503 BUNDLE_BUSY trong21ms. Sau đó hai converter thật chạy đồng thời. 41 probe /services đều200, request lớn nhất22ms; độ trễ timer probe quan sát lớn nhất75ms. Lần tải đơn trước batch đạt18.119ms. Sau batch, sửa minh chứng vẫn nhận FILE_INTEGRITY, không BUNDLE_BUSY và không chuyển đổi thêm: slot đã giải phóng đúng.
+
+RSS Node của tiến trình test quan sát tăng từ287,0MiB lên448,0MiB. Đây là bộ nhớ của cả test, có snapshot/tệp/ZIP kiểm tra đang giữ, chưa gồm LibreOffice con hoặc PostgreSQL và không bảo đảm bắt được đỉnh tuyệt đối. Transport là FASTIFY_INJECT_IN_PROCESS, kho fixture là MemoryStorage; chưa đo TCP/browser cho gói20MiB, kho đĩa thật20MiB, tổng bộ nhớ máy, nhiều API instance hoặc tải kéo dài. Giữ giới hạn hai tác vụ; chưa có cơ sở tăng giới hạn hoặc cam kết số người dùng.
+
+Đã xác minh độc lập ba gói lớn bằng pypdf strict=True (15PDF một trang đọc được) và bundle:verify (size/SHA đủ bảy tệp mỗi gói). Binding SUBMITTED đúng round; Word giữ nguyên giữa các lần xuất, PDF/ZIP có mã khác do metadata nên không coi là bản byte bất biến.
+
+Để chạy lại từ gốc dự án, dùng database test riêng5434 đã migrate, Node22 và LibreOffice được chỉ định:
+
+```powershell
+$env:CAPACITY_REAL_CONVERTER = 'true'
+$env:LIBREOFFICE_PATH = 'D:/student-service/run/tools/LibreOffice/program/soffice.com'
+node --env-file=apps/api/.env.test --import tsx --test --test-name-pattern='20 MiB bundle' apps/api/src/modules/submissions/submission.repository.test.ts
+```
+
+Không chạy đồng thời với nhóm test khác dùng5434. Profile mặc định dùng converter giả, không đo tải thật và không tạo ZIP ra run/. Profile thật chỉ ghi dữ liệu giả vào run/ đã bị Git bỏ qua. Bằng chứng: run/bundle-capacity-20m-concurrent-real.log, run/bundle-capacity-20m-concurrent-validation.log, run/capacity-20m-concurrent-report.json và ba gói run/capacity-full-20m*.zip. File trước binding giữ tên riêng như mốc trên. Gói mẫu nhỏ có binding mới cho thao tác xem: run/output/archives/goi-ho-so-co-phien-ban.zip.
