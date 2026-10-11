@@ -1,6 +1,25 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { readFile, mkdtemp, rm, readdir, writeFile, unlink, lstat } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { fork } from 'node:child_process'
+import { setTimeout as delay } from 'node:timers/promises'
+import {
+  StoredSubmissionDocumentRenderer,
+  type DocumentRegistry,
+  type DocumentProvenance,
+} from './submission-document-coordinator.js'
+import {
+  LocalDocumentVault,
+  documentDigest,
+  type DocumentVaultOptions,
+} from './submission-document-vault.js'
+import { LocalSubmissionDocumentRenderer, type DocumentSnapshot } from './submission-document.js'
+import { SubmissionService, type SubmissionRepository } from './submission.service.js'
+import type { EvidenceStorage } from './submission.storage.js'
+import { SubmissionError } from './submission.types.js'
 import { after, test } from 'node:test'
 import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
@@ -354,6 +373,767 @@ test('0023 registry preserves old rows and enforces lease, publication and prove
       )
       await registry.ensureSet(f.id, 1)
     })
+
+    async function vaultFixture() {
+      const parent = resolve(tmpdir()),
+        root = await mkdtemp(join(parent, 'student-registry-vault-'))
+      t.after(async () => {
+        assert.equal(dirname(root), parent)
+        assert.ok(root.startsWith(join(parent, 'student-registry-vault-')))
+        await rm(root, { recursive: true, force: true })
+      })
+      const options: DocumentVaultOptions = {
+        outputRoot: join(root, 'output'),
+        stagingRoot: join(root, 'staging'),
+        protectedRoots: [fileURLToPath(new URL('../../../../../', import.meta.url))],
+      }
+      return { root, options, vault: await LocalDocumentVault.create(options) }
+    }
+    function snapshot(id: string): DocumentSnapshot {
+      return {
+        id,
+        serviceName: 'Synthetic document service',
+        procedure: {
+          versionId: randomUUID(),
+          versionNumber: 1,
+          processingMode: 'ONLINE',
+          processingUnitName: 'Synthetic office',
+          contactInstructions: '',
+          fields: [],
+          attachments: [],
+          maxTotalAttachmentBytes: 0,
+        },
+        round: {
+          declarationTemplate: newDeclarationTemplateBinding(),
+          roundNumber: 1,
+          submittedAt: '2026-10-11T00:00:00Z',
+          studentSnapshot: {
+            fullName: 'Sinh viên giả định',
+            studentCode: 'FAKE',
+            classCode: 'FAKE',
+            facultyCode: 'FAKE',
+          },
+          values: {},
+          files: [],
+          source: 'LIVE',
+        },
+      }
+    }
+    const provenance: DocumentProvenance = {
+      renderer: async () => metadata().renderer,
+      converter: async () => ({ version: 'SYNTHETIC-CONVERTER', binarySha256: 'd'.repeat(64) }),
+    }
+    const fakePdf = Buffer.from('%PDF-1.7\n%SYNTHETIC-ONLY\n' + 'x'.repeat(100) + '\n%%EOF')
+    await run(
+      'coordinator persists real Word, derives PDF from those exact bytes and reuses both across instances',
+      async () => {
+        const f = await fixture(),
+          v = await vaultFixture(),
+          input = snapshot(f.id)
+        let words = 0,
+          conversions = 0,
+          converted: Buffer | undefined
+        const wordRenderer = new LocalSubmissionDocumentRenderer()
+        const coordinator = new StoredSubmissionDocumentRenderer(
+          registry,
+          v.vault,
+          {
+            render: async (s) => {
+              words++
+              return wordRenderer.render(s, 'docx')
+            },
+          },
+          {
+            convert: async (word) => {
+              conversions++
+              converted = Buffer.from(word)
+              return fakePdf
+            },
+          },
+          provenance,
+        )
+        const pair = await coordinator.renderPair(input)
+        assert.deepEqual(converted, pair.docx)
+        assert.deepEqual(pair.pdf, fakePdf)
+        const s = await registry.ensureSet(f.id, 1),
+          word = await registry.get(s.id, 'DOCX'),
+          pdf = await registry.get(s.id, 'PDF')
+        assert.ok(word && pdf)
+        assert.deepEqual(documentDigest(pair.docx), { size: word.size, sha256: word.sha256 })
+        assert.equal(pdf.sourceDocxSha256, word.sha256)
+        assert.deepEqual(pdf.renderer, word.renderer)
+        const reused = new StoredSubmissionDocumentRenderer(
+          second,
+          await LocalDocumentVault.create(v.options),
+          {
+            render: async () => {
+              throw new Error('must not render stored Word')
+            },
+          },
+          {
+            convert: async () => {
+              throw new Error('must not convert stored PDF')
+            },
+          },
+          {
+            renderer: async () => {
+              throw new Error('must not need current renderer')
+            },
+            converter: async () => {
+              throw new Error('must not need current converter')
+            },
+          },
+        )
+        assert.deepEqual(await reused.renderPair(input), pair)
+        assert.equal(words, 1)
+        assert.equal(conversions, 1)
+        assert.equal((await readdir(v.options.outputRoot)).length, 2)
+        assert.equal((await readdir(v.options.stagingRoot)).length, 2)
+      },
+    )
+    await run(
+      'PDF failure leaves committed Word available and a later bounded attempt converts the same Word',
+      async () => {
+        const f = await fixture(),
+          v = await vaultFixture(),
+          input = snapshot(f.id)
+        let fail = true,
+          words = 0
+        const renderer = new LocalSubmissionDocumentRenderer()
+        const coordinator = new StoredSubmissionDocumentRenderer(
+          registry,
+          v.vault,
+          {
+            render: async (s) => {
+              words++
+              return renderer.render(s, 'docx')
+            },
+          },
+          {
+            convert: async () => {
+              if (fail) throw new Error('synthetic converter failure')
+              return fakePdf
+            },
+          },
+          provenance,
+        )
+        await assert.rejects(
+          coordinator.render(input, 'pdf'),
+          (e: unknown) =>
+            e instanceof Error && 'code' in e && e.code === 'DOCUMENT_PDF_UNAVAILABLE',
+        )
+        const word = await coordinator.render(input, 'docx'),
+          s = await registry.ensureSet(f.id, 1)
+        assert.ok(await registry.get(s.id, 'DOCX'))
+        assert.equal(await registry.get(s.id, 'PDF'), undefined)
+        const [job] =
+          await client`SELECT state,attempts,error_code FROM submission_document_jobs WHERE set_id=${s.id} AND format='PDF'`
+        assert.equal(job!.state, 'RETRYABLE')
+        assert.equal(job!.attempts, 1)
+        assert.equal(job!.error_code, 'CONVERT_FAILED')
+        fail = false
+        assert.deepEqual((await coordinator.renderPair(input)).docx, word)
+        assert.equal(words, 1)
+      },
+    )
+    await run(
+      'missing or corrupt committed source fails closed for PDF as well as Word without regeneration',
+      async () => {
+        const f = await fixture(),
+          v = await vaultFixture(),
+          input = snapshot(f.id),
+          renderer = new LocalSubmissionDocumentRenderer()
+        let words = 0,
+          conversions = 0
+        const coordinator = new StoredSubmissionDocumentRenderer(
+          registry,
+          v.vault,
+          {
+            render: async (s) => {
+              words++
+              return renderer.render(s, 'docx')
+            },
+          },
+          {
+            convert: async () => {
+              conversions++
+              return fakePdf
+            },
+          },
+          provenance,
+        )
+        await coordinator.renderPair(input)
+        const s = await registry.ensureSet(f.id, 1),
+          word = await registry.get(s.id, 'DOCX')
+        assert.ok(word)
+        await writeFile(join(v.options.outputRoot, word.storageKey), Buffer.alloc(word.size))
+        for (const format of ['docx', 'pdf'] as const)
+          await assert.rejects(
+            coordinator.render(input, format),
+            (e: unknown) => e instanceof Error && 'code' in e && e.code === 'DOCUMENT_INTEGRITY',
+          )
+        await unlink(join(v.options.outputRoot, word.storageKey))
+        await assert.rejects(coordinator.render(input, 'docx'))
+        assert.equal(words, 1)
+        assert.equal(conversions, 1)
+        assert.equal((await client`SELECT count(*)::int AS n FROM submission_documents`)[0]!.n, 2)
+      },
+    )
+
+    await run(
+      'source corruption during slow conversion prevents PDF publication and retains diagnostic artifacts',
+      async () => {
+        const f = await fixture(),
+          v = await vaultFixture(),
+          input = snapshot(f.id)
+        const coordinator = new StoredSubmissionDocumentRenderer(
+          registry,
+          v.vault,
+          new LocalSubmissionDocumentRenderer(),
+          {
+            convert: async () => {
+              const s = await registry.ensureSet(f.id, 1),
+                source = await registry.get(s.id, 'DOCX')
+              assert.ok(source)
+              await writeFile(
+                join(v.options.outputRoot, source.storageKey),
+                Buffer.alloc(source.size),
+              )
+              return fakePdf
+            },
+          },
+          provenance,
+        )
+        await assert.rejects(
+          coordinator.render(input, 'pdf'),
+          (e: unknown) => e instanceof SubmissionError && e.code === 'DOCUMENT_INTEGRITY',
+        )
+        const s = await registry.ensureSet(f.id, 1)
+        assert.ok(await registry.get(s.id, 'DOCX'))
+        assert.equal(await registry.get(s.id, 'PDF'), undefined)
+        assert.equal((await readdir(v.options.outputRoot)).length, 1)
+      },
+    )
+    await run(
+      'lost publication response is reconciled by token/hash without re-rendering or failing COMPLETE',
+      async () => {
+        const f = await fixture(),
+          v = await vaultFixture(),
+          input = snapshot(f.id)
+        const facade: DocumentRegistry = {
+          ensureSet: registry.ensureSet.bind(registry),
+          get: registry.get.bind(registry),
+          claim: registry.claim.bind(registry),
+          fail: async () => {
+            throw new Error('must not mark uncertain publication failed')
+          },
+          publish: async (l, m) => {
+            await registry.publish(l, m)
+            throw new Error('response lost after commit')
+          },
+        }
+        const coordinator = new StoredSubmissionDocumentRenderer(
+          facade,
+          v.vault,
+          new LocalSubmissionDocumentRenderer(),
+          { convert: async () => fakePdf },
+          provenance,
+        )
+        const pair = await coordinator.renderPair(input)
+        assert.ok(pair.docx.length > 100)
+        assert.deepEqual(await coordinator.renderPair(input), pair)
+        const rows = await client`SELECT state,attempts FROM submission_document_jobs`
+        assert.equal(rows.length, 2)
+        assert.ok(rows.every((j) => j.state === 'COMPLETE' && j.attempts === 1))
+      },
+    )
+    await run(
+      'unreadable database after uncertain commit preserves bytes and does not mark job failed',
+      async () => {
+        const f = await fixture(),
+          v = await vaultFixture(),
+          input = snapshot(f.id)
+        let failed = false
+        const facade: DocumentRegistry = {
+          ensureSet: registry.ensureSet.bind(registry),
+          get: async () => {
+            throw new Error('synthetic database unavailable')
+          },
+          claim: registry.claim.bind(registry),
+          fail: async () => {
+            failed = true
+            return true
+          },
+          publish: async () => {
+            throw new Error('synthetic uncertain commit')
+          },
+        }
+        const coordinator = new StoredSubmissionDocumentRenderer(
+          facade,
+          v.vault,
+          new LocalSubmissionDocumentRenderer(),
+          { convert: async () => fakePdf },
+          provenance,
+        )
+        await assert.rejects(
+          coordinator.render(input, 'docx'),
+          (e: unknown) =>
+            e instanceof Error && 'code' in e && e.code === 'DOCUMENT_PUBLICATION_UNCERTAIN',
+        )
+        assert.equal(failed, false)
+        const keys = await readdir(v.options.outputRoot)
+        assert.equal(keys.length, 1)
+        assert.ok((await readFile(join(v.options.outputRoot, keys[0]!))).length > 100)
+        assert.equal(
+          (await client`SELECT state FROM submission_document_jobs`)[0]!.state,
+          'RUNNING',
+        )
+        assert.equal((await client`SELECT count(*)::int AS n FROM submission_documents`)[0]!.n, 0)
+      },
+    )
+    await run(
+      'concurrent coordinators produce one committed Word and return BUSY to the other caller',
+      async () => {
+        const f = await fixture(),
+          v = await vaultFixture(),
+          input = snapshot(f.id),
+          renderer = new LocalSubmissionDocumentRenderer()
+        let release!: () => void, entered!: () => void
+        const blocked = new Promise<void>((done) => {
+            release = done
+          }),
+          started = new Promise<void>((done) => {
+            entered = done
+          })
+        const coordinator = new StoredSubmissionDocumentRenderer(
+          registry,
+          v.vault,
+          {
+            render: async (s) => {
+              entered()
+              await blocked
+              return renderer.render(s, 'docx')
+            },
+          },
+          { convert: async () => fakePdf },
+          provenance,
+        )
+        const first = coordinator.render(input, 'docx')
+        await started
+        try {
+          await assert.rejects(
+            coordinator.render(input, 'docx'),
+            (e: unknown) => e instanceof Error && 'code' in e && e.code === 'DOCUMENT_BUSY',
+          )
+        } finally {
+          release()
+        }
+        const bytes = await first
+        assert.deepEqual(await coordinator.render(input, 'docx'), bytes)
+        assert.equal((await readdir(v.options.outputRoot)).length, 1)
+      },
+    )
+
+    await run(
+      'worker that resumes after lease takeover retains its orphan but cannot publish or fail the replacement',
+      async () => {
+        const f = await fixture(),
+          v = await vaultFixture(),
+          input = snapshot(f.id)
+        let release!: () => void, entered!: () => void
+        const blocked = new Promise<void>((done) => {
+            release = done
+          }),
+          started = new Promise<void>((done) => {
+            entered = done
+          })
+        const delayedVault = await LocalDocumentVault.create({
+          ...v.options,
+          onDurableWrite: async (phase) => {
+            if (phase === 'FINAL') {
+              entered()
+              await blocked
+            }
+          },
+        })
+        const expiring = new DrizzleSubmissionDocumentRegistry(drizzle(ormClient), 1, 0)
+        const old = new StoredSubmissionDocumentRenderer(
+          expiring,
+          delayedVault,
+          new LocalSubmissionDocumentRenderer(),
+          { convert: async () => fakePdf },
+          provenance,
+        )
+        const oldResult = old.render(input, 'docx').then(
+          () => 'UNEXPECTED_SUCCESS',
+          (error: unknown) => error,
+        )
+        await started
+        let newBytes: Buffer
+        try {
+          await delay(1200)
+          const replacement = new StoredSubmissionDocumentRenderer(
+            registry,
+            v.vault,
+            new LocalSubmissionDocumentRenderer(),
+            { convert: async () => fakePdf },
+            provenance,
+          )
+          newBytes = await replacement.render(input, 'docx')
+        } finally {
+          release()
+        }
+        const outcome = await oldResult
+        assert.ok(outcome instanceof SubmissionError)
+        assert.equal(outcome.code, 'DOCUMENT_PUBLICATION_UNCERTAIN')
+        const s = await registry.ensureSet(f.id, 1),
+          committed = await registry.get(s.id, 'DOCX')
+        assert.ok(committed)
+        assert.deepEqual(await v.vault.read(committed.storageKey, committed), newBytes)
+        assert.equal((await readdir(v.options.outputRoot)).length, 2)
+        const [job] =
+          await client`SELECT attempts,state FROM submission_document_jobs WHERE set_id=${s.id}`
+        assert.equal(job!.attempts, 2)
+        assert.equal(job!.state, 'COMPLETE')
+        assert.equal((await client`SELECT count(*)::int AS n FROM submission_documents`)[0]!.n, 1)
+      },
+    )
+    await run(
+      'current authorization denies work before claim and withholds stored bytes when scope is revoked during PDF conversion',
+      async () => {
+        const f = await fixture(),
+          v = await vaultFixture(),
+          input = snapshot(f.id),
+          forbidden = new SubmissionError(403, 'FORBIDDEN', 'Synthetic scope revoked')
+        let scope = true,
+          calls = 0
+        const coordinator = new StoredSubmissionDocumentRenderer(
+          registry,
+          v.vault,
+          new LocalSubmissionDocumentRenderer(),
+          {
+            convert: async () => {
+              calls++
+              scope = false
+              return fakePdf
+            },
+          },
+          provenance,
+        )
+        const view = { ...input, rounds: [input.round] }
+        const repository = {
+          get: async () => {
+            if (!scope) throw forbidden
+            return view
+          },
+          reviewGet: async () => {
+            if (!scope) throw forbidden
+            return view
+          },
+        } as unknown as SubmissionRepository
+        const service = new SubmissionService(repository, {} as EvidenceStorage, coordinator)
+        scope = false
+        await assert.rejects(
+          service.documentDownload('synthetic outsider', f.id, 1, 'pdf', true),
+          forbidden,
+        )
+        assert.equal(
+          (await client`SELECT count(*)::int AS n FROM submission_document_sets`)[0]!.n,
+          0,
+        )
+        scope = true
+        await assert.rejects(
+          service.documentDownload('synthetic scoped reviewer', f.id, 1, 'pdf', true),
+          forbidden,
+        )
+        assert.equal(calls, 1)
+        assert.equal((await client`SELECT count(*)::int AS n FROM submission_documents`)[0]!.n, 2)
+        scope = true
+        assert.deepEqual(
+          (await service.documentDownload('synthetic owner', f.id, 1, 'pdf')).bytes,
+          fakePdf,
+        )
+        assert.equal(calls, 1)
+      },
+    )
+    await run(
+      'invalid Word package or converter output is never published as a document',
+      async () => {
+        for (const format of ['docx', 'pdf'] as const) {
+          const f = await fixture(),
+            v = await vaultFixture(),
+            input = snapshot(f.id)
+          const renderer =
+            format === 'docx'
+              ? { render: async () => Buffer.from('not a Word package') }
+              : new LocalSubmissionDocumentRenderer()
+          const coordinator = new StoredSubmissionDocumentRenderer(
+            registry,
+            v.vault,
+            renderer,
+            { convert: async () => Buffer.from('not a PDF') },
+            provenance,
+          )
+          await assert.rejects(coordinator.render(input, format))
+          const s = await registry.ensureSet(f.id, 1)
+          assert.equal(await registry.get(s.id, format === 'docx' ? 'DOCX' : 'PDF'), undefined)
+          assert.equal((await readdir(v.options.outputRoot)).length, format === 'pdf' ? 1 : 0)
+        }
+      },
+    )
+    for (const phase of ['STAGED', 'FINAL', 'COMMITTED'])
+      await run(
+        'actual process death at ' + phase + ' preserves artifacts and fences recovery',
+        async () => {
+          const f = await fixture(),
+            v = await vaultFixture(),
+            input = snapshot(f.id)
+          const child = fork(
+            fileURLToPath(
+              new URL('../../../scripts/document-registry-crash-worker.mjs', import.meta.url),
+            ),
+            [],
+            {
+              execArgv: ['--import', 'tsx'],
+              stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+              env: { ...process.env, DATABASE_URL: url.toString() },
+            },
+          )
+          let stderr = ''
+          child.stderr?.on('data', (data: Buffer) => {
+            stderr += data.toString().slice(0, 2000)
+          })
+          const closed = new Promise<void>((done) => {
+            child.once('exit', () => done())
+          })
+          try {
+            const message = await new Promise<{ phase: string; attemptId: string }>(
+              (done, reject) => {
+                const timer = setTimeout(
+                  () =>
+                    reject(
+                      new Error(
+                        'Owned fault worker did not reach barrier: ' +
+                          stderr.replaceAll(url.toString(), '[REDACTED]'),
+                      ),
+                    ),
+                  20000,
+                )
+                child.once('message', (m) => {
+                  clearTimeout(timer)
+                  done(m as { phase: string; attemptId: string })
+                })
+                child.once('error', (error) => {
+                  clearTimeout(timer)
+                  reject(error)
+                })
+                child.once('exit', () => {
+                  clearTimeout(timer)
+                  reject(new Error('Owned fault worker exited before barrier'))
+                })
+                child.send({
+                  phase,
+                  vault: v.options,
+                  snapshot: input,
+                  renderer: metadata().renderer,
+                })
+              },
+            )
+            assert.equal(message.phase, phase)
+
+            if (phase === 'STAGED') {
+              const competing = fork(
+                fileURLToPath(
+                  new URL('../../../scripts/document-registry-crash-worker.mjs', import.meta.url),
+                ),
+                [],
+                {
+                  execArgv: ['--import', 'tsx'],
+                  stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+                  env: { ...process.env, DATABASE_URL: url.toString() },
+                },
+              )
+              const competingClosed = new Promise<void>((done) => {
+                competing.once('exit', () => done())
+              })
+              try {
+                const competingResult = await new Promise<{ phase: string; code: string }>(
+                  (done, reject) => {
+                    const timer = setTimeout(
+                      () => reject(new Error('Competing owned worker did not answer')),
+                      15000,
+                    )
+                    competing.once('message', (m) => {
+                      clearTimeout(timer)
+                      done(m as { phase: string; code: string })
+                    })
+                    competing.once('error', (e) => {
+                      clearTimeout(timer)
+                      reject(e)
+                    })
+                    competing.once('exit', () => {
+                      clearTimeout(timer)
+                      reject(new Error('Competing worker exited before answer'))
+                    })
+                    competing.send({
+                      phase: 'FINAL',
+                      vault: v.options,
+                      snapshot: input,
+                      renderer: metadata().renderer,
+                    })
+                  },
+                )
+                assert.equal(competingResult.phase, 'FAILED')
+                assert.equal(competingResult.code, 'DOCUMENT_BUSY')
+                await competingClosed
+              } finally {
+                if (competing.exitCode === null && competing.signalCode === null)
+                  competing.kill('SIGKILL')
+                await competingClosed
+              }
+            }
+            // Terminate only the Node child we just created; no shared process search or tree kill.
+            assert.ok(child.kill('SIGKILL'))
+            await closed
+            const s = await registry.ensureSet(f.id, 1),
+              committed = await registry.get(s.id, 'DOCX')
+            if (phase === 'STAGED')
+              await assert.rejects(lstat(join(v.options.outputRoot, message.attemptId)), {
+                code: 'ENOENT',
+              })
+            else
+              assert.ok(
+                (await readFile(join(v.options.outputRoot, message.attemptId))).length > 100,
+              )
+            assert.ok((await readFile(join(v.options.stagingRoot, message.attemptId))).length > 100)
+            if (phase === 'COMMITTED') {
+              assert.equal(committed?.attemptId, message.attemptId)
+              const coordinator = new StoredSubmissionDocumentRenderer(
+                registry,
+                v.vault,
+                {
+                  render: async () => {
+                    throw new Error('must reuse committed file after process death')
+                  },
+                },
+                { convert: async () => fakePdf },
+                provenance,
+              )
+              assert.deepEqual(
+                await coordinator.render(input, 'docx'),
+                await readFile(join(v.options.outputRoot, message.attemptId)),
+              )
+            } else {
+              assert.equal(committed, undefined)
+              await delay(5200)
+              const coordinator = new StoredSubmissionDocumentRenderer(
+                registry,
+                v.vault,
+                new LocalSubmissionDocumentRenderer(),
+                { convert: async () => fakePdf },
+                provenance,
+              )
+              const bytes = await coordinator.render(input, 'docx'),
+                recovered = await registry.get(s.id, 'DOCX')
+              assert.ok(recovered)
+              assert.notEqual(recovered.attemptId, message.attemptId)
+              assert.deepEqual(await v.vault.read(recovered.storageKey, recovered), bytes)
+              const [job] =
+                await client`SELECT attempts,state FROM submission_document_jobs WHERE set_id=${s.id}`
+              assert.equal(job!.attempts, 2)
+              assert.equal(job!.state, 'COMPLETE')
+              await assert.rejects(
+                registry.publish(
+                  {
+                    jobId: (
+                      await client`SELECT id FROM submission_document_jobs WHERE set_id=${s.id}`
+                    )[0]!.id as string,
+                    setId: s.id,
+                    format: 'DOCX',
+                    attemptId: message.attemptId,
+                  },
+                  { ...metadata(), ...documentDigest(bytes) },
+                ),
+              )
+            }
+          } finally {
+            if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+            await closed
+          }
+        },
+      )
+    if (process.env.VAULT_REAL_CONVERTER === 'true')
+      await run(
+        'real compiled runtime provenance and LibreOffice persist a PDF from the committed Word',
+        async () => {
+          const f = await fixture(),
+            v = await vaultFixture(),
+            input = snapshot(f.id),
+            command = process.env.LIBREOFFICE_PATH
+          assert.ok(command)
+          const apiRoot = fileURLToPath(new URL('../../../', import.meta.url)),
+            repoRoot = fileURLToPath(new URL('../../../../../', import.meta.url))
+          const compiledDocuments = (await import(
+            new URL('../../../dist/modules/submissions/submission-document.js', import.meta.url)
+              .href
+          )) as typeof import('./submission-document.js')
+          const compiledProvenance = (await import(
+            new URL(
+              '../../../dist/modules/submissions/submission-document-provenance.js',
+              import.meta.url,
+            ).href
+          )) as typeof import('./submission-document-provenance.js')
+          const compiledCoordinator = (await import(
+            new URL(
+              '../../../dist/modules/submissions/submission-document-coordinator.js',
+              import.meta.url,
+            ).href
+          )) as typeof import('./submission-document-coordinator.js')
+          const actual = await compiledProvenance.LocalDocumentProvenance.create({
+            codeRoots: [join(apiRoot, 'dist'), join(repoRoot, 'node_modules', 'fflate')],
+            metadataFiles: [join(repoRoot, 'package-lock.json'), join(apiRoot, 'package.json')],
+            converterCommand: command,
+            converterBinary: join(dirname(command), 'soffice.bin'),
+          })
+          const realRegistry = new DrizzleSubmissionDocumentRegistry(drizzle(ormClient), 180, 0)
+          const coordinator = new compiledCoordinator.StoredSubmissionDocumentRenderer(
+            realRegistry,
+            v.vault,
+            new compiledDocuments.LocalSubmissionDocumentRenderer(),
+            new compiledDocuments.LibreOfficePdfConverter(command),
+            actual,
+          )
+          const pair = await coordinator.renderPair(input),
+            s = await registry.ensureSet(f.id, 1),
+            word = await registry.get(s.id, 'DOCX'),
+            pdf = await registry.get(s.id, 'PDF')
+          assert.ok(word && pdf)
+          assert.equal(pdf.sourceDocxSha256, word.sha256)
+          assert.equal(word.renderer.nodeVersion, process.versions.node)
+          assert.ok(pdf.converter?.version.startsWith('LibreOffice'))
+          assert.deepEqual(await coordinator.renderPair(input), pair)
+          // Evidence artifacts only: parent directory already owned by this repository's run/ area.
+          const artifactRoot = fileURLToPath(new URL('../../../../../run/', import.meta.url))
+          await writeFile(join(artifactRoot, 'vault-real-word.docx'), pair.docx)
+          await writeFile(join(artifactRoot, 'vault-real-pdf.pdf'), pair.pdf)
+          await writeFile(
+            join(artifactRoot, 'vault-real-provenance.json'),
+            JSON.stringify(
+              {
+                fakeDataOnly: true,
+                word: { ...documentDigest(pair.docx), renderer: word.renderer },
+                pdf: {
+                  ...documentDigest(pair.pdf),
+                  converter: pdf.converter,
+                  sourceDocxSha256: pdf.sourceDocxSha256,
+                },
+              },
+              null,
+              2,
+            ),
+          )
+        },
+      )
   } finally {
     await orm?.end({ timeout: 5 })
     await q?.end({ timeout: 5 })

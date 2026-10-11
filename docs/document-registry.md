@@ -1,6 +1,6 @@
 # Registry và lease tài liệu — phần nền tảng B2
 
-Cập nhật 11/10/2026 theo [ADR0009](adr/0009-immutable-generated-documents.md) và [ADR0010](adr/0010-document-vault-and-recovery.md), cả hai đã commit Accepted trước migration0023. Đã có schema/repository và kiểm chứng SQL. Chưa nối registry vào route tải, chưa lưu byte Word/PDF bằng cơ chế này, chưa triển khai worker/vault hay ký. Không tự đóng Sprint4.
+Cập nhật 11/10/2026 theo [ADR0009](adr/0009-immutable-generated-documents.md) và [ADR0010](adr/0010-document-vault-and-recovery.md), cả hai đã commit Accepted trước migration0023. Đã có schema/repository và kiểm chứng SQL. Đã bổ sung [vault/coordinator và provenance](document-vault.md), kiểm thử lưu byte thật và process death trong database tạm. Chưa nối registry vào route tải hoặc bật trong development/demo, chưa có worker service/supervisor hoặc ký. Không tự đóng Sprint4.
 
 ## Dữ liệu được bảo vệ
 
@@ -10,7 +10,7 @@ Migration0023 chỉ thêm ba bảng, index, constraint và trigger, không backf
 - submission_documents giữ metadata mỗi DOCX/PDF, UUID storage key bằng UUID attempt, size1–16MiB, SHA-256, binding và provenance. Unique bộ/định dạng và storage key. Trạng thái chỉ UNSIGNED_DECLARATION. Không update/delete. Word không có converter/source hash; PDF bắt buộc converter và nguồn Word đúng bản đã công bố cùng renderer. Các CHECK dùng IS TRUE để SQLNULL không lọt qua điều kiện JSON/hash.
 - submission_document_jobs giữ trạng thái PENDING/RUNNING/RETRYABLE/COMPLETE và lease. Job bắt đầu PENDING; binding/id/thời điểm tạo cố định; COMPLETE không sửa/xóa được. Foreign key ghép buộc tài liệu COMPLETE đúng bộ/định dạng. Trigger chặn tự kéo dài lease, reset số lần, tái sử dụng token hoặc nhảy trạng thái không hợp lệ.
 
-Provenance Word yêu cầu version/buildSha256/Node/ICU; PDF thêm version/binarySha256 của converter và sourceDocxSha256. Đây là cấu trúc metadata bắt buộc, chưa phải cơ chế thu thập/kiểm chứng build runtime hoàn chỉnh. Test dùng metadata giả rõ ràng, không giả danh binary đã ký.
+Provenance Word yêu cầu version/buildSha256/Node/ICU; PDF thêm version/binarySha256 của converter và sourceDocxSha256. Đây là cấu trúc metadata bắt buộc. Collector và lượt converter thật được mô tả ở tài liệu vault; các rào chắn SQL vẫn dùng metadata giả rõ ràng. Digest không chứng minh binary đã ký hoặc toàn bộ runtime.
 
 ## Nhận việc và công bố
 
@@ -28,7 +28,7 @@ Repository là hạ tầng nội bộ, chưa là route có quyền truy cập. S
 
 15 test (14 tình huống trong một test chính) chạy trong database tạm document_registry_test_<UUID> riêng trên cluster test5434; xác minh tên database trước TRUNCATE và chỉ drop chính database vừa tạo. Fixture dùng client raw riêng vì Drizzle thay serializer JSON. So sánh toàn bộ hàng của26 bảng cũ trước/sau migration0023; hồ sơ/round/audit/notification/quyền không bị viết lại.
 
-Đã thử set/claim đồng thời, claim lại READY, metadata append-only, PDF chưa có Word/sai nguồn/sai renderer/mẫu, lease hết hạn khi chưa có và khi đã có lease mới, job ID sai, tự kéo dài lease, insert job RUNNING giả, SQLNULL/JSONNULL/provenance sai, quota2 job giữa hai instance, retry/backoff/giới hạn attempt, audit lỗi rollback và binding mẫu giả. Đây là hai instance repository trong một tiến trình với pool SQL; chưa phải thử hai process/hai máy hoặc kill process giữa ghi file/công bố. Claim lại sau commit trả cùng metadata; chưa mô phỏng mất HTTP response trên đường mạng.
+Đã thử set/claim đồng thời, claim lại READY, metadata append-only, PDF chưa có Word/sai nguồn/sai renderer/mẫu, lease hết hạn khi chưa có và khi đã có lease mới, job ID sai, tự kéo dài lease, insert job RUNNING giả, SQLNULL/JSONNULL/provenance sai, quota2 job giữa hai instance, retry/backoff/giới hạn attempt, audit lỗi rollback và binding mẫu giả. 15 test nền tảng ban đầu dùng hai instance repository trong một tiến trình với pool SQL. Lượt vault bổ sung đã thử hai process tranh việc và kill Node process ở ba điểm; xem phạm vi/giới hạn trong tài liệu vault. Chưa thử hai máy hoặc kill converter đang chạy. Claim lại sau commit trả cùng metadata; chưa mô phỏng mất HTTP response trên đường mạng.
 
 Hồi quy API: 128 unit đạt, một unit symlink Windows bỏ qua do EPERM; 279 integration, 22 storage, 20 fixture, 170 recovery/archive/encryption, 6 rào chắn demo và7 verifier đạt. Typecheck/lint/build, format và schema drift check đạt. Test concurrency guard cùng asset recovery guard đạt49 ca. Không bỏ qua lint hoặc tắt ràng buộc để làm xanh kiểm thử.
 
@@ -38,4 +38,4 @@ Bằng chứng local bị Git bỏ qua: run/document-registry-final-test.log, ru
 
 ## Điểm tiếp tục
 
-Nối vault riêng với staging/ghi độc quyền/fsync, kiểm chứng cấu trúc/size/hash, giữ orphan khi commit không rõ kết quả. Thu provenance từ build/converter thật; lưu Word trước, PDF chuyển từ đúng byte Word. Thử hai process, kill trước/sau ghi file/commit, mất phản hồi và thu quyền khi tạo. Mở route trên demo mới sau khi audit/backup/restore từ registry có dữ liệu đạt; sau đó mới nâng DB development có sao lưu/đối chiếu. Database5433 và các demo3011/3013/3015 chưa áp migration0023, runtime cũ giữ nguyên.
+Vault, coordinator và provenance đã có, cùng kiểm thử process death/mất phản hồi ứng dụng/thu quyền. Tiếp inventory/audit/backup/restore từ registry thật, retry vận hành và supervisor converter. Mở route trên demo mới sau khi audit/backup/restore từ registry có dữ liệu đạt; sau đó mới nâng DB development có sao lưu/đối chiếu. Database5433 và các demo3011/3013/3015 chưa áp migration0023, runtime cũ giữ nguyên.
