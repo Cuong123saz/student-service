@@ -1,7 +1,16 @@
 import { createHash } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
-import { copyFile, lstat, mkdir, readFile, readdir, realpath, writeFile } from 'node:fs/promises'
-import { isAbsolute, join, resolve } from 'node:path'
+import { lstat, mkdir, readdir, realpath, writeFile } from 'node:fs/promises'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
+
+import { readRecoveryPrivateFile, copyRecoveryPrivateFile } from './recovery-private-file.mjs'
+import {
+  validateRecoveryAssets,
+  recoverySubdirectories,
+  recoveryFileEntries,
+  recoveryEntryMaximum,
+  assertDisjointRecoveryRoots,
+} from './recovery-assets.mjs'
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 const digestPattern = /^[a-f0-9]{64}$/
@@ -19,7 +28,12 @@ export function assertDrillInvocation(args, env) {
 export function parseRehearsalOptions(args, env) {
   assertDrillInvocation([args[0]], env)
   const options = {}
-  for (let index = 1; index < args.length; index += 2) {
+  for (let index = 1; index < args.length; index++) {
+    if (args[index] === '--document-assets') {
+      if (options.documentAssets) fail('INVALID_REHEARSAL_OPTIONS')
+      options.documentAssets = true
+      continue
+    }
     const property =
       args[index] === '--archive-root'
         ? 'archiveRoot'
@@ -28,9 +42,9 @@ export function parseRehearsalOptions(args, env) {
           : undefined
     if (!property || Object.hasOwn(options, property) || index + 1 >= args.length)
       fail('INVALID_REHEARSAL_OPTIONS')
-    if (typeof args[index + 1] !== 'string' || !isAbsolute(args[index + 1]))
-      fail('ABSOLUTE_PATH_REQUIRED')
-    options[property] = resolve(args[index + 1])
+    const value = args[++index]
+    if (typeof value !== 'string' || !isAbsolute(value)) fail('ABSOLUTE_PATH_REQUIRED')
+    options[property] = resolve(value)
   }
   if (options.encryptionKey && !options.archiveRoot) fail('ENCRYPTION_REQUIRES_EXPLICIT_ARCHIVE')
   return options
@@ -127,6 +141,40 @@ async function inventory(root) {
 }
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 
+export async function verifyRecoveryAssetRoots({ templateRoot, documentRoot, manifest }) {
+  validateRecoveryAssets(manifest)
+  if (manifest.version !== 2) return
+  assertDisjointRecoveryRoots([templateRoot, documentRoot])
+  for (const [kind, root] of [
+    ['templates', templateRoot],
+    ['documents', documentRoot],
+  ]) {
+    await directory(root)
+    const start = await lstat(root, { bigint: true })
+    const items = manifest[kind]
+    if (!equal((await readdir(root)).sort(), items.map((item) => item.key).sort()))
+      fail('ASSET_LAYOUT_MISMATCH')
+    for (const item of items) {
+      if (
+        !equal(
+          await fileDigest(join(root, item.key), recoveryEntryMaximum(kind + '/' + item.key)),
+          { size: item.size, sha256: item.sha256 },
+        )
+      )
+        fail('ASSET_DIGEST_MISMATCH')
+    }
+    const end = await lstat(root, { bigint: true })
+    if (
+      start.dev !== end.dev ||
+      start.ino !== end.ino ||
+      start.mtimeNs !== end.mtimeNs ||
+      start.ctimeNs !== end.ctimeNs ||
+      !equal((await readdir(root)).sort(), items.map((item) => item.key).sort())
+    )
+      fail('ASSET_LAYOUT_CHANGED')
+  }
+}
+
 // The orchestrator must stop its controlled fake API and freeze its database before calling this.
 export async function createRecoveryBundle({
   bundleRoot,
@@ -134,26 +182,66 @@ export async function createRecoveryBundle({
   runId,
   dump,
   assertQuiescent,
+  documentAssets,
 }) {
   if (!isAbsolute(bundleRoot) || !uuid.test(runId)) fail('INVALID_BUNDLE_CONFIGURATION')
   await assertQuiescent()
   const files = await inventory(sourceRoot)
+  const assetMetadata = documentAssets
+    ? {
+        version: 2,
+        assetMetadataSource: 'TECHNICAL_FIXTURE',
+        templates: documentAssets.templates,
+        documents: documentAssets.documents,
+      }
+    : { version: 1 }
+  validateRecoveryAssets(assetMetadata)
+  if (documentAssets) {
+    assertDisjointRecoveryRoots([
+      sourceRoot,
+      bundleRoot,
+      documentAssets.templateRoot,
+      documentAssets.documentRoot,
+    ])
+    await verifyRecoveryAssetRoots({ ...documentAssets, manifest: assetMetadata })
+  }
   await mkdir(bundleRoot) // Exclusive: an existing bundle is never replaced.
   await directory(bundleRoot)
   await mkdir(join(bundleRoot, 'files'))
   for (const file of files) {
     const destination = join(bundleRoot, 'files', file.key)
-    await copyFile(join(sourceRoot, file.key), destination, constants.COPYFILE_EXCL)
+    await copyRecoveryPrivateFile(join(sourceRoot, file.key), destination, file, 5242880)
     if (!equal(await fileDigest(destination, 5242880), { size: file.size, sha256: file.sha256 }))
       fail('COPY_DIGEST_MISMATCH')
+  }
+  if (documentAssets) {
+    for (const [kind, root] of [
+      ['templates', documentAssets.templateRoot],
+      ['documents', documentAssets.documentRoot],
+    ]) {
+      await mkdir(join(bundleRoot, kind))
+      for (const item of assetMetadata[kind])
+        await copyRecoveryPrivateFile(
+          join(root, item.key),
+          join(bundleRoot, kind, item.key),
+          item,
+          recoveryEntryMaximum(kind + '/' + item.key),
+        )
+    }
+    await verifyRecoveryAssetRoots({
+      templateRoot: join(bundleRoot, 'templates'),
+      documentRoot: join(bundleRoot, 'documents'),
+      manifest: assetMetadata,
+    })
   }
   const dumpPath = join(bundleRoot, 'database.dump')
   await dump(dumpPath)
   const database = await fileDigest(dumpPath)
   if (!equal(files, await inventory(sourceRoot))) fail('SOURCE_STORAGE_CHANGED')
+  if (documentAssets) await verifyRecoveryAssetRoots({ ...documentAssets, manifest: assetMetadata })
   await assertQuiescent()
   const manifest = {
-    version: 1,
+    ...assetMetadata,
     fakeDataOnly: true,
     runId,
     sourceDatabase,
@@ -163,7 +251,9 @@ export async function createRecoveryBundle({
     files,
   }
   // Publication marker is written last. A partial bundle cannot pass verification.
-  await writeFile(join(bundleRoot, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', {
+  const encoded = Buffer.from(JSON.stringify(manifest, null, 2) + '\n')
+  if (encoded.length > 2097152) fail('MANIFEST_TOO_LARGE')
+  await writeFile(join(bundleRoot, 'manifest.json'), encoded, {
     flag: 'wx',
   })
   await verifyRecoveryBundle(bundleRoot)
@@ -171,16 +261,28 @@ export async function createRecoveryBundle({
 }
 export async function verifyRecoveryBundle(bundleRoot) {
   await directory(bundleRoot)
-  if (!equal((await readdir(bundleRoot)).sort(), ['database.dump', 'files', 'manifest.json']))
-    fail('INVALID_BUNDLE_LAYOUT')
-  await fileDigest(join(bundleRoot, 'manifest.json'), 2097152)
   let manifest
   try {
-    manifest = JSON.parse(await readFile(join(bundleRoot, 'manifest.json'), 'utf8'))
+    manifest = JSON.parse(
+      (await readRecoveryPrivateFile(join(bundleRoot, 'manifest.json'), 2097152)).toString('utf8'),
+    )
   } catch {
     fail('INVALID_MANIFEST')
   }
   validateRecoveryManifest(manifest)
+  if (
+    !equal(
+      (await readdir(bundleRoot)).sort(),
+      ['database.dump', 'manifest.json', ...recoverySubdirectories(manifest)].sort(),
+    )
+  )
+    fail('INVALID_BUNDLE_LAYOUT')
+  if (manifest.version === 2)
+    await verifyRecoveryAssetRoots({
+      templateRoot: join(bundleRoot, 'templates'),
+      documentRoot: join(bundleRoot, 'documents'),
+      manifest,
+    })
   if (!equal(await fileDigest(join(bundleRoot, 'database.dump')), manifest.database))
     fail('DUMP_DIGEST_MISMATCH')
   if (
@@ -192,17 +294,54 @@ export async function verifyRecoveryBundle(bundleRoot) {
     fail('FILES_DIGEST_MISMATCH')
   return manifest
 }
-export async function restoreRecoveryFiles({ bundleRoot, targetRoot }) {
+export async function restoreRecoveryFiles({
+  bundleRoot,
+  targetRoot,
+  targetTemplateRoot,
+  targetDocumentRoot,
+}) {
   const manifest = await verifyRecoveryBundle(bundleRoot)
-  if (!isAbsolute(targetRoot)) fail('ABSOLUTE_PATH_REQUIRED')
-  await mkdir(targetRoot) // Refuses even an existing empty destination.
-  await directory(targetRoot)
-  for (const file of manifest.files)
-    await copyFile(
-      join(bundleRoot, 'files', file.key),
-      join(targetRoot, file.key),
-      constants.COPYFILE_EXCL,
+  const roots = {
+    files: targetRoot,
+    ...(manifest.version === 2
+      ? {
+          templates: targetTemplateRoot,
+          documents: targetDocumentRoot,
+        }
+      : {}),
+  }
+  assertDisjointRecoveryRoots([bundleRoot, ...Object.values(roots)])
+  // Check every destination before creating any, so an existing output cannot partially restore evidence.
+  for (const root of Object.values(roots)) {
+    await directory(dirname(root))
+    try {
+      await lstat(root)
+      throw Object.assign(new Error('RESTORE_TARGET_EXISTS'), { code: 'EEXIST' })
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error
+    }
+  }
+  for (const root of Object.values(roots)) {
+    await mkdir(root, { mode: 0o700 })
+    await directory(root)
+  }
+  for (const entry of recoveryFileEntries(manifest)) {
+    if (entry.name === 'database.dump') continue
+    const [kind, key] = entry.name.split('/')
+    await copyRecoveryPrivateFile(
+      join(bundleRoot, entry.name),
+      join(roots[kind], key),
+      entry.digest,
+      recoveryEntryMaximum(entry.name),
     )
+    if (
+      !equal(
+        await fileDigest(join(roots[kind], key), recoveryEntryMaximum(entry.name)),
+        entry.digest,
+      )
+    )
+      fail('RESTORED_FILES_DIGEST_MISMATCH')
+  }
   if (
     !equal(
       await inventory(targetRoot),
@@ -210,6 +349,12 @@ export async function restoreRecoveryFiles({ bundleRoot, targetRoot }) {
     )
   )
     fail('RESTORED_FILES_DIGEST_MISMATCH')
+  if (manifest.version === 2)
+    await verifyRecoveryAssetRoots({
+      templateRoot: targetTemplateRoot,
+      documentRoot: targetDocumentRoot,
+      manifest,
+    })
   return manifest
 }
 
@@ -240,7 +385,7 @@ export function validateRecoveryManifest(manifest) {
     digestPattern.test(item.sha256)
   if (
     !manifest ||
-    manifest.version !== 1 ||
+    ![1, 2].includes(manifest.version) ||
     manifest.fakeDataOnly !== true ||
     !uuid.test(manifest.runId || '') ||
     manifest.sourceDatabase !== sourceDatabase ||
@@ -254,5 +399,6 @@ export function validateRecoveryManifest(manifest) {
     new Set(manifest.files.map((file) => file.key)).size !== manifest.files.length
   )
     fail('INVALID_MANIFEST')
+  validateRecoveryAssets(manifest)
   return manifest
 }

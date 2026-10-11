@@ -31,6 +31,8 @@ import {
   verifyRecoveryBundle,
   restoreRecoveryFiles,
   normalizeRecoveryDefinition,
+  verifyRecoveryAssetRoots,
+  fileDigest,
   sourceDatabase,
   targetDatabase,
 } from './recovery-bundle.mjs'
@@ -42,6 +44,8 @@ import {
   newBytes,
   origin,
 } from './recovery-fixture.mjs'
+
+import { createRecoveryDocumentFixture } from './recovery-document-fixture.mjs'
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url))
 const api = resolve(repo, 'apps/api'),
@@ -346,6 +350,28 @@ try {
   let http = await startServer(sourceUrl, sourceRoot, 'source')
   const state = await createRecoveryDossier(http, fixture)
   report.checks.fakeTypesAndRejectedInvalidWrites = true
+  let documentAssets
+  if (options.documentAssets) {
+    console.log('RECOVERY_PHASE generate-synthetic-document-assets')
+    const roundIds = await source`SELECT id, round_number AS "roundNumber" FROM submission_rounds
+      WHERE submission_id=${state.id} ORDER BY round_number`
+    documentAssets = await createRecoveryDocumentFixture({
+      runId,
+      runRoot,
+      view: state.ownerView,
+      roundIds,
+    })
+    report.documentAssets = {
+      metadataSource: 'TECHNICAL_FIXTURE',
+      registryIntegration: 'NOT_IMPLEMENTED',
+      templates: documentAssets.templates.length,
+      documents: documentAssets.documents.length,
+      renderers: [...new Set(documentAssets.documents.map((item) => item.rendererVersion))],
+      converters: [
+        ...new Set(documentAssets.documents.map((item) => item.converterVersion).filter(Boolean)),
+      ],
+    }
+  }
   await stopServer()
   await source.unsafe(`ALTER DATABASE ${sourceDatabase} SET default_transaction_read_only=on`)
   await source.end()
@@ -382,6 +408,7 @@ try {
     sourceRoot,
     runId,
     assertQuiescent,
+    documentAssets,
     dump: (path) =>
       docker(
         [
@@ -400,6 +427,7 @@ try {
   })
   assert.deepEqual(await snapshot(source), before)
   report.bundle = {
+    version: manifest.version,
     dumpBytes: manifest.database.size,
     files: manifest.files.length,
     fileBytes: manifest.files.reduce((n, f) => n + f.size, 0),
@@ -489,7 +517,18 @@ try {
   ])
   target = connect(targetUrl)
   await assertEmptyTarget(target)
-  await restoreRecoveryFiles({ bundleRoot: archivedBundleRoot, targetRoot: restoredRoot })
+  const assetTargets =
+    manifest.version === 2
+      ? {
+          targetTemplateRoot: join(runRoot, 'restored-templates'),
+          targetDocumentRoot: join(runRoot, 'restored-documents'),
+        }
+      : {}
+  await restoreRecoveryFiles({
+    bundleRoot: archivedBundleRoot,
+    targetRoot: restoredRoot,
+    ...assetTargets,
+  })
   await owned()
   await docker(
     [
@@ -536,6 +575,29 @@ try {
   assert.equal(restoredAudit.status, 'OK')
   assert.deepEqual(restoredAudit.counts, sourceAudit.counts)
   report.checks.restoredAudit = restoredAudit.counts
+  if (manifest.version === 2) {
+    await verifyRecoveryAssetRoots({
+      templateRoot: assetTargets.targetTemplateRoot,
+      documentRoot: assetTargets.targetDocumentRoot,
+      manifest,
+    })
+    const restoredRounds =
+      await target`SELECT id, submission_id AS "submissionId", round_number AS "roundNumber",
+      declaration_template AS template FROM submission_rounds WHERE submission_id=${state.id}`
+    for (const item of manifest.documents) {
+      const round = restoredRounds.find((round) => round.id === item.roundId)
+      assert.ok(round)
+      assert.equal(round.submissionId, item.submissionId)
+      assert.equal(round.roundNumber, item.roundNumber)
+      assert.deepEqual(round.template, item.template)
+      assert.deepEqual(
+        await fileDigest(join(assetTargets.targetDocumentRoot, item.key), 16777216),
+        { size: item.size, sha256: item.sha256 },
+      )
+    }
+    report.checks.documentBytesTemplatesAndRoundBindingsEqual = true
+    report.checks.documentRegistryIntegration = 'NOT_IMPLEMENTED'
+  }
   http = await startServer(targetUrl, restoredRoot, 'restored')
   await verifyRecoveryHttp(http, fixture, state)
   report.checks.viewsHistoryNotificationsAndAccess = true

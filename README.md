@@ -90,6 +90,8 @@ Sau khi gửi hồ sơ ONLINE/HYBRID, sinh viên và cán bộ đúng quyền/ph
 
 [Giới hạn đọc tệp riêng tư](docs/bounded-private-files.md) mô tả cách chặn tệp quá lớn trước khi cấp phát bộ nhớ và bằng chứng xuất hai gói20MiB từ kho đĩa giả trên D.
 
+[Recovery v2 cho mẫu và tài liệu](docs/document-recovery-v2.md) đã kiểm chứng giữ nguyên Word/PDF qua bản sao thường/mã hóa bằng dữ liệu giả. Đây là nền tảng phục hồi; route chưa chuyển sang kho tài liệu cố định và chưa có registry/job DB.
+
 [Tiến độ và bước tiếp theo](docs/implementation-progress.md) tổng hợp phần đã kiểm chứng và thứ tự chuẩn bị lưu bản bất biến trước khi triển khai ký mô phỏng.
 
 ### Sprint 5 — Bàn giao và thông báo trong ứng dụng

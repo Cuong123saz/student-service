@@ -93,3 +93,8 @@ Lượt độc lập đạt: `run/recovery-drills/70422dcc-e980-446b-9342-58b4e1
 Diễn tập này hoàn thành đường đi phục hồi bằng dữ liệu giả. Đã bổ sung [công cụ kho riêng và đề xuất retention](recovery-archive.md) bằng dữ liệu giả; chưa thử trên ổ cứng ngoài/máy khác thực tế. Còn phải chốt cơ chế ngừng mọi nguồn ghi của môi trường thật, nơi sao lưu riêng có kiểm soát truy cập/mã hóa, lịch backup và retention, giám sát lỗi/kiểm tra định kỳ, cách dựng lại role/quyền database và secret vận hành, và đo phục hồi với dung lượng đại diện. `pg_dump` chỉ sao lưu một database, không bao gồm global roles/tablespaces; công cụ này dùng role postgres của container giả mới theo phạm vi thử, không kiểm chứng quyền vận hành production.
 
 Kho bền vững, quét mã độc và xác minh chữ ký vẫn là các việc riêng theo [ADR0003](adr/0003-student-drafts-and-evidence.md). Giấy xác nhận sinh viên tiếp tục làm trực tiếp tại CTSV; không đổi cấu hình development để tạo dữ liệu thử.
+
+
+## Bổ sung recovery v2
+
+[Phép thử mẫu và output riêng](document-recovery-v2.md) dùng cờ --document-assets, giữ tương thích v1. Lượt mã hóa cuối d27d0581-e05e-47df-a0a1-e6ddf6453398 đã phục hồi một mẫu và bốn Word/PDF thật cùng 26 bảng/4 sequence. Metadata tài liệu hiện là TECHNICAL_FIXTURE, chưa có registry DB hoặc route tải cố định; không gộp kết quả này với nghiệm thu chức năng phát hành.

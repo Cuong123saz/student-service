@@ -18,6 +18,13 @@ import {
   verifyRecoveryBundle,
 } from './recovery-bundle.mjs'
 
+import { readRecoveryPrivateFile } from './recovery-private-file.mjs'
+import {
+  recoverySubdirectories,
+  recoveryFileEntries,
+  recoveryEntryMaximum,
+} from './recovery-assets.mjs'
+
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 const sha = /^[a-f0-9]{64}$/
 const markerName = 'fake-encrypted-archive.json'
@@ -44,7 +51,7 @@ async function readJson(path, maximum) {
   const before = await fileDigest(path, maximum)
   let data
   try {
-    data = JSON.parse(await readFile(path, 'utf8'))
+    data = JSON.parse((await readRecoveryPrivateFile(path, maximum)).toString('utf8'))
   } catch {
     fail('INVALID_ENCRYPTED_METADATA')
   }
@@ -104,7 +111,7 @@ export async function validateEncryptedArchiveDestination({ archiveRoot, keyPath
 }
 async function readFileChecked(path, maximum) {
   const before = await fileDigest(path, maximum)
-  const bytes = await readFile(path)
+  const bytes = await readRecoveryPrivateFile(path, maximum)
   if (bytes.length !== before.size || !same(before, await fileDigest(path, maximum)))
     fail('ENCRYPTED_METADATA_CHANGED')
   return bytes.toString('utf8')
@@ -159,8 +166,9 @@ function descriptor(item, maximum) {
 function cipherPath(root, name) {
   if (name === 'database.dump') return join(root, 'database.enc')
   if (name === 'manifest') return join(root, 'manifest.enc')
-  if (!name.startsWith('files/') || !uuid.test(name.slice(6))) fail('INVALID_ENCRYPTED_ENTRY')
-  return join(root, 'files', name.slice(6) + '.enc')
+  recoveryEntryMaximum(name) // Reject traversal/unknown namespaces before joining.
+  const [directory, key] = name.split('/')
+  return join(root, directory, key + '.enc')
 }
 function boundedInput(path, size) {
   return createReadStream(path, {
@@ -181,8 +189,7 @@ async function encrypt(input, path, key, header, name, usedIvs) {
   return { iv: iv.toString('hex'), tag: cipher.getAuthTag().toString('hex'), ...digest }
 }
 async function decrypt(path, item, key, header, name, createSink) {
-  const maximum =
-    name === 'manifest' ? manifestLimit : name === 'database.dump' ? 536870912 : 5242880
+  const maximum = name === 'manifest' ? manifestLimit : recoveryEntryMaximum(name)
   descriptor(item, maximum)
   const expected = { size: item.size, sha256: item.sha256 }
   if (!same(await fileDigest(path, maximum), expected)) fail('CIPHERTEXT_DIGEST_MISMATCH')
@@ -258,13 +265,7 @@ async function inspectPackage(packageRoot, keyPath, projectRoot, consume) {
       Date.parse(manifest.createdAt) > Date.now()
     )
       fail('INVALID_BUNDLE_DATE')
-    const expected = [
-      { name: 'database.dump', digest: manifest.database },
-      ...manifest.files.map((file) => ({
-        name: 'files/' + file.key,
-        digest: { size: file.size, sha256: file.sha256 },
-      })),
-    ]
+    const expected = recoveryFileEntries(manifest)
     if (!Array.isArray(payload.entries) || payload.entries.length !== expected.length)
       fail('INVALID_ENCRYPTED_ENTRIES')
     const entries = new Map(),
@@ -272,28 +273,33 @@ async function inspectPackage(packageRoot, keyPath, projectRoot, consume) {
     for (const entry of payload.entries) {
       if (!entry || typeof entry.name !== 'string' || entries.has(entry.name))
         fail('INVALID_ENCRYPTED_ENTRIES')
-      descriptor(entry.cipher, entry.name === 'database.dump' ? 536870912 : 5242880)
+      descriptor(entry.cipher, recoveryEntryMaximum(entry.name))
       if (ivs.has(entry.cipher.iv)) fail('REUSED_ENCRYPTION_IV')
       ivs.add(entry.cipher.iv)
       entries.set(entry.name, entry.cipher)
     }
     if (
-      !same((await readdir(packageRoot)).sort(), [
-        'database.enc',
-        'envelope.json',
-        'files',
-        'manifest.enc',
-      ])
-    )
-      fail('INVALID_ENCRYPTED_LAYOUT')
-    await assertRecoveryDirectory(join(packageRoot, 'files'))
-    if (
       !same(
-        (await readdir(join(packageRoot, 'files'))).sort(),
-        manifest.files.map((file) => file.key + '.enc').sort(),
+        (await readdir(packageRoot)).sort(),
+        [
+          'database.enc',
+          'envelope.json',
+          'manifest.enc',
+          ...recoverySubdirectories(manifest),
+        ].sort(),
       )
     )
       fail('INVALID_ENCRYPTED_LAYOUT')
+    for (const directory of recoverySubdirectories(manifest)) {
+      await assertRecoveryDirectory(join(packageRoot, directory))
+      if (
+        !same(
+          (await readdir(join(packageRoot, directory))).sort(),
+          manifest[directory].map((file) => file.key + '.enc').sort(),
+        )
+      )
+        fail('INVALID_ENCRYPTED_LAYOUT')
+    }
     for (const item of expected) {
       const encrypted = entries.get(item.name)
       if (!encrypted || encrypted.size !== item.digest.size) fail('INVALID_ENCRYPTED_ENTRIES')
@@ -364,6 +370,14 @@ export async function inspectEncryptedRecoveryArchive({
         dumpBytes: manifest.database.size,
         files: manifest.files.length,
         fileBytes: manifest.files.reduce((sum, file) => sum + file.size, 0),
+        bundleVersion: manifest.version,
+        ...(manifest.version === 2
+          ? {
+              templates: manifest.templates.length,
+              documents: manifest.documents.length,
+              assetMetadataSource: manifest.assetMetadataSource,
+            }
+          : {}),
       })
     } catch (error) {
       // A different keyId means this key cannot authenticate the package. Do not
@@ -445,7 +459,8 @@ export async function encryptRecoveryBundle({ bundleRoot, archiveRoot, keyPath, 
       fail('UNRECOGNIZED_ENCRYPTED_ARCHIVE')
     const packageRoot = join(archiveRoot, manifest.runId)
     await mkdir(packageRoot)
-    await mkdir(join(packageRoot, 'files'))
+    for (const directory of recoverySubdirectories(manifest))
+      await mkdir(join(packageRoot, directory))
     const header = headerOf({
       version: 1,
       fakeDataOnly: true,
@@ -457,13 +472,7 @@ export async function encryptRecoveryBundle({ bundleRoot, archiveRoot, keyPath, 
     key = derivedKey(loaded.key, header)
     const entries = [],
       usedIvs = new Set()
-    const sources = [
-      { name: 'database.dump', digest: manifest.database },
-      ...manifest.files.map((file) => ({
-        name: 'files/' + file.key,
-        digest: { size: file.size, sha256: file.sha256 },
-      })),
-    ]
+    const sources = recoveryFileEntries(manifest)
     for (const item of sources) {
       const path = join(bundleRoot, item.name)
       const cipher = await encrypt(
@@ -529,7 +538,8 @@ export async function decryptRecoveryBundle({ packageRoot, keyPath, targetRoot, 
     await mkdir(targetRoot, { mode: 0o700 })
     created = true
     await assertRecoveryDirectory(targetRoot)
-    await mkdir(join(targetRoot, 'files'), { mode: 0o700 })
+    for (const directory of recoverySubdirectories(verified.manifest))
+      await mkdir(join(targetRoot, directory), { mode: 0o700 })
     const decoded = await inspectPackage(packageRoot, keyPath, projectRoot, (name) =>
       createWriteStream(join(targetRoot, name), { flags: 'wx', mode: 0o600 }),
     )

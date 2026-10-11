@@ -1,7 +1,12 @@
-import { constants } from 'node:fs'
-import { copyFile, lstat, mkdir, readFile, readdir, realpath, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readdir, realpath, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileDigest, verifyRecoveryBundle } from './recovery-bundle.mjs'
+import { readRecoveryPrivateFile, copyRecoveryPrivateFile } from './recovery-private-file.mjs'
+import {
+  recoverySubdirectories,
+  recoveryFileEntries,
+  recoveryEntryMaximum,
+} from './recovery-assets.mjs'
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 const markerName = 'fake-recovery-archive.json'
@@ -39,7 +44,8 @@ async function ownedArchive(archiveRoot) {
   await safeDirectory(archiveRoot)
   const path = join(archiveRoot, markerName)
   await fileDigest(path, 1024)
-  if ((await readFile(path, 'utf8')) !== marker) fail('UNRECOGNIZED_ARCHIVE')
+  if ((await readRecoveryPrivateFile(path, 1024)).toString('utf8') !== marker)
+    fail('UNRECOGNIZED_ARCHIVE')
 }
 function validDate(value) {
   return (
@@ -81,27 +87,20 @@ export async function exportRecoveryBundle({ bundleRoot, archiveRoot, projectRoo
   await ownedArchive(archiveRoot)
   const destination = join(archiveRoot, manifest.runId)
   await mkdir(destination) // Existing copies, including incomplete ones, are never overwritten.
-  await mkdir(join(destination, 'files'))
-  await copyFile(
-    join(bundleRoot, 'database.dump'),
-    join(destination, 'database.dump'),
-    constants.COPYFILE_EXCL,
-  )
-  for (const file of manifest.files)
-    await copyFile(
-      join(bundleRoot, 'files', file.key),
-      join(destination, 'files', file.key),
-      constants.COPYFILE_EXCL,
+  for (const directory of recoverySubdirectories(manifest))
+    await mkdir(join(destination, directory))
+  // Check every copied byte before publishing a manifest; failures leave an incomplete directory.
+  for (const entry of recoveryFileEntries(manifest)) {
+    const target = join(destination, entry.name)
+    await copyRecoveryPrivateFile(
+      join(bundleRoot, entry.name),
+      target,
+      entry.digest,
+      recoveryEntryMaximum(entry.name),
     )
-  // Check copied bytes before publishing a manifest; failures retain an incomplete directory.
-  if (
-    JSON.stringify(await fileDigest(join(destination, 'database.dump'))) !==
-    JSON.stringify(manifest.database)
-  )
-    fail('ARCHIVED_DUMP_MISMATCH')
-  for (const file of manifest.files) {
-    const digest = await fileDigest(join(destination, 'files', file.key), 5242880)
-    if (digest.size !== file.size || digest.sha256 !== file.sha256) fail('ARCHIVED_FILE_MISMATCH')
+    const digest = await fileDigest(target, recoveryEntryMaximum(entry.name))
+    if (digest.size !== entry.digest.size || digest.sha256 !== entry.digest.sha256)
+      fail(entry.name === 'database.dump' ? 'ARCHIVED_DUMP_MISMATCH' : 'ARCHIVED_FILE_MISMATCH')
   }
   await verifyRecoveryBundle(bundleRoot)
   if (
@@ -109,10 +108,11 @@ export async function exportRecoveryBundle({ bundleRoot, archiveRoot, projectRoo
     JSON.stringify(originalManifestDigest)
   )
     fail('SOURCE_MANIFEST_CHANGED')
-  await copyFile(
+  await copyRecoveryPrivateFile(
     join(bundleRoot, 'manifest.json'),
     join(destination, 'manifest.json'),
-    constants.COPYFILE_EXCL,
+    originalManifestDigest,
+    2097152,
   )
   const copied = await verifyRecoveryBundle(destination)
   if (JSON.stringify(copied) !== JSON.stringify(manifest)) fail('ARCHIVED_MANIFEST_MISMATCH')
@@ -167,6 +167,14 @@ export async function inspectRecoveryArchive({
         dumpBytes: manifest.database.size,
         files: manifest.files.length,
         fileBytes: manifest.files.reduce((sum, file) => sum + file.size, 0),
+        bundleVersion: manifest.version,
+        ...(manifest.version === 2
+          ? {
+              templates: manifest.templates.length,
+              documents: manifest.documents.length,
+              assetMetadataSource: manifest.assetMetadataSource,
+            }
+          : {}),
       })
     } catch {
       entries.push({ runId: name, status: 'INVALID', code: 'BUNDLE_VERIFICATION_FAILED' })

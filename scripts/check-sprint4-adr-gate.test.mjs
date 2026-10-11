@@ -334,7 +334,11 @@ test('template-binding ADR must be accepted before its round migration, not in t
   )
 })
 
-for (const table of ['submission_document_sets', 'submission_documents', 'submission_document_jobs']) {
+for (const table of [
+  'submission_document_sets',
+  'submission_documents',
+  'submission_document_jobs',
+]) {
   test('vault migration requires ADR0010 accepted before ' + table, (t) => {
     const repo = fixture(t, { adr: 'Accepted' })
     const path = 'docs/adr/0010-document-vault-and-recovery.md'
@@ -345,6 +349,9 @@ for (const table of ['submission_document_sets', 'submission_documents', 'submis
     repo.commit()
     const result = repo.run(base)
     assert.equal(result.status, 1, result.output)
-    assert.match(result.output, /0010-document-vault-and-recovery\.md existed but was not Accepted before/u)
+    assert.match(
+      result.output,
+      /0010-document-vault-and-recovery\.md existed but was not Accepted before/u,
+    )
   })
 }
