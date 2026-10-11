@@ -172,6 +172,9 @@ export async function inspectRecoveryArchive({
           ? {
               templates: manifest.templates.length,
               documents: manifest.documents.length,
+              ...(manifest.assetMetadataSource === 'DATABASE_REGISTRY'
+                ? { staging: manifest.staging.length }
+                : {}),
               assetMetadataSource: manifest.assetMetadataSource,
             }
           : {}),

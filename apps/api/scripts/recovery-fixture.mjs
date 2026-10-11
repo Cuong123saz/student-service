@@ -165,8 +165,16 @@ export function recoveryHttp(address, secret, counters) {
   return async (
     actor,
     path,
-    { method = 'GET', body, expected = 200, portal = 'user', requestOrigin = origin } = {},
+    {
+      method = 'GET',
+      body,
+      expected = 200,
+      portal = 'user',
+      requestOrigin = origin,
+      timeoutMs = 15000,
+    } = {},
   ) => {
+    assert.ok(Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 180000)
     const response = await fetch(address + '/api/v1/' + portal + path, {
       method,
       headers: {
@@ -177,7 +185,7 @@ export function recoveryHttp(address, secret, counters) {
           : { 'content-type': 'application/json' }),
       },
       body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(timeoutMs),
     })
     counters.requests++
     counters.statuses[response.status] = (counters.statuses[response.status] || 0) + 1

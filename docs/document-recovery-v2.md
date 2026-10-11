@@ -1,12 +1,14 @@
-# Phục hồi mẫu và tài liệu đầu ra — nền tảng B1
+# Phục hồi mẫu và tài liệu đầu ra — B1 và phần registry B2
 
 Cập nhật 11/10/2026. Đã triển khai B1 của [ADR0010](adr/0010-document-vault-and-recovery.md), tiếp [ADR0009](adr/0009-immutable-generated-documents.md). Chỉ dùng dữ liệu giả. Đây là công cụ và phép thử phục hồi; registry/job đã có schema và repository ở DB test theo [nền tảng B2](document-registry.md), chưa chuyển route tải sang kho cố định, chưa ký hoặc phát hành.
+
+Phần dưới giữ bằng chứng B1 ban đầu; phần [phục hồi registry B2](registry-recovery.md) đã bổ sung nguồn DATABASE_REGISTRY, namespace staging, audit inventory, thu lease và diễn tập restore có tài liệu thật. V1/fixture-v2 vẫn giữ guard khi registry có hàng.
 
 ## Cấu trúc và tương thích
 
 Recovery bundle v1 vẫn được đọc/kiểm tra/xuất/giải mã/khôi phục với layout cũ `database.dump`, `files/`, `manifest.json`. Bundle v2 thêm hai thư mục ngang hàng: `templates/` và `documents/`. Không đặt Word/PDF vào kho minh chứng. Version của envelope mã hóa và AES-256-GCM vẫn là 1; nội dung manifest recovery bên trong có thể là 1 hoặc 2 và từng tên entry được ràng buộc bằng AAD như trước.
 
-Manifest v2 luôn ghi `assetMetadataSource: TECHNICAL_FIXTURE`. Validator từ chối tự nhận đã kiểm chứng registry DB. Metadata tài liệu gồm UUID key/bộ/round/hồ sơ, số lần gửi, định dạng, size/SHA-256, binding mẫu, phiên bản renderer/converter và nguồn Word của PDF. Không chứa câu trả lời hoặc path máy. Fixture ghi hash file renderer cùng Node/ICU và phiên bản LibreOffice trả về; chưa coi đó là digest đầy đủ của build hay binary converter như B2 yêu cầu. Chỉ nhận DECLARATION và UNSIGNED_DECLARATION. Word có thể tồn tại khi PDF còn thiếu; nếu có PDF thì phải có Word cùng bộ/round/binding/renderer, hash nguồn trùng Word. Một round không được có hai bộ DECLARATION trong cùng manifest.
+Manifest của chế độ B1 --document-assets ghi `assetMetadataSource: TECHNICAL_FIXTURE`. Validator từ chối tự nhận đã kiểm chứng registry DB. Metadata tài liệu gồm UUID key/bộ/round/hồ sơ, số lần gửi, định dạng, size/SHA-256, binding mẫu, phiên bản renderer/converter và nguồn Word của PDF. Không chứa câu trả lời hoặc path máy. Fixture ghi hash file renderer cùng Node/ICU và phiên bản LibreOffice trả về; chưa coi đó là digest đầy đủ của build hay binary converter như B2 yêu cầu. Chỉ nhận DECLARATION và UNSIGNED_DECLARATION. Word có thể tồn tại khi PDF còn thiếu; nếu có PDF thì phải có Word cùng bộ/round/binding/renderer, hash nguồn trùng Word. Một round không được có hai bộ DECLARATION trong cùng manifest.
 
 | Thành phần | Layout | Giới hạn mỗi tệp |
 | --- | --- | --- |
@@ -61,7 +63,7 @@ Log local bị Git bỏ qua: `run/recovery-v2-regression-copy-fixed.log`, `run/d
 
 ## Phần chưa triển khai
 
-B2 đã có migration registry/job và lease/fencing metadata; vẫn cần worker/vault, công bố byte append-only từng định dạng, đọc lại byte đã lưu qua route và fault injection process chết/commit mất phản hồi. Phải thay metadata fixture bằng dữ liệu registry từ cùng DB snapshot, cập nhật audit thật và chứng minh phục hồi registry trước khi bật tính năng. Chưa có cleanup tự động, backup dữ liệu thật, backup sang thiết bị khác, power-loss/TCP/nhiều worker hoặc chữ ký có hiệu lực pháp lý. SHA-256 chỉ đối chiếu byte với metadata; metadata tự nhất quán không chứng minh nguồn gốc hay PDF thật sự được chuyển từ Word khi không có quy trình tin cậy bên ngoài.
+B2 đã có vault/coordinator, process-death tests và phục hồi registry có dữ liệu thật theo tài liệu registry-recovery. Route đã được kiểm tra qua API riêng của rehearsal; chưa bật mặc định trong development/demo. Còn retry vận hành, supervisor converter và mở demo mới trước nâng development. Chưa có cleanup tự động, backup dữ liệu thật, backup sang thiết bị khác, power-loss/TCP/nhiều worker hoặc chữ ký có hiệu lực pháp lý. SHA-256 chỉ đối chiếu byte với metadata; metadata tự nhất quán không chứng minh nguồn gốc hay PDF thật sự được chuyển từ Word khi không có quy trình tin cậy bên ngoài.
 
 
-Sau migration0023, preflight của rehearsal từ chối registry có bất kỳ hàng nào ở sets/documents/jobs. V1 hoặc v2 fixture không được giả sao lưu output/lease thật. Lượt056c3f7f-aeff-409c-956c-f56f9f318bc0 chỉ chứng minh schema29 bảng/4 sequence cùng registry rỗng phục hồi được; xem nền tảngB2 để tiếp đường phục hồi registry có dữ liệu.
+Sau migration0023, preflight của rehearsal v1 hoặc --document-assets từ chối registry có bất kỳ hàng nào ở sets/documents/jobs. V1 hoặc v2 fixture không được giả sao lưu output/lease thật. Lượt056c3f7f-aeff-409c-956c-f56f9f318bc0 chỉ chứng minh schema29 bảng/4 sequence cùng registry rỗng phục hồi được; xem nền tảngB2 để tiếp đường phục hồi registry có dữ liệu.

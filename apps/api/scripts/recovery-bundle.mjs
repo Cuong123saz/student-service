@@ -1,9 +1,12 @@
-import { createHash } from 'node:crypto'
-import { constants, createReadStream } from 'node:fs'
 import { lstat, mkdir, readdir, realpath, writeFile } from 'node:fs/promises'
+import { isDeepStrictEqual } from 'node:util'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 
-import { readRecoveryPrivateFile, copyRecoveryPrivateFile } from './recovery-private-file.mjs'
+import {
+  digestRecoveryPrivateFile,
+  readRecoveryPrivateFile,
+  copyRecoveryPrivateFile,
+} from './recovery-private-file.mjs'
 import {
   validateRecoveryAssets,
   recoverySubdirectories,
@@ -29,8 +32,13 @@ export function parseRehearsalOptions(args, env) {
   assertDrillInvocation([args[0]], env)
   const options = {}
   for (let index = 1; index < args.length; index++) {
+    if (args[index] === '--document-registry') {
+      if (options.documentRegistry || options.documentAssets) fail('INVALID_REHEARSAL_OPTIONS')
+      options.documentRegistry = true
+      continue
+    }
     if (args[index] === '--document-assets') {
-      if (options.documentAssets) fail('INVALID_REHEARSAL_OPTIONS')
+      if (options.documentAssets || options.documentRegistry) fail('INVALID_REHEARSAL_OPTIONS')
       options.documentAssets = true
       continue
     }
@@ -93,6 +101,8 @@ export async function assertEmptyTarget(sql) {
 }
 async function directory(root) {
   if (!isAbsolute(root)) fail('ABSOLUTE_PATH_REQUIRED')
+  const parent = dirname(root)
+  if (parent !== root) await directory(parent)
   const before = await lstat(root)
   const actual = await realpath(root)
   const comparable = (path) => (process.platform === 'win32' ? path.toLowerCase() : path)
@@ -104,31 +114,7 @@ async function directory(root) {
     fail('UNSAFE_DIRECTORY')
 }
 export async function fileDigest(path, maximum = 536870912) {
-  const before = await lstat(path, { bigint: true })
-  if (
-    !before.isFile() ||
-    before.isSymbolicLink() ||
-    before.size <= 0n ||
-    before.size > BigInt(maximum)
-  )
-    fail('UNSAFE_OR_OVERSIZED_FILE')
-  const hash = createHash('sha256')
-  for await (const chunk of createReadStream(path, {
-    flags: constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0),
-    end: Number(before.size) - 1,
-  }))
-    hash.update(chunk)
-  const after = await lstat(path, { bigint: true })
-  if (
-    before.dev !== after.dev ||
-    before.ino !== after.ino ||
-    before.size !== after.size ||
-    before.mtimeNs !== after.mtimeNs ||
-    before.ctimeNs !== after.ctimeNs ||
-    after.isSymbolicLink()
-  )
-    fail('FILE_CHANGED_DURING_COPY')
-  return { size: Number(after.size), sha256: hash.digest('hex') }
+  return digestRecoveryPrivateFile(path, maximum)
 }
 async function inventory(root) {
   await directory(root)
@@ -141,14 +127,21 @@ async function inventory(root) {
 }
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 
-export async function verifyRecoveryAssetRoots({ templateRoot, documentRoot, manifest }) {
+export async function verifyRecoveryAssetRoots({
+  templateRoot,
+  documentRoot,
+  stagingRoot,
+  manifest,
+}) {
   validateRecoveryAssets(manifest)
   if (manifest.version !== 2) return
-  assertDisjointRecoveryRoots([templateRoot, documentRoot])
-  for (const [kind, root] of [
+  const roots = [
     ['templates', templateRoot],
     ['documents', documentRoot],
-  ]) {
+    ...(manifest.assetMetadataSource === 'DATABASE_REGISTRY' ? [['staging', stagingRoot]] : []),
+  ]
+  assertDisjointRecoveryRoots(roots.map((item) => item[1]))
+  for (const [kind, root] of roots) {
     await directory(root)
     const start = await lstat(root, { bigint: true })
     const items = manifest[kind]
@@ -183,27 +176,37 @@ export async function createRecoveryBundle({
   dump,
   assertQuiescent,
   documentAssets,
+  registryAssets,
 }) {
   if (!isAbsolute(bundleRoot) || !uuid.test(runId)) fail('INVALID_BUNDLE_CONFIGURATION')
   await assertQuiescent()
   const files = await inventory(sourceRoot)
-  const assetMetadata = documentAssets
-    ? {
-        version: 2,
-        assetMetadataSource: 'TECHNICAL_FIXTURE',
-        templates: documentAssets.templates,
-        documents: documentAssets.documents,
-      }
-    : { version: 1 }
+  if (documentAssets && registryAssets) fail('CONFLICTING_DOCUMENT_ASSETS')
+  if (registryAssets && typeof registryAssets.readSnapshot !== 'function')
+    fail('REGISTRY_SNAPSHOT_REQUIRED')
+  const assets = registryAssets || documentAssets
+  const assetMetadata = registryAssets
+    ? await registryAssets.readSnapshot()
+    : documentAssets
+      ? {
+          version: 2,
+          assetMetadataSource: 'TECHNICAL_FIXTURE',
+          templates: documentAssets.templates,
+          documents: documentAssets.documents,
+        }
+      : { version: 1 }
   validateRecoveryAssets(assetMetadata)
-  if (documentAssets) {
+  if (registryAssets && assetMetadata.assetMetadataSource !== 'DATABASE_REGISTRY')
+    fail('REGISTRY_SNAPSHOT_REQUIRED')
+  if (assets) {
     assertDisjointRecoveryRoots([
       sourceRoot,
       bundleRoot,
-      documentAssets.templateRoot,
-      documentAssets.documentRoot,
+      assets.templateRoot,
+      assets.documentRoot,
+      ...(registryAssets ? [assets.stagingRoot] : []),
     ])
-    await verifyRecoveryAssetRoots({ ...documentAssets, manifest: assetMetadata })
+    await verifyRecoveryAssetRoots({ ...assets, manifest: assetMetadata })
   }
   await mkdir(bundleRoot) // Exclusive: an existing bundle is never replaced.
   await directory(bundleRoot)
@@ -214,10 +217,11 @@ export async function createRecoveryBundle({
     if (!equal(await fileDigest(destination, 5242880), { size: file.size, sha256: file.sha256 }))
       fail('COPY_DIGEST_MISMATCH')
   }
-  if (documentAssets) {
+  if (assets) {
     for (const [kind, root] of [
-      ['templates', documentAssets.templateRoot],
-      ['documents', documentAssets.documentRoot],
+      ['templates', assets.templateRoot],
+      ['documents', assets.documentRoot],
+      ...(registryAssets ? [['staging', assets.stagingRoot]] : []),
     ]) {
       await mkdir(join(bundleRoot, kind))
       for (const item of assetMetadata[kind])
@@ -231,6 +235,7 @@ export async function createRecoveryBundle({
     await verifyRecoveryAssetRoots({
       templateRoot: join(bundleRoot, 'templates'),
       documentRoot: join(bundleRoot, 'documents'),
+      ...(registryAssets ? { stagingRoot: join(bundleRoot, 'staging') } : {}),
       manifest: assetMetadata,
     })
   }
@@ -238,8 +243,10 @@ export async function createRecoveryBundle({
   await dump(dumpPath)
   const database = await fileDigest(dumpPath)
   if (!equal(files, await inventory(sourceRoot))) fail('SOURCE_STORAGE_CHANGED')
-  if (documentAssets) await verifyRecoveryAssetRoots({ ...documentAssets, manifest: assetMetadata })
+  if (assets) await verifyRecoveryAssetRoots({ ...assets, manifest: assetMetadata })
   await assertQuiescent()
+  if (registryAssets && !isDeepStrictEqual(await registryAssets.readSnapshot(), assetMetadata))
+    fail('DOCUMENT_REGISTRY_CHANGED')
   const manifest = {
     ...assetMetadata,
     fakeDataOnly: true,
@@ -281,6 +288,7 @@ export async function verifyRecoveryBundle(bundleRoot) {
     await verifyRecoveryAssetRoots({
       templateRoot: join(bundleRoot, 'templates'),
       documentRoot: join(bundleRoot, 'documents'),
+      stagingRoot: join(bundleRoot, 'staging'),
       manifest,
     })
   if (!equal(await fileDigest(join(bundleRoot, 'database.dump')), manifest.database))
@@ -299,6 +307,7 @@ export async function restoreRecoveryFiles({
   targetRoot,
   targetTemplateRoot,
   targetDocumentRoot,
+  targetStagingRoot,
 }) {
   const manifest = await verifyRecoveryBundle(bundleRoot)
   const roots = {
@@ -307,6 +316,9 @@ export async function restoreRecoveryFiles({
       ? {
           templates: targetTemplateRoot,
           documents: targetDocumentRoot,
+          ...(manifest.assetMetadataSource === 'DATABASE_REGISTRY'
+            ? { staging: targetStagingRoot }
+            : {}),
         }
       : {}),
   }
@@ -353,6 +365,7 @@ export async function restoreRecoveryFiles({
     await verifyRecoveryAssetRoots({
       templateRoot: targetTemplateRoot,
       documentRoot: targetDocumentRoot,
+      stagingRoot: targetStagingRoot,
       manifest,
     })
   return manifest

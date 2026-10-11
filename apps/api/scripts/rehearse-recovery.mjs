@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { fork, spawn } from 'node:child_process'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createReadStream, createWriteStream } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile, copyFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import {
   exportRecoveryBundle,
@@ -19,6 +19,8 @@ import {
   validateEncryptedArchiveDestination,
 } from './encrypted-recovery.mjs'
 import postgres from 'postgres'
+import { unzipSync } from 'fflate'
+import { inspectSubmissionBundle } from './verify-submission-bundle.mjs'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { auditEvidence, readEvidenceReferences } from './evidence-integrity.mjs'
@@ -46,6 +48,12 @@ import {
 } from './recovery-fixture.mjs'
 
 import { assertNoDocumentRegistryRows } from './recovery-assets.mjs'
+import {
+  collectDocumentRegistryAssets,
+  readDocumentRegistrySnapshot,
+  registrySnapshotDigest,
+} from './document-registry-inventory.mjs'
+import { invalidateRestoredDocumentLeases } from './recovery-registry.mjs'
 import { createRecoveryDocumentFixture } from './recovery-document-fixture.mjs'
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url))
@@ -67,6 +75,12 @@ try {
   process.exit(1)
 }
 const runRoot = resolve(repo, 'run/recovery-drills', runId)
+const vaultRoot = resolve('D:/student-service-registry-drill-' + runId)
+const registryRoots = {
+  templateRoot: join(vaultRoot, 'source-templates'),
+  documentRoot: join(vaultRoot, 'source-documents'),
+  stagingRoot: join(vaultRoot, 'source-staging'),
+}
 const sourceRoot = join(runRoot, 'source-files'),
   restoredRoot = join(runRoot, 'restored-files'),
   bundleRoot = join(runRoot, 'bundle')
@@ -211,6 +225,15 @@ async function startServer(databaseUrl, root, name) {
     SMTP_PORT: '1',
     SMTP_SECURE: 'false',
     MAIL_FROM: 'fake-recovery@example.invalid',
+    ...(options.documentRegistry
+      ? {
+          RECOVERY_DOCUMENT_REGISTRY: 'true',
+          RECOVERY_DOCUMENT_ROOT: join(vaultRoot, name + '-documents'),
+          RECOVERY_DOCUMENT_STAGING_ROOT: join(vaultRoot, name + '-staging'),
+          RECOVERY_DOCUMENT_TEMPLATE_ROOT: join(vaultRoot, name + '-templates'),
+          LIBREOFFICE_PATH: process.env.LIBREOFFICE_PATH,
+        }
+      : {}),
   }
   const child = fork(resolve(api, 'scripts/recovery-api.mjs'), [], {
     cwd: api,
@@ -348,10 +371,52 @@ try {
   await source.end()
   source = connect(sourceUrl)
   const fixture = await seedRecoveryFixture(source)
+  if (options.documentRegistry) {
+    await mkdir(vaultRoot)
+    for (const root of Object.values(registryRoots)) await mkdir(root)
+    await copyFile(
+      join(api, 'templates/submission-summary-v1.docx'),
+      join(registryRoots.templateRoot, 'submission-summary-v1.docx'),
+      1,
+    )
+  }
   let http = await startServer(sourceUrl, sourceRoot, 'source')
   const state = await createRecoveryDossier(http, fixture)
   report.checks.fakeTypesAndRejectedInvalidWrites = true
-  let documentAssets
+  let documentAssets, registryAssets
+  if (options.documentRegistry) {
+    console.log('RECOVERY_PHASE generate-registry-documents')
+    for (const [round, format] of [
+      [1, 'docx'],
+      [2, 'pdf'],
+    ])
+      await http(fixture.owner, `/submissions/${state.id}/rounds/${round}/documents/${format}`, {
+        timeoutMs: 120000,
+      })
+    const unfinished = await new Promise((res, rej) => {
+      const timer = setTimeout(() => rej(new Error('REGISTRY_CLAIM_TIMEOUT')), 15000)
+      server.child.once('message', (message) => {
+        clearTimeout(timer)
+        res(message)
+      })
+      server.child.send({ type: 'claim-unfinished-pdf', submissionId: state.id, roundNumber: 1 })
+    })
+    assert.equal(unfinished.type, 'unfinished-pdf')
+    assert.equal(unfinished.state, 'CLAIMED')
+    registryAssets = {
+      ...registryRoots,
+      readSnapshot: () => collectDocumentRegistryAssets({ sql: source, ...registryRoots }),
+    }
+    documentAssets = await registryAssets.readSnapshot()
+    report.documentAssets = {
+      metadataSource: 'DATABASE_REGISTRY',
+      registryIntegration: 'ACTUAL_DATABASE',
+      templates: documentAssets.templates.length,
+      documents: documentAssets.documents.length,
+      staging: documentAssets.staging.length,
+      pendingRunningPdf: 1,
+    }
+  }
   if (options.documentAssets) {
     console.log('RECOVERY_PHASE generate-synthetic-document-assets')
     const roundIds = await source`SELECT id, round_number AS "roundNumber" FROM submission_rounds
@@ -382,11 +447,12 @@ try {
     assert.equal(mode.default_transaction_read_only, 'on')
     const [sessions] = await source`SELECT count(*)::int AS others FROM pg_stat_activity
       WHERE datname=current_database() AND pid<>pg_backend_pid()`
-    await assertNoDocumentRegistryRows(source)
+    if (!options.documentRegistry) await assertNoDocumentRegistryRows(source)
     assert.equal(sessions.others, 0, 'Controlled source must have no other sessions')
   }
   await assertQuiescent()
-  report.checks.documentRegistryEmptyOrAbsent = true
+  report.checks.documentRegistryEmptyOrAbsent = !options.documentRegistry
+  if (options.documentRegistry) report.checks.registrySnapshotCheckedBeforeAndAfterCopy = true
   const before = await snapshot(source),
     sourceAudit = await audit(source, sourceRoot)
   assert.equal(sourceAudit.status, 'OK')
@@ -411,7 +477,8 @@ try {
     sourceRoot,
     runId,
     assertQuiescent,
-    documentAssets,
+    documentAssets: registryAssets ? undefined : documentAssets,
+    registryAssets,
     dump: (path) =>
       docker(
         [
@@ -523,8 +590,17 @@ try {
   const assetTargets =
     manifest.version === 2
       ? {
-          targetTemplateRoot: join(runRoot, 'restored-templates'),
-          targetDocumentRoot: join(runRoot, 'restored-documents'),
+          targetTemplateRoot: join(
+            options.documentRegistry ? vaultRoot : runRoot,
+            'restored-templates',
+          ),
+          targetDocumentRoot: join(
+            options.documentRegistry ? vaultRoot : runRoot,
+            'restored-documents',
+          ),
+          ...(options.documentRegistry
+            ? { targetStagingRoot: join(vaultRoot, 'restored-staging') }
+            : {}),
         }
       : {}
   await restoreRecoveryFiles({
@@ -582,6 +658,7 @@ try {
     await verifyRecoveryAssetRoots({
       templateRoot: assetTargets.targetTemplateRoot,
       documentRoot: assetTargets.targetDocumentRoot,
+      stagingRoot: assetTargets.targetStagingRoot,
       manifest,
     })
     const restoredRounds =
@@ -599,9 +676,149 @@ try {
       )
     }
     report.checks.documentBytesTemplatesAndRoundBindingsEqual = true
-    report.checks.documentRegistryIntegration = 'NOT_IMPLEMENTED'
+    report.checks.documentRegistryIntegration = options.documentRegistry
+      ? 'ACTUAL_DATABASE'
+      : 'NOT_IMPLEMENTED'
+    if (options.documentRegistry) {
+      assert.equal(
+        registrySnapshotDigest(await readDocumentRegistrySnapshot(target)),
+        manifest.registrySnapshotSha256,
+      )
+      report.checks.registryMatchesFrozenDatabaseSnapshot = true
+      const documentRows = await target`SELECT * FROM submission_documents ORDER BY id`
+      const jobsBeforeInvalidation =
+        await target`SELECT * FROM submission_document_jobs ORDER BY id`
+      const auditBeforeInvalidation = await target`SELECT * FROM audit_logs ORDER BY id`
+      await target.unsafe(
+        `CREATE FUNCTION registry_recovery_fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='document.recovery.lease.invalidated' THEN RAISE EXCEPTION 'Synthetic audit failure'; END IF; RETURN NEW; END; $$`,
+      )
+      await target.unsafe(
+        `CREATE TRIGGER registry_recovery_fail_audit BEFORE INSERT ON audit_logs FOR EACH ROW EXECUTE FUNCTION registry_recovery_fail_audit()`,
+      )
+      try {
+        await assert.rejects(
+          invalidateRestoredDocumentLeases({ sql: target, databaseUrl: targetUrl, runId }),
+          (error) => error.code === 'P0001',
+        )
+        assert.deepEqual(
+          await target`SELECT * FROM submission_document_jobs ORDER BY id`,
+          jobsBeforeInvalidation,
+        )
+        assert.deepEqual(
+          await target`SELECT * FROM audit_logs ORDER BY id`,
+          auditBeforeInvalidation,
+        )
+      } finally {
+        await target.unsafe('DROP TRIGGER registry_recovery_fail_audit ON audit_logs')
+        await target.unsafe('DROP FUNCTION registry_recovery_fail_audit()')
+      }
+      report.checks.leaseInvalidationAuditFailureRollsBack = true
+      const invalidated = await invalidateRestoredDocumentLeases({
+        sql: target,
+        databaseUrl: targetUrl,
+        runId,
+      })
+      assert.equal(invalidated, 1)
+      assert.equal(
+        await invalidateRestoredDocumentLeases({ sql: target, databaseUrl: targetUrl, runId }),
+        0,
+      )
+      assert.deepEqual(await target`SELECT * FROM submission_documents ORDER BY id`, documentRows)
+      const [job] =
+        await target`SELECT state,lease_until,error_code FROM submission_document_jobs WHERE state='RETRYABLE'`
+      assert.equal(job.state, 'RETRYABLE')
+      assert.equal(job.lease_until, null)
+      assert.equal(job.error_code, 'LEASE_EXPIRED')
+      report.checks.runningLeasesInvalidatedBeforeApi = invalidated
+
+      await assert.rejects(
+        target.unsafe(`INSERT INTO submission_documents(set_id,format,storage_key,attempt_id,size,sha256,template,renderer,converter,source_docx_sha256,status)
+        SELECT j.set_id,'PDF',j.attempt_id,j.attempt_id,p.size,p.sha256,w.template,w.renderer,p.converter,w.sha256,'UNSIGNED_DECLARATION'
+        FROM submission_document_jobs j JOIN submission_documents w ON w.set_id=j.set_id AND w.format='DOCX'
+        CROSS JOIN (SELECT size,sha256,converter FROM submission_documents WHERE format='PDF' LIMIT 1) p
+        WHERE j.state='RETRYABLE' AND j.format='PDF'`),
+        (error) => error.code === 'P0001',
+      )
+      assert.deepEqual(await target`SELECT * FROM submission_documents ORDER BY id`, documentRows)
+      report.checks.preRestoreAttemptCannotPublish = true
+      const restored = await collectDocumentRegistryAssets({
+        sql: target,
+        templateRoot: assetTargets.targetTemplateRoot,
+        documentRoot: assetTargets.targetDocumentRoot,
+        stagingRoot: assetTargets.targetStagingRoot,
+      })
+      for (const key of ['templates', 'documents', 'staging'])
+        assert.deepEqual(restored[key], manifest[key])
+    }
   }
   http = await startServer(targetUrl, restoredRoot, 'restored')
+  if (options.documentRegistry) {
+    for (const [actor, base, portal] of [
+      [fixture.owner, 'submissions', 'user'],
+      [fixture.reviewer, 'review-submissions', 'user'],
+      [fixture.reviewer, 'review-submissions', 'admin'],
+    ]) {
+      for (const item of manifest.documents) {
+        const bytes = await http(
+          actor,
+          `/${base}/${state.id}/rounds/${item.roundNumber}/documents/${item.format.toLowerCase()}`,
+          { portal },
+        )
+        assert.deepEqual(
+          { size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') },
+          { size: item.size, sha256: item.sha256 },
+        )
+      }
+      const bundle = await http(actor, `/${base}/${state.id}/rounds/2/bundle`, {
+        portal,
+        timeoutMs: 120000,
+      })
+      inspectSubmissionBundle(bundle)
+      const parts = unzipSync(bundle)
+      for (const item of manifest.documents.filter((item) => item.roundNumber === 2)) {
+        const bytes = parts[item.format === 'DOCX' ? 'phieu-ho-so.docx' : 'phieu-ho-so.pdf']
+        assert.ok(bytes)
+        assert.equal(createHash('sha256').update(bytes).digest('hex'), item.sha256)
+      }
+    }
+    for (const [actor, base, portal, expected] of [
+      [fixture.other, 'submissions', 'user', 404],
+      [fixture.foreign, 'review-submissions', 'user', 404],
+      [fixture.foreign, 'review-submissions', 'admin', 403],
+    ])
+      await http(actor, `/${base}/${state.id}/rounds/2/documents/pdf`, { portal, expected })
+    report.checks.storedDocumentBytesEqualAcrossOwnerReviewerAdmin = true
+
+    const originalWord =
+      await target`SELECT * FROM submission_documents WHERE format='DOCX' ORDER BY id`
+    const [wait] =
+      await target`SELECT GREATEST(0,CEIL(EXTRACT(EPOCH FROM(next_attempt_at-clock_timestamp()))*1000))::int AS ms FROM submission_document_jobs WHERE state='RETRYABLE'`
+    assert.ok(wait.ms >= 0 && wait.ms <= 4000)
+    await new Promise((res) => setTimeout(res, wait.ms + 50))
+    const resumedPdf = await http(
+      fixture.owner,
+      `/submissions/${state.id}/rounds/1/documents/pdf`,
+      { timeoutMs: 120000 },
+    )
+    assert.deepEqual(
+      await target`SELECT * FROM submission_documents WHERE format='DOCX' ORDER BY id`,
+      originalWord,
+    )
+    const [resumed] =
+      await target`SELECT d.storage_key AS key,d.size,d.sha256,d.source_docx_sha256 AS source,j.attempts,j.state,w.sha256 AS "wordSha256" FROM submission_documents d JOIN submission_document_sets s ON s.id=d.set_id JOIN submission_rounds r ON r.id=s.round_id JOIN submission_document_jobs j ON j.set_id=d.set_id AND j.format='PDF' JOIN submission_documents w ON w.set_id=d.set_id AND w.format='DOCX' WHERE r.round_number=1 AND d.format='PDF'`
+    assert.equal(resumed.attempts, 2)
+    assert.equal(resumed.state, 'COMPLETE')
+    assert.equal(resumed.source, resumed.wordSha256)
+    assert.equal(resumedPdf.length, resumed.size)
+    assert.equal(createHash('sha256').update(resumedPdf).digest('hex'), resumed.sha256)
+    report.checks.interruptedPdfResumedFromSameStoredWord = true
+    report.resumedPdf = {
+      key: resumed.key,
+      size: resumed.size,
+      sha256: resumed.sha256,
+      sourceDocxSha256: resumed.source,
+    }
+  }
   await verifyRecoveryHttp(http, fixture, state)
   report.checks.viewsHistoryNotificationsAndAccess = true
   report.checks.typedAnswersPreservedAfterRestore = true

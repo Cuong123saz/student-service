@@ -375,6 +375,9 @@ export async function inspectEncryptedRecoveryArchive({
           ? {
               templates: manifest.templates.length,
               documents: manifest.documents.length,
+              ...(manifest.assetMetadataSource === 'DATABASE_REGISTRY'
+                ? { staging: manifest.staging.length }
+                : {}),
               assetMetadataSource: manifest.assetMetadataSource,
             }
           : {}),

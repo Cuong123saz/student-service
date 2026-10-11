@@ -108,3 +108,44 @@ export async function copyRecoveryPrivateFile(source, destination, expected, max
     await Promise.allSettled([input?.close(), output?.close()])
   }
 }
+
+// Hash without allocating from file size; same inode and bounded N+1 read at both ends.
+export async function digestRecoveryPrivateFile(path, maximum) {
+  if (!Number.isInteger(maximum) || maximum < 1 || maximum > 536870912)
+    throw new Error('INVALID_DIGEST_BOUND')
+  let input
+  try {
+    const before = await lstat(path, { bigint: true })
+    if (
+      !before.isFile() ||
+      before.isSymbolicLink() ||
+      before.size <= 0n ||
+      before.size > BigInt(maximum)
+    )
+      throw new Error('UNSAFE_OR_OVERSIZED_FILE')
+    input = await open(
+      path,
+      constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0),
+    )
+    const opened = await input.stat({ bigint: true })
+    if (!opened.isFile() || !same(before, opened)) throw new Error('FILE_CHANGED_DURING_COPY')
+    const size = Number(opened.size),
+      buffer = Buffer.alloc(Math.min(size, 65536)),
+      hash = createHash('sha256')
+    let used = 0
+    while (used < size) {
+      const { bytesRead } = await input.read(buffer, 0, Math.min(buffer.length, size - used), null)
+      if (!bytesRead) throw new Error('FILE_CHANGED_DURING_COPY')
+      hash.update(buffer.subarray(0, bytesRead))
+      used += bytesRead
+    }
+    const extra = await input.read(Buffer.alloc(1), 0, 1, null),
+      after = await input.stat({ bigint: true }),
+      final = await lstat(path, { bigint: true })
+    if (extra.bytesRead || !same(opened, after) || !same(after, final) || final.isSymbolicLink())
+      throw new Error('FILE_CHANGED_DURING_COPY')
+    return { size, sha256: hash.digest('hex') }
+  } finally {
+    await input?.close()
+  }
+}

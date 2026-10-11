@@ -1,5 +1,6 @@
-// Recovery v2 is a fake-data technical fixture until the DB registry is implemented.
+// Recovery v2 distinguishes historical technical fixtures from actual database-registry assets.
 // These checks prove internal consistency and byte preservation, never authenticity/signatures.
+import { isDeepStrictEqual } from 'node:util'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
@@ -27,19 +28,30 @@ const sameTemplate = (a, b) => ['id', 'sha256', 'bindingSource'].every((key) => 
 export function validateRecoveryAssets(manifest) {
   if (manifest.version === 1) {
     if (
-      ['templates', 'documents', 'assetMetadataSource'].some((key) => Object.hasOwn(manifest, key))
+      ['templates', 'documents', 'staging', 'registrySnapshotSha256', 'assetMetadataSource'].some(
+        (key) => Object.hasOwn(manifest, key),
+      )
     )
       fail()
     return manifest
   }
   if (
     manifest.version !== 2 ||
-    manifest.assetMetadataSource !== 'TECHNICAL_FIXTURE' ||
+    !['TECHNICAL_FIXTURE', 'DATABASE_REGISTRY'].includes(manifest.assetMetadataSource) ||
     !Array.isArray(manifest.templates) ||
     manifest.templates.length < 1 ||
     manifest.templates.length > 32 ||
     !Array.isArray(manifest.documents) ||
     manifest.documents.length > 5000
+  )
+    fail()
+  const registry = manifest.assetMetadataSource === 'DATABASE_REGISTRY'
+  if (
+    registry
+      ? !Array.isArray(manifest.staging) ||
+        manifest.staging.length > 5000 ||
+        !string(manifest.registrySnapshotSha256, hash)
+      : Object.hasOwn(manifest, 'staging') || Object.hasOwn(manifest, 'registrySnapshotSha256')
   )
     fail()
   const templates = new Map(),
@@ -74,6 +86,7 @@ export function validateRecoveryAssets(manifest) {
         'sourceDocxSha256',
         'kind',
         'status',
+        ...(registry ? ['documentId', 'attemptId', 'renderer', 'converter'] : []),
       ]) ||
       !['key', 'setId', 'roundId', 'submissionId'].every((key) => string(item[key], uuid)) ||
       !Number.isInteger(item.roundNumber) ||
@@ -87,6 +100,26 @@ export function validateRecoveryAssets(manifest) {
       objects.has(item.key) ||
       !keys(item.template, ['id', 'sha256', 'bindingSource']) ||
       !['SUBMITTED', 'LEGACY_V1'].includes(item.template.bindingSource)
+    )
+      fail()
+    if (
+      registry &&
+      (!string(item.documentId, uuid) ||
+        !string(item.attemptId, uuid) ||
+        item.key !== item.attemptId ||
+        !keys(item.renderer, ['version', 'buildSha256', 'nodeVersion', 'icuVersion']) ||
+        item.rendererVersion !== item.renderer.version ||
+        !version(item.renderer.version) ||
+        !string(item.renderer.buildSha256, hash) ||
+        ![item.renderer.nodeVersion, item.renderer.icuVersion].every(
+          (value) => typeof value === 'string' && value.length > 0 && value.length <= 40,
+        ) ||
+        (item.format === 'DOCX'
+          ? item.converter !== null
+          : !keys(item.converter, ['version', 'binarySha256']) ||
+            item.converterVersion !== item.converter.version ||
+            !version(item.converter.version) ||
+            !string(item.converter.binarySha256, hash)))
     )
       fail()
     const template = templates.get(item.template.id)
@@ -111,7 +144,8 @@ export function validateRecoveryAssets(manifest) {
       ['roundId', 'submissionId', 'roundNumber', 'rendererVersion'].some(
         (key) => set.first[key] !== item[key],
       ) ||
-      !sameTemplate(set.first.template, item.template)
+      !sameTemplate(set.first.template, item.template) ||
+      (registry && !isDeepStrictEqual(set.first.renderer, item.renderer))
     )
       fail()
     set.formats.set(item.format, item)
@@ -121,17 +155,44 @@ export function validateRecoveryAssets(manifest) {
       pdf = set.formats.get('PDF')
     if (!word || (pdf && pdf.sourceDocxSha256 !== word.sha256)) fail()
   }
+  if (registry) {
+    const documentIds = new Set(manifest.documents.map((item) => item.documentId))
+    if (documentIds.size !== manifest.documents.length) fail()
+    const staged = new Set()
+    for (const entry of manifest.staging) {
+      const document = manifest.documents.find((item) => item.key === entry.key)
+      if (
+        !keys(entry, ['key', 'documentId', 'size', 'sha256']) ||
+        !document ||
+        entry.documentId !== document.documentId ||
+        !digest(entry, 16777216) ||
+        entry.size !== document.size ||
+        entry.sha256 !== document.sha256 ||
+        staged.has(entry.key)
+      )
+        fail()
+      staged.add(entry.key)
+    }
+  }
   return manifest
 }
 
 export function recoverySubdirectories(manifest) {
-  return manifest.version === 2 ? ['files', 'templates', 'documents'] : ['files']
+  return manifest.version === 2
+    ? [
+        'files',
+        'templates',
+        'documents',
+        ...(manifest.assetMetadataSource === 'DATABASE_REGISTRY' ? ['staging'] : []),
+      ]
+    : ['files']
 }
 
 export function recoveryEntryMaximum(name) {
   if (name === 'database.dump') return 536870912
   if (typeof name !== 'string') fail()
   if (name.startsWith('files/') && string(name.slice(6), uuid)) return 5242880
+  if (name.startsWith('staging/') && string(name.slice(8), uuid)) return 16777216
   if (name.startsWith('documents/') && string(name.slice(10), uuid)) return 16777216
   if (/^templates\/submission-summary-v[1-9][0-9]*\.docx$/.test(name)) return 1048576
   fail()
@@ -145,12 +206,14 @@ export function recoveryFileEntries(manifest) {
       digest: { size: item.size, sha256: item.sha256 },
     })),
     ...(manifest.version === 2
-      ? ['templates', 'documents'].flatMap((directory) =>
-          manifest[directory].map((item) => ({
-            name: directory + '/' + item.key,
-            digest: { size: item.size, sha256: item.sha256 },
-          })),
-        )
+      ? recoverySubdirectories(manifest)
+          .filter((directory) => directory !== 'files')
+          .flatMap((directory) =>
+            manifest[directory].map((item) => ({
+              name: directory + '/' + item.key,
+              digest: { size: item.size, sha256: item.sha256 },
+            })),
+          )
       : []),
   ]
 }
@@ -170,8 +233,8 @@ export function assertDisjointRecoveryRoots(roots) {
     }
 }
 
-// Until B2 connects an actual registry snapshot to all vault bytes, v1 and fixture-v2
-// must fail closed rather than restore metadata whose published files were omitted.
+// Legacy v1 and fixture-v2 must fail closed rather than omit actual registry/vault bytes.
+// Only the explicit DATABASE_REGISTRY path reads and compares a complete registry inventory.
 export async function assertNoDocumentRegistryRows(sql) {
   const [schema] = await sql.unsafe(`SELECT
     to_regclass('public.submission_document_sets') IS NOT NULL AS sets,
