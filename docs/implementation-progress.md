@@ -8,7 +8,7 @@ Cập nhật 11/10/2026. Đây là tiến độ mã nguồn/kiểm chứng local
 - Cấu hình thủ tục có phiên bản: biểu mẫu đủ sáu kiểu trường, yêu cầu minh chứng, đơn vị/cán bộ/hàng đợi. Giấy xác nhận sinh viên OFFLINE tại CTSV.
 - Nháp, minh chứng riêng tư, gửi và chốt từng round; nhận xử lý, yêu cầu bổ sung, duyệt nội dung/từ chối, bàn giao và thông báo trong ứng dụng. Quyền hiện tại được kiểm tra khi thao tác; lịch sử và tệp cũ giữ nguyên.
 - Phiếu Word/PDF tự điền cho mọi loại hồ sơ điện tử, theo đúng round, chưa ký. Mẫu v1 khóa mã băm.
-- Gói ZIP riêng từng round: Word, PDF, minh chứng nguyên byte, manifest kiểm tra toàn vẹn; công cụ kiểm tra ngoại tuyến và kiểm tra sẵn sàng Word/PDF. Đã kiểm chứng hai tác vụ đồng thời, từ chối tác vụ vượt mức và thử lại sau giải phóng.
+- Gói ZIP riêng từng round: Word, PDF, minh chứng nguyên byte, manifest kiểm tra toàn vẹn; công cụ kiểm tra ngoại tuyến và kiểm tra sẵn sàng Word/PDF. Đã kiểm chứng hai tác vụ đồng thời với gói nhỏ, từ chối tác vụ vượt mức và thử lại sau giải phóng; một hồ sơ đủ 20 MiB qua upload HTTP và PDF thật đạt, có kiểm tra cấu trúc PDF độc lập.
 - Đối chiếu toàn vẹn kho, thử khôi phục/đóng gói/mã hóa và demo bằng dữ liệu giả, runtime tách khỏi bản dựng đang phát triển.
 
 Chi tiết và bằng chứng mới nhất: [phiếu Word/PDF](submission-documents.md), [gói tải](submission-bundles.md). Dữ liệu thực hành cũ ở 3011/3013 được giữ; bản gói mới ở `http://127.0.0.3:3015/login`, dùng DEMO 3 để tự thực hành.

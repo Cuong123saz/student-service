@@ -1,6 +1,7 @@
 import type { SubmissionBundleManifest } from './submission-bundle.js'
 import { unzipSync, strFromU8 } from 'fflate'
-import { LocalSubmissionDocumentRenderer } from './submission-document.js'
+import { LocalSubmissionDocumentRenderer, LibreOfficePdfConverter } from './submission-document.js'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import assert from 'node:assert/strict'
 import { randomUUID, createHash } from 'node:crypto'
 import { after, afterEach, beforeEach, test } from 'node:test'
@@ -3687,4 +3688,170 @@ test('HTTP round bundles preserve private evidence and enforce owner, portal and
     ).statusCode,
     403,
   )
+})
+
+test('20 MiB bundle keeps four maximum-size PDFs intact, rejects overflow and refuses later corruption', async (t) => {
+  const f = await fixture()
+  await addReviewer(f.unitId)
+  const fileBytes = 5 * 1024 * 1024
+  const original = await readFile(
+    new URL('../../../scripts/fixtures/recovery/evidence-round-1.pdf', import.meta.url),
+  )
+  const marker = original.lastIndexOf(Buffer.from('startxref'))
+  assert.ok(marker > 0)
+  // PDF comments may separate the trailer and startxref. Existing object/xref offsets stay unchanged.
+  const evidence = Buffer.concat([
+    original.subarray(0, marker),
+    Buffer.from('%' + 'X'.repeat(fileBytes - original.length - 2) + '\n'),
+    original.subarray(marker),
+  ])
+  assert.equal(evidence.length, fileBytes)
+  const config: ProcedureConfig = {
+    ...structuredClone(f.version.config),
+    attachments: f.version.config.attachments.map((item) => ({
+      ...item,
+      maxFiles: 3,
+      maxBytes: fileBytes,
+    })),
+    maxTotalAttachmentBytes: 4 * fileBytes,
+  }
+  await db
+    .update(procedureVersions)
+    .set({ status: 'RETIRED' })
+    .where(eq(procedureVersions.id, f.version.id))
+  const [version] = await db
+    .insert(procedureVersions)
+    .values({
+      serviceId: f.serviceId,
+      ownerUnitId: f.unitId,
+      versionNumber: 2,
+      status: 'PUBLISHED',
+      publishedAt: new Date(),
+      config,
+      createdBy: f.actor.userId,
+      updatedBy: f.actor.userId,
+    })
+    .returning()
+  const draft = await f.service.create(f.actor, f.serviceId, version!.id)
+  let ready = await f.service.save(f.actor, draft.id, draft.revision, {
+    purpose: 'Đo dung lượng bằng dữ liệu giả',
+    amount: 0,
+    agreed: false,
+    date: '2026-10-11',
+  })
+  const realConverter = process.env.CAPACITY_REAL_CONVERTER === 'true'
+  if (realConverter)
+    assert.ok(
+      process.env.LIBREOFFICE_PATH,
+      'Real-converter profile requires an explicit LibreOffice path',
+    )
+  let conversions = 0
+  const converter = realConverter
+    ? new LibreOfficePdfConverter()
+    : { convert: async () => Buffer.from('%PDF-1.7\n' + '.'.repeat(120) + '\n%%EOF') }
+  const renderer = new LocalSubmissionDocumentRenderer({
+    convert: (word) => {
+      conversions++
+      return converter.convert(word)
+    },
+  })
+  const app = buildApp({
+    submissionService: new SubmissionService(f.repository, f.storage, renderer),
+  })
+  await app.ready()
+  t.after(() => app.close())
+  const cookie = reviewCookie(app, f.actor, 'user', ['STUDENT'])
+  const tooLarge = multipart(Buffer.concat([evidence, Buffer.from('X')]), 'too-large.pdf')
+  const rejectedSize = await app.inject({
+    method: 'POST',
+    url: '/api/v1/user/submissions/' + draft.id + '/attachments/proof?revision=' + ready.revision,
+    headers: { ...tooLarge.headers, cookie, origin: env.corsOrigin },
+    payload: tooLarge.payload,
+  })
+  assert.equal(rejectedSize.statusCode, 413)
+  assert.equal(f.storage.files.size, 0)
+  for (let index = 0; index < 4; index++) {
+    const body = multipart(evidence, 'capacity-fake-' + index + '.pdf')
+    const uploaded = await app.inject({
+      method: 'POST',
+      url:
+        '/api/v1/user/submissions/' +
+        draft.id +
+        '/attachments/' +
+        (index < 3 ? 'proof' : 'extraProof') +
+        '?revision=' +
+        ready.revision,
+      headers: { ...body.headers, cookie, origin: env.corsOrigin },
+      payload: body.payload,
+    })
+    assert.equal(uploaded.statusCode, 200, uploaded.body)
+    ready = uploaded.json<DraftView>()
+  }
+  assert.equal(
+    ready.files.reduce((sum, file) => sum + file.size, 0),
+    20 * 1024 * 1024,
+  )
+  const extra = multipart(original, 'overflow.pdf')
+  const overflow = await app.inject({
+    method: 'POST',
+    url:
+      '/api/v1/user/submissions/' + draft.id + '/attachments/extraProof?revision=' + ready.revision,
+    headers: { ...extra.headers, cookie, origin: env.corsOrigin },
+    payload: extra.payload,
+  })
+  assert.equal(overflow.statusCode, 422)
+  assert.equal(overflow.json<{ code: string }>().code, 'ATTACHMENT_LIMIT')
+  assert.equal(f.storage.files.size, 4)
+  assert.equal((await f.service.get(f.actor.userId, draft.id)).revision, ready.revision)
+  const submitted = await app.inject({
+    method: 'POST',
+    url: '/api/v1/user/submissions/' + draft.id + '/submit',
+    headers: { cookie, origin: env.corsOrigin },
+    payload: { expectedRevision: ready.revision },
+  })
+  assert.equal(submitted.statusCode, 200, submitted.body)
+  const sent = submitted.json<DraftView>()
+  const url = '/api/v1/user/submissions/' + sent.id + '/rounds/1/bundle'
+  const started = performance.now()
+  const response = await app.inject({ url, headers: { cookie } })
+  const responseElapsedMs = Math.round(performance.now() - started)
+  assert.equal(response.statusCode, 200)
+  assert.ok(response.rawPayload.length > 20 * 1024 * 1024)
+  assert.ok(response.rawPayload.length < 40 * 1024 * 1024)
+  const parts = unzipSync(response.rawPayload),
+    manifest = JSON.parse(strFromU8(parts['manifest.json']!)) as SubmissionBundleManifest
+  const proofs = manifest.files.filter((item) => item.kind === 'EVIDENCE')
+  assert.equal(proofs.length, 4)
+  for (const item of proofs) {
+    assert.equal(item.size, fileBytes)
+    assert.deepEqual(Buffer.from(parts[item.path]!), evidence)
+    assert.equal(createHash('sha256').update(parts[item.path]!).digest('hex'), item.sha256)
+  }
+  assert.equal(conversions, 1)
+  const word = strFromU8(unzipSync(parts['phieu-ho-so.docx']!)['word/document.xml']!)
+  assert.match(word, />0<\/w:t>/)
+  assert.ok(word.includes('Không'))
+  t.diagnostic(
+    JSON.stringify({
+      fakeDataOnly: true,
+      evidenceBytes: 4 * fileBytes,
+      archiveBytes: response.rawPayload.length,
+      elapsedMs: responseElapsedMs,
+      pdfConverter: realConverter ? 'REAL' : 'MOCK',
+    }),
+  )
+  if (realConverter) {
+    await mkdir(new URL('../../../../../run/', import.meta.url), { recursive: true })
+    await writeFile(
+      new URL('../../../../../run/capacity-full-20m.zip', import.meta.url),
+      response.rawPayload,
+    )
+  }
+  const stored = await f.repository.roundFile(f.actor.userId, draft.id, 1, proofs.at(-1)!.fileId!)
+  const altered = f.storage.files.get(stored.key)!
+  altered[altered.length - 1] = altered.at(-1)! ^ 1
+  const corrupted = await app.inject({ url, headers: { cookie } })
+  assert.equal(corrupted.statusCode, 503)
+  assert.equal(corrupted.json<{ code: string }>().code, 'FILE_INTEGRITY')
+  assert.equal(conversions, 1)
 })
