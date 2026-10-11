@@ -22,7 +22,7 @@ Tối đa hai gói đang tạo trên một API instance, dùng chung giới hạ
 
 Tải gói trả `attachment`, `application/zip`, `private, no-store`, `nosniff`. Không URL công khai, không ghi byte riêng tư, câu trả lời hoặc storage key vào log/manifest. Tạo gói không sửa hồ sơ, không ghi quyết định và không tạo audit giả cho một thay đổi nghiệp vụ không xảy ra.
 
-Mẫu `submission-summary-v1.docx` được khóa SHA-256 trong renderer. Thiếu/sửa mẫu trả `503 DOCUMENT_TEMPLATE_UNAVAILABLE` thay vì tạo phiếu âm thầm khác cho hồ sơ cũ. Word/PDF dùng chung một lần đọc mẫu khi tạo gói. Chưa có mẫu v2; trước khi bổ sung phải thiết kế việc gắn phiên bản cho từng round, giữ v1 và kiểm chứng khả năng đọc lại. Không đổi hằng hash để ghi đè bố cục v1.
+Mẫu `submission-summary-v1.docx` được khóa SHA-256 trong renderer. Thiếu/sửa mẫu trả `503 DOCUMENT_TEMPLATE_UNAVAILABLE` thay vì tạo phiếu âm thầm khác cho hồ sơ cũ. Word/PDF dùng chung một lần đọc mẫu khi tạo gói. Migration0022 đã gắn id/hash/nguồn mẫu vào từng round theo ADR0009; renderer dùng binding đó. Chưa có mẫu v2; khi bổ sung phải giữ v1 và kiểm chứng khả năng đọc lại. Không đổi hằng hash để ghi đè bố cục v1.
 
 Tài liệu và ZIP được tạo theo yêu cầu, chưa lưu lâu dài trong kho. Word cùng snapshot/v1 giữ nguyên byte; PDF và ZIP có metadata thời điểm tạo nên không cam kết cùng byte ở hai lần tải. Muốn đối chiếu chính gói đã tải, lưu mã băm của gói ở nơi tin cậy riêng. Mã băm tải mới không thay mã của bản đã ký trong tương lai.
 
@@ -36,7 +36,7 @@ GET, session đúng cổng, không nhận đường dẫn kho hoặc tên tệp 
 
 Số lần gửi là integer 1..2147483647; không tồn tại trả 404; UUID/số không hợp lệ trả 400. Session thiếu/sai cổng trả 401; bị thu quyền trả 403 hoặc 404 theo chính sách hồ sơ. Tên tải `goi-ho-so-<uuid>-lan-<n>.zip`.
 
-Manifest schema `student-service.submission-bundle`, version 1. Mọi tệp trừ chính manifest đều có path, kind, MIME, size và SHA-256. Minh chứng thêm fileId, attachmentKey, originalName và NOT_CHECKED. Không có giá trị VALID hoặc con dấu được tạo bởi bước này.
+Manifest schema `student-service.submission-bundle`, version 1. Gói từ migration0022 kèm template.bindingSource SUBMITTED hoặc LEGACY_V1; verifier vẫn nhận gói version1 cũ thiếu trường đó. Đây là nguồn gắn mẫu, không phải nguồn chứng thực/hiệu lực chữ ký. Mọi tệp trừ chính manifest đều có path, kind, MIME, size và SHA-256. Minh chứng thêm fileId, attachmentKey, originalName và NOT_CHECKED. Không có giá trị VALID hoặc con dấu được tạo bởi bước này.
 
 ## Kiểm tra gói trên máy
 

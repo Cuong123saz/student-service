@@ -1,3 +1,4 @@
+import type { DeclarationTemplateBinding } from './submission-document-template.js'
 import { sql } from 'drizzle-orm'
 import {
   check,
@@ -147,8 +148,23 @@ export const submissionRounds = pgTable(
     values: jsonb('values').$type<DraftValues>().notNull(),
     files: jsonb('files').$type<RoundEvidence[]>().notNull(),
     source: varchar('source', { length: 20 }).$type<'LIVE' | 'MIGRATION'>().notNull(),
+    declarationTemplate: jsonb('declaration_template')
+      .$type<DeclarationTemplateBinding>()
+      .notNull(),
   },
   (table) => [
+    check(
+      'submission_rounds_template_check',
+      sql`jsonb_typeof(${table.declarationTemplate}) = 'object'
+      AND ${table.declarationTemplate} ?& ARRAY['id','sha256','bindingSource']
+      AND ${table.declarationTemplate} - 'id' - 'sha256' - 'bindingSource' = '{}'::jsonb
+      AND jsonb_typeof(${table.declarationTemplate}->'id') = 'string'
+      AND (${table.declarationTemplate}->>'id') ~ '^submission-summary-v[1-9][0-9]*$'
+      AND jsonb_typeof(${table.declarationTemplate}->'sha256') = 'string'
+      AND (${table.declarationTemplate}->>'sha256') ~ '^[a-f0-9]{64}$'
+      AND jsonb_typeof(${table.declarationTemplate}->'bindingSource') = 'string'
+      AND (${table.declarationTemplate}->>'bindingSource') IN ('SUBMITTED','LEGACY_V1')`,
+    ),
     uniqueIndex('submission_rounds_number_unique').on(table.submissionId, table.roundNumber),
     uniqueIndex('submission_rounds_id_submission_unique').on(table.id, table.submissionId),
     check(

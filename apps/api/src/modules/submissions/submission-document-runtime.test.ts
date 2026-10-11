@@ -48,15 +48,16 @@ test('runtime probe stops before conversion when the template is unavailable', a
   assert.equal(result.word.code, 'DOCUMENT_TEMPLATE_UNAVAILABLE')
   assert.equal(pairCalls, 0)
 })
-test('runtime probe rejects an invalid PDF or a pair converted from a different Word', async () => {
+test('runtime probe rejects an invalid PDF or a pair with different Word/template binding', async () => {
   const local = new LocalSubmissionDocumentRenderer({ convert: async () => fakePdf })
-  for (const changed of ['pdf', 'word'] as const) {
+  for (const changed of ['pdf', 'word', 'template'] as const) {
     const renderer: SubmissionDocumentRenderer = {
       render: (snapshot, format) => local.render(snapshot, format),
       renderPair: async (snapshot) => {
         const pair = await local.renderPair(snapshot)
         if (changed === 'pdf') pair.pdf = Buffer.from('bad')
-        else pair.docx = Buffer.from('changed')
+        else if (changed === 'word') pair.docx = Buffer.from('changed')
+        else pair.template.id = 'submission-summary-v2'
         return pair
       },
     }

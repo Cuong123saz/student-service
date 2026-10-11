@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { after, test } from 'node:test'
 import postgres from 'postgres'
 import { databaseClient } from '../../db/client.js'
+import type { DeclarationTemplateBinding } from './submission-document-template.js'
 import type { DraftValues, StudentSnapshot, RoundEvidence } from './submission.types.js'
 interface MigratedSubmission {
   round_number: number
@@ -21,7 +22,7 @@ interface MigratedRound {
   files: RoundEvidence[]
 }
 after(() => databaseClient.end())
-test('0017 backfills immutable rounds and 0018–0021 preserve existing dossiers without invented notifications', async () => {
+test('0017 backfills immutable rounds and 0018–0022 preserve existing dossiers without invented notifications', async () => {
   const url = new URL(process.env.DATABASE_URL ?? 'http://invalid')
   assert.equal(url.port, '5434')
   assert.equal(url.pathname, '/student_service_test')
@@ -207,6 +208,76 @@ test('0017 backfills immutable rounds and 0018–0021 preserve existing dossiers
       { reloptions: string[] }[]
     >`SELECT reloptions FROM pg_class WHERE oid='public.submissions_queue_search_idx'::regclass`
     assert.ok(settings!.reloptions.includes('fastupdate=off'))
+    const beforeTemplates = await temporary<
+      MigratedRound[]
+    >`SELECT * FROM submission_rounds ORDER BY id`
+    const beforeFiles = await temporary`SELECT * FROM submission_files ORDER BY id`
+    const beforeEvents = await temporary`SELECT * FROM submission_events ORDER BY id`
+    const beforeNotices = await temporary`SELECT * FROM personal_notifications ORDER BY id`
+    const beforeAudit = await temporary`SELECT * FROM audit_logs ORDER BY id`
+    const templateMigration = await readFile(
+      new URL('../../../drizzle/0022_round_declaration_template.sql', import.meta.url),
+      'utf8',
+    )
+    await temporary.begin(async (tx) => {
+      for (const statement of templateMigration
+        .split('--> statement-breakpoint')
+        .filter((part) => part.trim()))
+        await tx.unsafe(statement)
+    })
+    const afterTemplates = await temporary<
+      (MigratedRound & { declaration_template: DeclarationTemplateBinding })[]
+    >`SELECT * FROM submission_rounds ORDER BY id`
+    assert.equal(afterTemplates.length, beforeTemplates.length)
+    const binding = {
+      id: 'submission-summary-v1',
+      sha256: '9074a0b961cf66b625d4339c4473a42c7bfc3d981816f821fa78552c7fae8ca2',
+      bindingSource: 'LEGACY_V1',
+    }
+    for (const [index, row] of afterTemplates.entries()) {
+      const { declaration_template, ...original } = row
+      assert.deepEqual(original, beforeTemplates[index])
+      assert.deepEqual(declaration_template, binding)
+      await assert.rejects(
+        () =>
+          temporary!`UPDATE submission_rounds SET declaration_template=${temporary!.json({ ...binding, bindingSource: 'SUBMITTED' })} WHERE id=${row.id}`,
+      )
+      await assert.rejects(() => temporary!`DELETE FROM submission_rounds WHERE id=${row.id}`)
+    }
+    const example = afterTemplates[0]!
+    await assert.rejects(
+      () => temporary!`INSERT INTO submission_rounds (submission_id,round_number,submitted_at,student_snapshot,values,files,source)
+      VALUES (${example.submission_id},2,now(),'{}'::jsonb,'{}'::jsonb,'[]'::jsonb,'LIVE')`,
+      (e: unknown) => (e as { code: string }).code === '23502',
+    )
+    for (const malformed of [
+      null,
+      [],
+      {},
+      { ...binding, id: '../v1' },
+      { ...binding, sha256: 'A'.repeat(64) },
+      { ...binding, bindingSource: 'ISSUED' },
+      { ...binding, extra: true },
+      { id: binding.id, sha256: binding.sha256 },
+      { ...binding, id: null },
+      { ...binding, bindingSource: null },
+      { ...binding, sha256: null },
+    ]) {
+      await assert.rejects(
+        () => temporary!`INSERT INTO submission_rounds (submission_id,round_number,submitted_at,student_snapshot,values,files,source,declaration_template)
+        VALUES (${example.submission_id},2,now(),'{}'::jsonb,'{}'::jsonb,'[]'::jsonb,'LIVE',${temporary!.json(malformed)})`,
+      )
+    }
+    await temporary`INSERT INTO submission_rounds (submission_id,round_number,submitted_at,student_snapshot,values,files,source,declaration_template)
+      VALUES (${example.submission_id},2,now(),'{}'::jsonb,'{}'::jsonb,'[]'::jsonb,'LIVE',${temporary.json({ ...binding, bindingSource: 'SUBMITTED' })})`
+    assert.deepEqual(await temporary`SELECT * FROM submissions ORDER BY id`, beforeQueue)
+    assert.deepEqual(await temporary`SELECT * FROM submission_files ORDER BY id`, beforeFiles)
+    assert.deepEqual(await temporary`SELECT * FROM submission_events ORDER BY id`, beforeEvents)
+    assert.deepEqual(
+      await temporary`SELECT * FROM personal_notifications ORDER BY id`,
+      beforeNotices,
+    )
+    assert.deepEqual(await temporary`SELECT * FROM audit_logs ORDER BY id`, beforeAudit)
   } finally {
     await temporary?.end()
     if (created) await base.unsafe('DROP DATABASE "' + temporaryName + '"')

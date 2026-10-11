@@ -1,3 +1,4 @@
+import { newDeclarationTemplateBinding } from './submission-document-template.js'
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
@@ -40,6 +41,7 @@ function fixture() {
       maxTotalAttachmentBytes: bundleLimits.evidenceBytes,
     },
     round: {
+      declarationTemplate: newDeclarationTemplateBinding(),
       roundNumber: 1,
       submittedAt: '2026-10-11T01:00:00Z',
       source: 'LIVE',
@@ -157,7 +159,7 @@ test('bundle includes the exact Word converted to PDF, original evidence and com
   assert.equal(info.version, 1)
   assert.equal(info.documentStatus, 'UNSIGNED_DECLARATION')
   assert.equal(info.signatureStatus, 'NOT_CHECKED')
-  assert.deepEqual(info.template, submissionDocumentTemplate)
+  assert.deepEqual(info.template, f.input.round.declarationTemplate)
   assert.equal(info.roundNumber, 1)
   assert.equal(info.procedureVersionId, f.input.procedure.versionId)
   assert.deepEqual(Buffer.from(parts['phieu-ho-so.docx']!), converted)
@@ -323,4 +325,20 @@ test('changed or missing v1 template is refused, including when producing a pair
     assert.ok(directory.startsWith(join(tmpdir(), 'student-service-template-test-')))
     await rm(directory, { recursive: true, force: true })
   }
+})
+
+test('bundle refuses a renderer pair carrying a different template binding', async () => {
+  const f = fixture()
+  const local = new LocalSubmissionDocumentRenderer({ convert: async () => fakePdf })
+  const service = new SubmissionService(f.repository, f.storage, {
+    render: (input, format) => local.render(input, format),
+    renderPair: async (input) => ({
+      ...(await local.renderPair(input)),
+      template: { ...input.round.declarationTemplate, bindingSource: 'LEGACY_V1' },
+    }),
+  })
+  await assert.rejects(
+    () => service.bundleDownload('owner', f.input.id, 1),
+    (e) => e instanceof SubmissionError && e.code === 'DOCUMENT_TEMPLATE_UNAVAILABLE',
+  )
 })

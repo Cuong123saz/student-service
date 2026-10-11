@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { createHash, randomUUID } from 'node:crypto'
 import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate'
 import { buildSubmissionBundle } from '../src/modules/submissions/submission-bundle.ts'
-import { submissionDocumentTemplate } from '../src/modules/submissions/submission-document.ts'
+import { newDeclarationTemplateBinding } from '../src/modules/submissions/submission-document-template.ts'
 import { inspectSubmissionBundle } from './verify-submission-bundle.mjs'
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex')
 function fixture() {
@@ -20,14 +20,19 @@ function fixture() {
   const snapshot = {
     id: randomUUID(),
     procedure: { versionId: randomUUID(), versionNumber: 1 },
-    round: { roundNumber: 1, submittedAt: '2026-10-11T01:00:00Z', source: 'LIVE' },
+    round: {
+      roundNumber: 1,
+      submittedAt: '2026-10-11T01:00:00Z',
+      source: 'LIVE',
+      declarationTemplate: newDeclarationTemplateBinding(),
+    },
   }
   const bundle = buildSubmissionBundle(
     snapshot,
     {
       docx: Buffer.from('fake Word'),
       pdf: Buffer.from('%PDF-fake declaration'),
-      template: submissionDocumentTemplate,
+      template: snapshot.round.declarationTemplate,
     },
     [{ file, bytes }],
   )
@@ -169,4 +174,22 @@ test('refuses recompressed entries and stored entries with inconsistent declared
   const central = short.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]))
   short.writeUInt32LE(1, central + 24)
   assert.throws(() => inspectSubmissionBundle(short))
+})
+
+test('accepts original v1 packages without bindingSource and both explicit sources, rejects invented signature provenance', () => {
+  for (const source of [undefined, 'SUBMITTED', 'LEGACY_V1']) {
+    const f = fixture()
+    rewrite(f.parts, (m) => {
+      if (source === undefined) delete m.template.bindingSource
+      else m.template.bindingSource = source
+    })
+    assert.equal(inspectSubmissionBundle(pack(f.parts)).result, 'CHECKSUMS_MATCH_UNSIGNED')
+  }
+  for (const source of [null, 42, 'ISSUED', 'VALID', '__proto__']) {
+    const f = fixture()
+    rewrite(f.parts, (m) => {
+      m.template.bindingSource = source
+    })
+    assert.throws(() => inspectSubmissionBundle(pack(f.parts)))
+  }
 })

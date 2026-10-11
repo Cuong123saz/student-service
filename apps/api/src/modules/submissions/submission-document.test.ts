@@ -1,3 +1,4 @@
+import { newDeclarationTemplateBinding } from './submission-document-template.js'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
@@ -39,6 +40,7 @@ function sample(): DocumentSnapshot {
       })),
     },
     round: {
+      declarationTemplate: newDeclarationTemplateBinding(),
       roundNumber: 1,
       submittedAt: '2026-10-11T01:00:00Z',
       studentSnapshot: {
@@ -262,4 +264,47 @@ test('each exported round lists its own evidence without implying signature vali
   assert.ok(content.includes('321 byte'))
   assert.ok(content.includes('Chữ ký chưa được xác minh.'))
   assert.ok(!content.includes('{{evidenceSummary}}'))
+})
+
+test('pinned catalog rejects missing, unknown, inherited and mismatched bindings without fallback or conversion', async () => {
+  let calls = 0
+  const renderer = new LocalSubmissionDocumentRenderer({
+    convert: async () => {
+      calls++
+      return Buffer.from('PDF')
+    },
+  })
+  for (const binding of [
+    undefined,
+    null,
+    { ...newDeclarationTemplateBinding(), id: 'submission-summary-v2' },
+    { ...newDeclarationTemplateBinding(), id: '__proto__' },
+    { ...newDeclarationTemplateBinding(), id: 'constructor' },
+    { ...newDeclarationTemplateBinding(), sha256: 'a'.repeat(64) },
+    { ...newDeclarationTemplateBinding(), bindingSource: 'ISSUED' },
+  ]) {
+    const input = sample()
+    input.round.declarationTemplate = binding as typeof input.round.declarationTemplate
+    for (const format of ['docx', 'pdf'] as const)
+      await assert.rejects(
+        () => renderer.render(input, format),
+        (e) => e instanceof SubmissionError && e.code === 'DOCUMENT_TEMPLATE_UNAVAILABLE',
+      )
+    await assert.rejects(
+      () => renderer.renderPair(input),
+      (e) => e instanceof SubmissionError && e.code === 'DOCUMENT_TEMPLATE_UNAVAILABLE',
+    )
+  }
+  assert.equal(calls, 0)
+})
+
+test('legacy v1 renders the same Word bytes while its pair retains the migration binding', async () => {
+  const renderer = new LocalSubmissionDocumentRenderer({ convert: async () => Buffer.from('PDF') })
+  const pinned = sample(),
+    legacy = structuredClone(pinned)
+  legacy.round.declarationTemplate.bindingSource = 'LEGACY_V1'
+  assert.deepEqual(await renderer.render(pinned, 'docx'), await renderer.render(legacy, 'docx'))
+  const pair = await renderer.renderPair(legacy)
+  assert.deepEqual(pair.template, legacy.round.declarationTemplate)
+  assert.notEqual(pair.template, legacy.round.declarationTemplate)
 })

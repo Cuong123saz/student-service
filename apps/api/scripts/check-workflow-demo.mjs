@@ -231,6 +231,13 @@ async function exportBundle(page, roundNumber, label, expectedEvidence) {
   assert.equal(result.roundNumber, roundNumber)
   const parts = unzipSync(bytes),
     manifest = JSON.parse(strFromU8(parts['manifest.json']))
+  assert.equal(manifest.template.bindingSource, 'SUBMITTED')
+  assert.equal(manifest.template.id, 'submission-summary-v1')
+  assert.equal(
+    manifest.template.sha256,
+    '9074a0b961cf66b625d4339c4473a42c7bfc3d981816f821fa78552c7fae8ca2',
+  )
+  report.checks.roundTemplateBinding = true
   const evidence = manifest.files.filter((item) => item.kind === 'EVIDENCE')
   assert.equal(evidence.length, 1)
   assert.deepEqual(Buffer.from(parts[evidence[0].path]), expectedEvidence)

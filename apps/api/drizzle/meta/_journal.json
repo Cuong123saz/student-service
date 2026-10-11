@@ -155,6 +155,13 @@
       "when": 1791634753818,
       "tag": "0021_review_search_direct_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791704855792,
+      "tag": "0022_round_declaration_template",
+      "breakpoints": true
     }
   ]
 }

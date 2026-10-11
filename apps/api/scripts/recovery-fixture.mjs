@@ -229,14 +229,14 @@ export async function createRecoveryDossier(http, fixture) {
     method: 'POST',
     body: { expectedRevision: dossier.revision },
   })
-  let review = await http(reviewer, `/review-submissions/${dossier.id}/claim`, {
+  const claimed = await http(reviewer, `/review-submissions/${dossier.id}/claim`, {
     method: 'POST',
     body: { expectedRevision: dossier.revision },
   })
-  review = await http(reviewer, `/review-submissions/${dossier.id}/resolve`, {
+  await http(reviewer, `/review-submissions/${dossier.id}/resolve`, {
     method: 'POST',
     body: {
-      expectedRevision: review.revision,
+      expectedRevision: claimed.revision,
       action: 'REQUEST_SUPPLEMENT',
       note: 'Bổ sung minh chứng giả định',
     },
@@ -258,7 +258,7 @@ export async function createRecoveryDossier(http, fixture) {
     method: 'POST',
     body: { expectedRevision: dossier.revision },
   })
-  review = await http(reviewer, `/review-submissions/${dossier.id}/claim`, {
+  const review = await http(reviewer, `/review-submissions/${dossier.id}/claim`, {
     method: 'POST',
     body: { expectedRevision: dossier.revision },
   })
@@ -269,6 +269,9 @@ export async function createRecoveryDossier(http, fixture) {
   assert.deepEqual(ownerView.values, { ...recoveryStudent, ...recoveryValues(2) })
   for (const [index, bytes] of [oldBytes, newBytes].entries()) {
     const round = ownerView.rounds[index]
+    assert.equal(round.declarationTemplate?.bindingSource, 'SUBMITTED')
+    assert.equal(round.declarationTemplate?.id, 'submission-summary-v1')
+    assert.match(round.declarationTemplate?.sha256 ?? '', /^[a-f0-9]{64}$/)
     assert.deepEqual(round.studentSnapshot, recoveryStudent)
     assert.deepEqual(round.values, { ...recoveryStudent, ...recoveryValues(index + 1) })
     assert.equal(round.files[0].mimeType, 'application/pdf')

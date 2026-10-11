@@ -312,3 +312,22 @@ test('search-index ADR cannot be accepted together with its submissions migratio
   assert.equal(result.status, 1, result.output)
   assert.match(result.output, /0008-review-search-index/)
 })
+
+test('template-binding ADR must be accepted before its round migration, not in the same commit', (t) => {
+  const repo = fixture(t, { adr: 'Accepted' })
+  const path = 'docs/adr/0009-immutable-generated-documents.md'
+  repo.write(path, '---\nstatus: Proposed\n---\n')
+  const base = repo.commit()
+  repo.write(path, '---\nstatus: Accepted\n---\n')
+  repo.write(
+    'apps/api/drizzle/0022_round_declaration_template.sql',
+    'ALTER TABLE submission_rounds ADD COLUMN declaration_template jsonb;\n',
+  )
+  repo.commit()
+  const result = repo.run(base)
+  assert.equal(result.status, 1, result.output)
+  assert.match(
+    result.output,
+    /0009-immutable-generated-documents\.md existed but was not Accepted before/u,
+  )
+})

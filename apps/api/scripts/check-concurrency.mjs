@@ -272,8 +272,15 @@ async function main() {
     report.bulkDossierInsertMs = performance.now() - bulkStarted
     // Synthetic history for notification query load, with valid round/event/recipient binding.
     await q(
-      "INSERT INTO submission_rounds(submission_id,round_number,submitted_at,student_snapshot,values,files,source) SELECT id,1,submitted_at,student_snapshot,values,'[]'::jsonb,'LIVE' FROM submissions WHERE service_id=$1 AND status='IN_REVIEW'",
-      [serviceId],
+      "INSERT INTO submission_rounds(submission_id,round_number,submitted_at,student_snapshot,values,files,source,declaration_template) SELECT id,1,submitted_at,student_snapshot,values,'[]'::jsonb,'LIVE',$2::jsonb FROM submissions WHERE service_id=$1 AND status='IN_REVIEW'",
+      [
+        serviceId,
+        JSON.stringify({
+          id: 'submission-summary-v1',
+          sha256: '9074a0b961cf66b625d4339c4473a42c7bfc3d981816f821fa78552c7fae8ca2',
+          bindingSource: 'SUBMITTED',
+        }),
+      ],
     )
     await q(
       "INSERT INTO submission_events(submission_id,round_id,action,actor_user_id,actor_name,from_revision,to_revision) SELECT s.id,r.id,'CLAIMED',s.reviewer_user_id,'Cán bộ tải thử',1,2 FROM submissions s JOIN submission_rounds r ON r.submission_id=s.id WHERE s.service_id=$1",

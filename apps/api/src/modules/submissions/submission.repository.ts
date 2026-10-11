@@ -1,3 +1,4 @@
+import { newDeclarationTemplateBinding } from './submission-document-template.js'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { services } from '../../db/schema.js'
@@ -158,6 +159,7 @@ export class DrizzleSubmissionRepository {
         values: round.values,
         files: round.files.map((file) => this.evidenceView(file)),
         source: round.source,
+        declarationTemplate: round.declarationTemplate,
       })),
       events: events.map(({ fromReviewerName, toReviewerName, ...event }) => ({
         ...event,
@@ -262,6 +264,7 @@ export class DrizzleSubmissionRepository {
         storageKey: file.storageKey,
       })),
       source: 'LIVE',
+      declarationTemplate: newDeclarationTemplateBinding(),
     })
   }
   private async view(tx: Transaction, row: DraftRow): Promise<DraftView> {

@@ -1,3 +1,4 @@
+import type { DeclarationTemplateBinding } from './submission-document-template.js'
 import type {
   PublicProcedure,
   ValidationIssue,
@@ -33,6 +34,7 @@ export interface EvidenceView {
   signatureStatus: 'NOT_CHECKED'
 }
 export interface SubmissionRoundView {
+  declarationTemplate: DeclarationTemplateBinding
   roundNumber: number
   submittedAt: string
   studentSnapshot: StudentSnapshot

@@ -1,3 +1,4 @@
+import type { DeclarationTemplateBinding } from './submission-document-template.js'
 import { createHash } from 'node:crypto'
 import { zipSync, strToU8 } from 'fflate'
 import type { DocumentSnapshot, RenderedSubmissionDocuments } from './submission-document.js'
@@ -35,7 +36,11 @@ export interface SubmissionBundleManifest {
   roundSource: 'LIVE' | 'MIGRATION'
   procedureVersionId: string
   procedureVersionNumber: number
-  template: { id: string; sha256: string }
+  template: {
+    id: string
+    sha256: string
+    bindingSource?: DeclarationTemplateBinding['bindingSource']
+  }
   documentStatus: 'UNSIGNED_DECLARATION'
   signatureStatus: 'NOT_CHECKED'
   integrityAlgorithm: 'SHA-256'
@@ -66,6 +71,16 @@ export function buildSubmissionBundle(
   documents: RenderedSubmissionDocuments,
   evidence: { file: EvidenceView; bytes: Buffer }[],
 ) {
+  if (
+    documents.template.id !== snapshot.round.declarationTemplate.id ||
+    documents.template.sha256 !== snapshot.round.declarationTemplate.sha256 ||
+    documents.template.bindingSource !== snapshot.round.declarationTemplate.bindingSource
+  )
+    throw new SubmissionError(
+      503,
+      'DOCUMENT_TEMPLATE_UNAVAILABLE',
+      'Phiên bản mẫu của phiếu không khớp lần gửi đã chọn.',
+    )
   const parts: Record<string, Uint8Array> = {},
     entries: BundleEntry[] = []
   let total = 0

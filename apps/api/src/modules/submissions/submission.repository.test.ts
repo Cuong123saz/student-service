@@ -1,3 +1,4 @@
+import { newDeclarationTemplateBinding } from './submission-document-template.js'
 import type { SubmissionBundleManifest } from './submission-bundle.js'
 import { unzipSync, strFromU8 } from 'fflate'
 import { LocalSubmissionDocumentRenderer, LibreOfficePdfConverter } from './submission-document.js'
@@ -1934,6 +1935,7 @@ test('two supplement cycles keep submitted rounds private, original bytes/histor
   const f = await resolutionFixture()
   assert.equal(f.sent.roundNumber, 1)
   assert.equal(f.sent.rounds[0]!.source, 'LIVE')
+  assert.deepEqual(f.sent.rounds[0]!.declarationTemplate, newDeclarationTemplateBinding())
   assert.deepEqual(
     f.sent.events.map((event) => event.action),
     ['SUBMITTED'],
@@ -2035,6 +2037,14 @@ test('two supplement cycles keep submitted rounds private, original bytes/histor
     .where(eq(users.id, f.actor.userId))
   resubmitted = await f.service.submit(f.actor, working.id, working.revision)
   assert.equal(resubmitted.roundNumber, 3)
+  assert.equal(resubmitted.rounds.length, 3)
+  for (const round of resubmitted.rounds)
+    assert.deepEqual(round.declarationTemplate, newDeclarationTemplateBinding())
+  await assert.rejects(() =>
+    db.execute(
+      sql`UPDATE submission_rounds SET declaration_template = declaration_template WHERE submission_id = ${resubmitted.id}`,
+    ),
+  )
   assert.equal(resubmitted.rounds[0]!.studentSnapshot.fullName, 'Nguyễn Minh An')
   assert.equal(resubmitted.rounds[2]!.studentSnapshot.fullName, 'Tên mới của sinh viên')
   const approved = await f.service.resolve(
@@ -3820,6 +3830,7 @@ test('20 MiB bundle keeps four maximum-size PDFs intact, rejects overflow and re
   assert.ok(response.rawPayload.length < 40 * 1024 * 1024)
   const parts = unzipSync(response.rawPayload),
     manifest = JSON.parse(strFromU8(parts['manifest.json']!)) as SubmissionBundleManifest
+  assert.deepEqual(manifest.template, sent.rounds[0]!.declarationTemplate)
   const proofs = manifest.files.filter((item) => item.kind === 'EVIDENCE')
   assert.equal(proofs.length, 4)
   for (const item of proofs) {

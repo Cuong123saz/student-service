@@ -41,9 +41,10 @@ test('SQL reader preserves removed/history references, strips personal fields, a
     }
     for (const files of [[file], [], null, { invalid: 'PRIVATE_ANSWER' }, [null, 42]])
       await tx`INSERT INTO pg_temp.submission_rounds
-        (id, submission_id, round_number, submitted_at, student_snapshot, values, files, source)
+        (id, submission_id, round_number, submitted_at, student_snapshot, values, files, source, declaration_template)
         VALUES (${randomUUID()}, ${submissionId}, 1, now(), ${tx.json({ fullName: 'PRIVATE_STUDENT' })},
-          ${tx.json({ answer: 'PRIVATE_ANSWER' })}, ${JSON.stringify(files)}::text::jsonb, 'LIVE')`
+          ${tx.json({ answer: 'PRIVATE_ANSWER' })}, ${JSON.stringify(files)}::text::jsonb, 'LIVE',
+          ${tx.json({ id: 'submission-summary-v1', sha256: '9074a0b961cf66b625d4339c4473a42c7bfc3d981816f821fa78552c7fae8ca2', bindingSource: 'SUBMITTED' })})`
     const refs = []
     for await (const ref of readEvidenceReferences(tx, 'pg_temp')) refs.push(ref)
     assert.equal(refs.filter((ref) => ref.kind === 'CURRENT').length, 1)

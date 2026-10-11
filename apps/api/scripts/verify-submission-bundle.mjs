@@ -64,7 +64,9 @@ export function inspectSubmissionBundle(bytes, expectedSha256) {
     !manifest.template ||
     typeof manifest.template.id !== 'string' ||
     !/^submission-summary-v[1-9][0-9]*$/.test(manifest.template.id) ||
-    !/^[a-f0-9]{64}$/.test(manifest.template.sha256)
+    !/^[a-f0-9]{64}$/.test(manifest.template.sha256) ||
+    (Object.hasOwn(manifest.template, 'bindingSource') &&
+      !['SUBMITTED', 'LEGACY_V1'].includes(manifest.template.bindingSource))
   )
     failure()
   const listed = new Set()

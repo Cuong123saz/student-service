@@ -81,3 +81,19 @@ Word mẫu và PDF tải thật đã được dựng thành ảnh và xem trực
 Sau build API, chạy `npm run documents:check --workspace @student-service/api`. Công cụ dùng dữ liệu giả đủ sáu kiểu trường, kiểm tra mẫu v1, Word và chuyển PDF thật; không truy cập database/hồ sơ hoặc ghi tài liệu kiểm tra lâu dài. Báo `READY`, `WORD_ONLY` hoặc `UNAVAILABLE`, kèm thời gian và mã lỗi an toàn. Word-only/unavailable trả exit code 1 để triển khai phát hiện cấu hình chưa đủ. Báo READY không thay việc xem bố cục/font và đo tải.
 
 Kiểm thử gói ngày 11/10 ghi nhận một số lượt chuyển PDF bằng LibreOffice vượt 45 giây trên máy local; đã tăng giới hạn chờ hữu hạn lên 90 giây, vẫn giữ tối đa hai tác vụ và dừng đúng cây tiến trình do tác vụ tạo. Không tăng số tiến trình để bù cho máy chậm, không bỏ giới hạn chờ. Khi thiếu tài nguyên hoặc bộ chuyển bị treo, có thể nhận lỗi và tải Word/thử PDF lại; hồ sơ không bị mất.
+
+
+## Gắn phiên bản mẫu cho từng lần gửi
+
+Theo ADR0009 và migration0022, mỗi round có declarationTemplate gồm id, sha256 và bindingSource. Ghi SUBMITTED cùng transaction gửi; client không chọn mẫu. Round cũ được gắn v1 với LEGACY_V1 để tương thích, không khẳng định đã lưu PDF hoặc chứng minh mẫu từng được tải trước đây. Trigger lịch sử cấm sửa cả binding. Renderer đọc đúng catalog/binding; thiếu hoặc không khớp trả DOCUMENT_TEMPLATE_UNAVAILABLE, không chuyển sang mẫu mới tự động. Mẫu v1 và byte Word giữ nguyên.
+
+Đây mới là gắn phiên bản mẫu. File đầu ra vẫn tạo theo yêu cầu; chưa lưu lâu dài byte Word/PDF, chưa có lease/job hoặc registry phát hành. Trước phần đó phải bổ sung thiết kế registry, kho output và kiểm chứng backup/restore theo ADR0009. Không gán hiệu lực chữ ký từ metadata này.
+
+
+Kiểm chứng phần gắn mẫu ngày 11/10/2026: API đạt 124 unit, 264 integration, 22 storage, 20 fixture, 126 recovery, 6 rào chắn demo và 7 verifier; 37 kiểm thử rào chắn ADR và 5 rào chắn profiler đạt. Build/typecheck/lint API và lint script đạt; Drizzle generate báo không còn lệch schema/snapshot. Không đổi giao diện, layout hoặc file template v1.
+
+Chromium fake trên lượt 203b1d95-9374-4684-96b8-b67a1c98d5e4 đạt luồng ba cổng, tải năm gói đúng binding, giữ Word/minh chứng lần gửi cũ, 20 kiểm tra kích thước màn hình và không lỗi JavaScript. DEMO 3 chưa dùng. Lượt demo gói trước chỉ có ca checker, đã đối chiếu hai lần và sao lưu SQL trước khi dừng; runtime 3011/3013 và dữ liệu thực hành giữ nguyên.
+
+Phục hồi fake cuối cùng 7a99d654-5e06-4791-9dd7-0bf4e4eb8479 đạt: snapshot 26 bảng và bốn sequence khớp, nguyên byte minh chứng, binding hai round còn nguyên; container riêng được dọn bởi chính rehearsal. Development đã áp dụng0022 trong transaction với khóa ngắn, sau SQL backup; đối chiếu đủ26 bảng trước/sau không đổi nội dung cũ. Development lúc nâng cấp có0 round, nên bằng chứng backfill round cũ là migration test riêng, không tuyên bố đã backfill dữ liệu thực tế. SQL backup development chưa phải bản sao phục hồi đầy đủ kho tệp.
+
+Log local bị Git bỏ qua: run/document-binding-api-final.log, run/document-binding-adr-final.log, run/document-binding-browser.log, run/document-binding-recovery-final.log, run/document-binding-dev-migration.log, run/document-binding-typecheck.log, run/document-binding-lint.log, run/document-binding-build.log và run/document-binding-scripts-lint.log. Chưa đóng Sprint4 hoặc bật ký/phát hành.

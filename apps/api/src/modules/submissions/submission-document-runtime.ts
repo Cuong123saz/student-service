@@ -1,3 +1,4 @@
+import { newDeclarationTemplateBinding } from './submission-document-template.js'
 import { unzipSync, strFromU8 } from 'fflate'
 import {
   LocalSubmissionDocumentRenderer,
@@ -33,6 +34,7 @@ const probeSnapshot: DocumentSnapshot = {
     })),
   },
   round: {
+    declarationTemplate: newDeclarationTemplateBinding(),
     roundNumber: 1,
     submittedAt: '2026-10-11T01:00:00Z',
     source: 'LIVE',
@@ -106,6 +108,9 @@ export async function checkSubmissionDocumentRuntime(
   try {
     const pair = await renderer.renderPair(structuredClone(probeSnapshot))
     if (
+      pair.template.id !== probeSnapshot.round.declarationTemplate.id ||
+      pair.template.sha256 !== probeSnapshot.round.declarationTemplate.sha256 ||
+      pair.template.bindingSource !== probeSnapshot.round.declarationTemplate.bindingSource ||
       !pair.docx.equals(word) ||
       pair.pdf.length < 100 ||
       pair.pdf.subarray(0, 5).toString('ascii') !== '%PDF-' ||
