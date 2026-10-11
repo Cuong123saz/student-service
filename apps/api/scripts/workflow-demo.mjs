@@ -50,7 +50,7 @@ if (action === 'stop') {
     await assertRecoveryDirectory(root)
     const statePath = join(root, 'state.json'),
       state = await readJson(statePath)
-    assertDemoState(state, projectRoot, statePath)
+    assertDemoState(state, projectRoot, statePath, profile.kind)
     if (state.status !== 'STOPPED') {
       try {
         await writeFile(

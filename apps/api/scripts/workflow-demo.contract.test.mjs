@@ -106,3 +106,33 @@ test('document demo keeps its active state and both URLs separate from the exist
   }
   assert.equal(assertDemoState(state, project, resolve(root, 'state.json')), root)
 })
+
+test('bundle demo isolates cookies, state and ports and rejects mismatched stop profiles', () => {
+  assert.equal(demoAction(['--fake-data-only', '--bundles'], {}), 'start')
+  assert.equal(demoAction(['--fake-data-only', '--bundles', 'stop'], {}), 'stop')
+  assert.throws(() => demoAction(['--fake-data-only', '--bundles', '--documents'], {}))
+  const all = [
+    demoProfile(['--fake-data-only']),
+    demoProfile(['--fake-data-only', '--documents']),
+    demoProfile(['--fake-data-only', '--bundles']),
+  ]
+  assert.equal(new Set(all.map((p) => new URL(p.webUrl).hostname)).size, 3)
+  assert.equal(new Set(all.map((p) => p.activeFile)).size, 3)
+  const profile = all[2],
+    project = resolve('fixture-project'),
+    runId = randomUUID(),
+    root = demoRunRoot(project, runId)
+  const state = {
+    version: 1,
+    fakeDataOnly: true,
+    runId,
+    profile: profile.kind,
+    webUrl: profile.webUrl,
+    apiUrl: profile.apiUrl,
+  }
+  assert.equal(assertDemoState(state, project, resolve(root, 'state.json'), 'bundles'), root)
+  assert.throws(() => assertDemoState(state, project, resolve(root, 'state.json'), 'workflow'))
+  assert.throws(() =>
+    assertDemoState({ ...state, profile: 'unknown' }, project, resolve(root, 'state.json')),
+  )
+})

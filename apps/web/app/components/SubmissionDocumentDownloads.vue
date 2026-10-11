@@ -57,9 +57,11 @@ async function download(format: DocumentFormat) {
       )
     }
     const expected =
-      format === 'pdf'
-        ? 'application/pdf'
-        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      format === 'zip'
+        ? 'application/zip'
+        : format === 'pdf'
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     if (response.headers.get('content-type')?.split(';')[0] !== expected)
       throw new Error('Máy chủ chưa trả về đúng định dạng tài liệu. Vui lòng thử lại.')
     const bytes = await response.blob()
@@ -68,13 +70,20 @@ async function download(format: DocumentFormat) {
     const url = URL.createObjectURL(bytes)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'phieu-ho-so-' + id + '-lan-' + roundNumber + '.' + format
+    link.download =
+      (format === 'zip' ? 'goi-ho-so-' : 'phieu-ho-so-') + id + '-lan-' + roundNumber + '.' + format
     document.body.appendChild(link)
     link.click()
     link.remove()
     setTimeout(() => URL.revokeObjectURL(url), 60000)
     status.value =
-      'Đã tải phiếu ' + (format === 'pdf' ? 'PDF' : 'Word') + ' của lần gửi ' + roundNumber + '.'
+      format === 'zip'
+        ? 'Đã tải gói hồ sơ của lần gửi ' + roundNumber + '.'
+        : 'Đã tải phiếu ' +
+          (format === 'pdf' ? 'PDF' : 'Word') +
+          ' của lần gửi ' +
+          roundNumber +
+          '.'
   } catch (error) {
     if (current === generation)
       failure.value =
@@ -113,8 +122,22 @@ async function download(format: DocumentFormat) {
         @click="download('pdf')"
         >{{ busy === 'pdf' ? 'Đang tạo PDF...' : 'Tải PDF' }}</BaseButton
       >
+      <BaseButton
+        type="button"
+        variant="secondary"
+        :loading="busy === 'zip'"
+        :disabled="busy !== null"
+        @click="download('zip')"
+        >{{ busy === 'zip' ? 'Đang chuẩn bị gói...' : 'Tải trọn bộ hồ sơ' }}</BaseButton
+      >
     </div>
-    <p v-if="busy" role="status">Đang chuẩn bị phiếu. Bạn không cần gửi lại hồ sơ.</p>
+    <p v-if="!compact">
+      Gói ZIP gồm Word, PDF, minh chứng và danh sách kiểm tra tệp của riêng lần gửi này.
+    </p>
+    <p v-if="busy" role="status">
+      {{ busy === 'zip' ? 'Đang chuẩn bị gói hồ sơ.' : 'Đang chuẩn bị phiếu.' }} Bạn không cần gửi
+      lại hồ sơ.
+    </p>
     <div v-if="failure" role="alert">
       <p>{{ failure }}</p>
       <small v-if="supportCode">Mã hỗ trợ: {{ supportCode }}</small

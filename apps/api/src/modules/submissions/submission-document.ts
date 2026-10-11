@@ -1,4 +1,5 @@
 import { spawn, execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -18,9 +19,19 @@ export interface DocumentSnapshot {
   procedure: PublicProcedure
   round: SubmissionRoundView
 }
+export interface RenderedSubmissionDocuments {
+  docx: Buffer
+  pdf: Buffer
+  template: { id: string; sha256: string }
+}
 export interface SubmissionDocumentRenderer {
   render(snapshot: DocumentSnapshot, format: DocumentFormat): Promise<Buffer>
+  renderPair(snapshot: DocumentSnapshot): Promise<RenderedSubmissionDocuments>
 }
+export const submissionDocumentTemplate = {
+  id: 'submission-summary-v1',
+  sha256: '9074a0b961cf66b625d4339c4473a42c7bfc3d981816f821fa78552c7fae8ca2',
+} as const
 export interface PdfConverter {
   convert(docx: Buffer): Promise<Buffer>
 }
@@ -125,7 +136,7 @@ export function fillSubmissionDocument(template: Uint8Array, snapshot: DocumentS
 export function runDocumentConversion(
   command: string,
   args: string[],
-  timeoutMs = 45000,
+  timeoutMs = 90000,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { windowsHide: true, stdio: 'ignore', shell: false })
@@ -214,9 +225,31 @@ export class LibreOfficePdfConverter implements PdfConverter {
   }
 }
 export class LocalSubmissionDocumentRenderer implements SubmissionDocumentRenderer {
-  constructor(private readonly converter: PdfConverter = new LibreOfficePdfConverter()) {}
+  constructor(
+    private readonly converter: PdfConverter = new LibreOfficePdfConverter(),
+    private readonly templatePath = documentTemplatePath,
+  ) {}
+  private async word(snapshot: DocumentSnapshot) {
+    try {
+      const template = await readFile(this.templatePath)
+      // v1 is immutable. A new layout must use a new version, never overwrite this one.
+      if (createHash('sha256').update(template).digest('hex') !== submissionDocumentTemplate.sha256)
+        throw new Error('DOCUMENT_TEMPLATE_CHANGED')
+      return fillSubmissionDocument(template, snapshot)
+    } catch {
+      throw new SubmissionError(
+        503,
+        'DOCUMENT_TEMPLATE_UNAVAILABLE',
+        'Mẫu phiếu chưa sẵn sàng hoặc không đúng phiên bản. Vui lòng liên hệ đơn vị xử lý; hồ sơ đã gửi vẫn được giữ nguyên.',
+      )
+    }
+  }
   async render(snapshot: DocumentSnapshot, format: DocumentFormat): Promise<Buffer> {
-    const docx = fillSubmissionDocument(await readFile(documentTemplatePath), snapshot)
+    const docx = await this.word(snapshot)
     return format === 'docx' ? docx : this.converter.convert(docx)
+  }
+  async renderPair(snapshot: DocumentSnapshot): Promise<RenderedSubmissionDocuments> {
+    const docx = await this.word(snapshot)
+    return { docx, pdf: await this.converter.convert(docx), template: submissionDocumentTemplate }
   }
 }

@@ -20,7 +20,7 @@ Máy local hiện dùng bản LibreOffice 26.8.1 được giải nén riêng t�
 
 Khi triển khai, giữ `apps/api/templates/` cạnh `apps/api/dist/`; bản dựng TypeScript không tự đóng gói tài nguyên. Chỉ dùng template quản lý trong mã nguồn, không nhận DOCX tuỳ ý từ người dùng để chuyển đổi.
 
-Mỗi API instance cho chạy tối đa hai tác vụ chuyển PDF cùng lúc, tác vụ tối đa 45 giây trước khi dừng tiến trình do nó tạo. Quá tải trả `503 DOCUMENT_BUSY`; lỗi/thiếu converter trả `503 DOCUMENT_PDF_UNAVAILABLE` với hướng dẫn tải Word hoặc thử lại. Route giới hạn 12 yêu cầu/phút. Đây là giới hạn bảo vệ ban đầu cho local; cần đo tải trước khi xác định năng lực vận hành thực tế. Mỗi tác vụ có thư mục/profile LibreOffice riêng và được dọn sau khi xử lý; không ghi nội dung riêng tư vào log chuyển đổi.
+Mỗi API instance cho chạy tối đa hai tác vụ chuyển PDF cùng lúc, tác vụ tối đa 90 giây trước khi dừng tiến trình do nó tạo. Quá tải trả `503 DOCUMENT_BUSY`; lỗi/thiếu converter trả `503 DOCUMENT_PDF_UNAVAILABLE` với hướng dẫn tải Word hoặc thử lại. Route giới hạn 12 yêu cầu/phút. Đây là giới hạn bảo vệ ban đầu cho local; cần đo tải trước khi xác định năng lực vận hành thực tế. Mỗi tác vụ có thư mục/profile LibreOffice riêng và được dọn sau khi xử lý; không ghi nội dung riêng tư vào log chuyển đổi.
 
 Tài liệu được trả với `Content-Disposition: attachment`, `Cache-Control: private, no-store` và `X-Content-Type-Options: nosniff`. Kiểm tra chủ sở hữu hoặc quyền/phạm vi cán bộ cả trước và sau khi chuyển đổi. Mất quyền trong lúc chờ không nhận được tệp. Không có đường dẫn tải công khai.
 
@@ -34,7 +34,7 @@ Các route GET yêu cầu session đúng cổng:
 - `/api/v1/user/review-submissions/:id/rounds/:roundNumber/documents/:format`: cán bộ đúng quyền/phạm vi.
 - `/api/v1/admin/review-submissions/:id/rounds/:roundNumber/documents/:format`: cán bộ đăng nhập cổng quản trị, vẫn kiểm tra quyền/phạm vi.
 
-`format` chỉ nhận `docx` hoặc `pdf`. Không có lần gửi trả 404; định dạng hoặc số lần gửi không hợp lệ trả 400. Tên tải `phieu-ho-so-<id>-lan-<round>.<format>`. Chưa lưu tài liệu đã sinh hoặc chữ ký/hash tài liệu vào database; tải lại Word của cùng lần gửi dưới template v1 cho cùng nội dung. Nếu thay template trong tương lai phải quản lý phiên bản trước khi áp dụng cho hồ sơ đã lưu.
+`format` chỉ nhận `docx` hoặc `pdf`. Không có lần gửi trả 404; định dạng hoặc số lần gửi không hợp lệ trả 400. Tên tải `phieu-ho-so-<id>-lan-<round>.<format>`. Chưa lưu tài liệu đã sinh hoặc chữ ký/hash tài liệu vào database; tải lại Word của cùng lần gửi dưới template v1 cho cùng nội dung. Mẫu v1 hiện được khóa mã băm trong renderer; không ghi đè mẫu/hằng hash để thay bố cục. Nếu thêm v2 phải quản lý phiên bản gắn với round trước khi áp dụng cho hồ sơ đã lưu. Có thể [tải trọn một lần gửi thành gói ZIP](submission-bundles.md), gồm Word/PDF/minh chứng và manifest kiểm tra tệp.
 
 ## Bản thử riêng cho xuất phiếu
 
@@ -75,3 +75,9 @@ Chromium chạy trọn luồng bằng dữ liệu giả: đủ sáu kiểu trư�
 Word mẫu và PDF tải thật đã được dựng thành ảnh và xem trực quan; bản thông thường một trang. Phiếu 50 trường dùng chính renderer của ứng dụng, có hai nội dung 2000 ký tự (một không có khoảng trắng), giữ đủ trường cuối và ký tự khi sang nhiều trang. Đây là kiểm chứng local, chưa phải đo tải đồng thời hoặc nghiệm thu vận hành dữ liệu thật.
 
 Đã kiểm tra lại việc tách runtime trên lượt mới: luồng trình duyệt Word/PDF đạt. Môi trường thực hành cũ được sao lưu và phục hồi sang lượt mới tại cùng địa chỉ 3011 sau khi bản dựng làm mất tài nguyên cũ; hồ sơ đã duyệt và minh chứng từng lần gửi được giữ nguyên, không yêu cầu sinh viên kê khai lại. Các lượt khởi động từ mã mới sử dụng runtime riêng để tránh lặp lại vấn đề này.
+
+## Kiểm tra máy chạy API
+
+Sau build API, chạy `npm run documents:check --workspace @student-service/api`. Công cụ dùng dữ liệu giả đủ sáu kiểu trường, kiểm tra mẫu v1, Word và chuyển PDF thật; không truy cập database/hồ sơ hoặc ghi tài liệu kiểm tra lâu dài. Báo `READY`, `WORD_ONLY` hoặc `UNAVAILABLE`, kèm thời gian và mã lỗi an toàn. Word-only/unavailable trả exit code 1 để triển khai phát hiện cấu hình chưa đủ. Báo READY không thay việc xem bố cục/font và đo tải.
+
+Kiểm thử gói ngày 11/10 ghi nhận một số lượt chuyển PDF bằng LibreOffice vượt 45 giây trên máy local; đã tăng giới hạn chờ hữu hạn lên 90 giây, vẫn giữ tối đa hai tác vụ và dừng đúng cây tiến trình do tác vụ tạo. Không tăng số tiến trình để bù cho máy chậm, không bỏ giới hạn chờ. Khi thiếu tài nguyên hoặc bộ chuyển bị treo, có thể nhận lỗi và tải Word/thử PDF lại; hồ sơ không bị mất.

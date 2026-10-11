@@ -1,3 +1,4 @@
+import type { SubmissionBundleManifest } from './submission-bundle.js'
 import { unzipSync, strFromU8 } from 'fflate'
 import { LocalSubmissionDocumentRenderer } from './submission-document.js'
 import assert from 'node:assert/strict'
@@ -3589,5 +3590,101 @@ test('Word for an old round remains identical after supplementation and profile 
   assert.ok(content.includes('Nội dung bổ sung mới'))
   assert.ok(
     !strFromU8(unzipSync(old.bytes)['word/document.xml']!).includes('Tên mới sau lần gửi đầu'),
+  )
+})
+
+test('HTTP round bundles preserve private evidence and enforce owner, portal and current reviewer scope', async (t) => {
+  const f = await resolutionFixture()
+  const foreignUnit = randomUUID()
+  await db
+    .insert(organizationalUnits)
+    .values({ id: foreignUnit, code: 'S5T_' + randomUUID(), name: 'Ngoài phạm vi' })
+  const foreign = await addReviewer(foreignUnit)
+  const renderer = new LocalSubmissionDocumentRenderer({
+    convert: async () => Buffer.from('%PDF-1.7\n' + '.'.repeat(120) + '\n%%EOF'),
+  })
+  const app = buildApp({
+    submissionService: new SubmissionService(f.repository, f.storage, renderer),
+  })
+  await app.ready()
+  t.after(() => app.close())
+  const owner = reviewCookie(app, f.actor, 'user', ['STUDENT']),
+    other = reviewCookie(app, { ...f.actor, userId: f.otherId }, 'user', ['STUDENT'])
+  const path = '/api/v1/user/submissions/' + f.sent.id + '/rounds/1/bundle'
+  assert.equal((await app.inject({ url: path })).statusCode, 401)
+  assert.equal((await app.inject({ url: path, headers: { cookie: other } })).statusCode, 404)
+  assert.equal(
+    (
+      await app.inject({
+        url: path.replace('/rounds/1/', '/rounds/0/'),
+        headers: { cookie: owner },
+      })
+    ).statusCode,
+    400,
+  )
+  assert.equal(
+    (
+      await app.inject({
+        url: path.replace('/rounds/1/', '/rounds/99/'),
+        headers: { cookie: owner },
+      })
+    ).statusCode,
+    404,
+  )
+  const response = await app.inject({ url: path, headers: { cookie: owner } })
+  assert.equal(response.statusCode, 200, response.body)
+  assert.equal(response.headers['content-type'], 'application/zip')
+  assert.equal(response.headers['cache-control'], 'private, no-store')
+  assert.equal(response.headers['x-content-type-options'], 'nosniff')
+  assert.ok(String(response.headers['content-disposition']).includes('-lan-1.zip'))
+  const parts = unzipSync(response.rawPayload)
+  const manifest = JSON.parse(strFromU8(parts['manifest.json']!)) as SubmissionBundleManifest
+  const info = manifest.files.find((item) => item.kind === 'EVIDENCE')
+  assert.ok(info?.fileId)
+  const original = await f.service.roundDownload(f.actor.userId, f.sent.id, 1, info.fileId)
+  assert.deepEqual(Buffer.from(parts[info.path]!), original.bytes)
+  for (const item of manifest.files)
+    assert.equal(createHash('sha256').update(parts[item.path]!).digest('hex'), item.sha256)
+  for (const portal of ['user', 'admin'] as const) {
+    const reviewPath = '/api/v1/' + portal + '/review-submissions/' + f.sent.id + '/rounds/1/bundle'
+    assert.equal(
+      (
+        await app.inject({
+          url: reviewPath,
+          headers: { cookie: reviewCookie(app, foreign, portal) },
+        })
+      ).statusCode,
+      404,
+    )
+    assert.equal(
+      (
+        await app.inject({
+          url: reviewPath,
+          headers: { cookie: reviewCookie(app, f.reviewer, portal) },
+        })
+      ).statusCode,
+      200,
+    )
+    assert.equal(
+      (await app.inject({ url: reviewPath, headers: { cookie: owner } })).statusCode,
+      portal === 'admin' ? 401 : 403,
+    )
+  }
+  const stored = await f.repository.roundFile(f.actor.userId, f.sent.id, 1, info.fileId)
+  const oldBytes = await f.storage.read(stored.key)
+  f.storage.files.set(stored.key, Buffer.alloc(oldBytes.length, 65))
+  const corrupted = await app.inject({ url: path, headers: { cookie: owner } })
+  assert.equal(corrupted.statusCode, 503)
+  assert.equal(corrupted.json<{ code: string }>().code, 'FILE_INTEGRITY')
+  f.storage.files.set(stored.key, oldBytes)
+  await db.update(users).set({ status: 'INACTIVE' }).where(eq(users.id, f.reviewer.userId))
+  assert.equal(
+    (
+      await app.inject({
+        url: '/api/v1/admin/review-submissions/' + f.sent.id + '/rounds/1/bundle',
+        headers: { cookie: reviewCookie(app, f.reviewer, 'admin') },
+      })
+    ).statusCode,
+    403,
   )
 })

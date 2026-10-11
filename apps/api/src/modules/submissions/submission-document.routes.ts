@@ -14,9 +14,9 @@ export function registerSubmissionDocumentRoute(
   portal: 'user' | 'admin',
   review: boolean,
 ) {
+  const base = (review ? '/review-submissions' : '/submissions') + '/:id/rounds/:roundNumber'
   app.get<{ Params: { id: string; roundNumber: number; format: DocumentFormat } }>(
-    (review ? '/review-submissions' : '/submissions') +
-      '/:id/rounds/:roundNumber/documents/:format',
+    base + '/documents/:format',
     {
       preHandler: [requireSubmissionSession(portal, !review)],
       config: { rateLimit: { max: 12, timeWindow: '1 minute' } },
@@ -40,6 +40,34 @@ export function registerSubmissionDocumentRoute(
             request.params.id,
             request.params.roundNumber,
             request.params.format,
+            review,
+          ),
+        ),
+      ),
+  )
+  app.get<{ Params: { id: string; roundNumber: number } }>(
+    base + '/bundle',
+    {
+      preHandler: [requireSubmissionSession(portal, !review)],
+      config: { rateLimit: { max: 6, timeWindow: '1 minute' } },
+      schema: {
+        params: Type.Object(
+          {
+            id: Type.String({ format: 'uuid' }),
+            roundNumber: Type.Integer({ minimum: 1, maximum: 2147483647 }),
+          },
+          { additionalProperties: false },
+        ),
+      },
+    },
+    async (request, reply) =>
+      executeSubmission(request, reply, async () =>
+        sendEvidence(
+          reply,
+          await service.bundleDownload(
+            submissionActor(request).userId,
+            request.params.id,
+            request.params.roundNumber,
             review,
           ),
         ),

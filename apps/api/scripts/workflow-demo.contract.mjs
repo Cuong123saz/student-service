@@ -6,20 +6,38 @@ export const demoOrigin = 'http://127.0.0.1:3011'
 export const demoApi = 'http://127.0.0.1:3010'
 export const documentDemoOrigin = 'http://127.0.0.2:3013'
 export const documentDemoApi = 'http://127.0.0.2:3012'
+export const bundleDemoOrigin = 'http://127.0.0.3:3015'
+export const bundleDemoApi = 'http://127.0.0.3:3014'
+const profiles = {
+  workflow: {
+    kind: 'workflow',
+    webUrl: demoOrigin,
+    apiUrl: demoApi,
+    activeFile: 'workflow-demo-active.json',
+  },
+  documents: {
+    kind: 'documents',
+    webUrl: documentDemoOrigin,
+    apiUrl: documentDemoApi,
+    activeFile: 'workflow-document-demo-active.json',
+  },
+  bundles: {
+    kind: 'bundles',
+    webUrl: bundleDemoOrigin,
+    apiUrl: bundleDemoApi,
+    activeFile: 'workflow-bundle-demo-active.json',
+  },
+}
 export function demoProfile(args) {
-  const documents = args[1] === '--documents'
-  return {
-    kind: documents ? 'documents' : 'workflow',
-    webUrl: documents ? documentDemoOrigin : demoOrigin,
-    apiUrl: documents ? documentDemoApi : demoApi,
-    activeFile: documents ? 'workflow-document-demo-active.json' : 'workflow-demo-active.json',
-  }
+  return profiles[
+    args[1] === '--documents' ? 'documents' : args[1] === '--bundles' ? 'bundles' : 'workflow'
+  ]
 }
 export const demoPassword = 'DemoSinhVien#2026!'
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 export function demoAction(args, env) {
   assertDrillInvocation(args.slice(0, 1), env)
-  const rest = args.slice(args[1] === '--documents' ? 2 : 1)
+  const rest = args.slice(['--documents', '--bundles'].includes(args[1]) ? 2 : 1)
   if (!rest.length) return 'start'
   if (rest.length === 1 && rest[0] === 'stop') return 'stop'
   throw new Error('INVALID_WORKFLOW_DEMO_OPTIONS')
@@ -54,13 +72,17 @@ export function demoRunRoot(projectRoot, runId) {
   assert.ok(isAbsolute(projectRoot) && uuid.test(runId), 'INVALID_WORKFLOW_DEMO_STATE')
   return resolve(projectRoot, 'run/workflow-demo', runId)
 }
-export function assertDemoState(state, projectRoot, statePath) {
+export function assertDemoState(state, projectRoot, statePath, expectedProfile) {
+  const kind = state?.profile ?? 'workflow'
+  const profile = Object.hasOwn(profiles, kind) ? profiles[kind] : undefined
   const root = demoRunRoot(projectRoot, state?.runId || '')
   assert.ok(
     state?.version === 1 &&
       state.fakeDataOnly === true &&
-      state.webUrl === (state.profile === 'documents' ? documentDemoOrigin : demoOrigin) &&
-      state.apiUrl === (state.profile === 'documents' ? documentDemoApi : demoApi) &&
+      profile &&
+      (expectedProfile === undefined || profile.kind === expectedProfile) &&
+      state.webUrl === profile.webUrl &&
+      state.apiUrl === profile.apiUrl &&
       isAbsolute(statePath) &&
       resolve(statePath) === resolve(root, 'state.json'),
     'INVALID_WORKFLOW_DEMO_STATE',

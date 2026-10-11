@@ -1,4 +1,4 @@
-export type DocumentFormat = 'docx' | 'pdf'
+export type DocumentFormat = 'docx' | 'pdf' | 'zip'
 export function submissionDocumentUrl(
   apiBase: string,
   reviewPortal: 'user' | 'admin' | undefined,
@@ -14,7 +14,6 @@ export function submissionDocumentUrl(
     encodeURIComponent(id) +
     '/rounds/' +
     roundNumber +
-    '/documents/' +
-    format
+    (format === 'zip' ? '/bundle' : '/documents/' + format)
   )
 }

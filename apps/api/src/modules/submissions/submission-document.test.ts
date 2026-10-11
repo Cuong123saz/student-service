@@ -161,6 +161,7 @@ test('export reads the requested frozen round during supplementation, then reche
     },
   } as unknown as SubmissionRepository
   const service = new SubmissionService(repository, {} as EvidenceStorage, {
+    renderPair: async () => assert.fail('Unexpected pair render'),
     render: (snapshot) => {
       rendered = snapshot
       return Promise.resolve(Buffer.from('document'))
@@ -185,6 +186,7 @@ test('denied access never calls renderer; revoked access after conversion return
     reads = 0
   const forbidden = new SubmissionError(403, 'FORBIDDEN', 'Từ chối')
   const renderer = {
+    renderPair: async () => assert.fail('Unexpected pair render'),
     render: () => {
       calls++
       return Promise.resolve(Buffer.from('private'))

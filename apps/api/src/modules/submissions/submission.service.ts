@@ -17,6 +17,7 @@ import {
   type DocumentFormat,
 } from './submission-document.js'
 import { inspectEvidence } from './submission.validation.js'
+import { buildSubmissionBundle, validateBundleEvidence } from './submission-bundle.js'
 export type SubmissionRepository = Pick<
   DrizzleSubmissionRepository,
   | 'list'
@@ -39,6 +40,7 @@ export type SubmissionRepository = Pick<
   | 'reviewRoundFile'
 >
 export class SubmissionService {
+  private activeBundles = 0
   constructor(
     private readonly repository: SubmissionRepository,
     private readonly storage: EvidenceStorage,
@@ -117,6 +119,50 @@ export class SubmissionService {
       bytes,
       name: 'phieu-ho-so-' + id + '-lan-' + roundNumber + '.' + format,
       mimeType: documentMimeTypes[format],
+    }
+  }
+  async bundleDownload(userId: string, id: string, roundNumber: number, review = false) {
+    const read = () =>
+      review ? this.repository.reviewGet(userId, id) : this.repository.get(userId, id)
+    // Deny inaccessible requests before reserving capacity or reading private bytes.
+    const view = await read()
+    const round = view.rounds.find((item) => item.roundNumber === roundNumber)
+    if (!round) throw new SubmissionError(404, 'NOT_FOUND', 'Không tìm thấy lần gửi hồ sơ.')
+    validateBundleEvidence(round.files)
+    if (this.activeBundles >= 2)
+      throw new SubmissionError(
+        503,
+        'BUNDLE_BUSY',
+        'Máy chủ đang chuẩn bị nhiều gói hồ sơ. Vui lòng thử lại sau.',
+      )
+    this.activeBundles++
+    try {
+      const evidence = []
+      for (const file of round.files) {
+        const stored = review
+          ? await this.repository.reviewRoundFile(userId, id, roundNumber, file.id)
+          : await this.repository.roundFile(userId, id, roundNumber, file.id)
+        if (
+          stored.size !== file.size ||
+          stored.sha256 !== file.sha256 ||
+          stored.mimeType !== file.mimeType
+        )
+          throw integrityFailure()
+        evidence.push({ file, bytes: await this.readVerified(stored) })
+      }
+      const snapshot = { id, serviceName: view.serviceName, procedure: view.procedure, round }
+      // PDF is converted from the exact Word included in this package.
+      const documents = await this.documents.renderPair(snapshot)
+      const bytes = buildSubmissionBundle(snapshot, documents, evidence)
+      // Scope can be revoked during conversion; return no bytes in that case.
+      await read()
+      return {
+        bytes,
+        name: 'goi-ho-so-' + id + '-lan-' + roundNumber + '.zip',
+        mimeType: 'application/zip',
+      }
+    } finally {
+      this.activeBundles--
     }
   }
   async upload(

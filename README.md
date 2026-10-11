@@ -86,6 +86,10 @@ Sau khi gửi hồ sơ ONLINE/HYBRID, sinh viên và cán bộ đúng quyền/ph
 
 [Hướng dẫn xuất phiếu và cấu hình PDF](docs/submission-documents.md) có cách dùng, API, giới hạn và bản thử dữ liệu giả riêng.
 
+Đã bổ sung [gói tải theo từng lần gửi](docs/submission-bundles.md): Word, PDF, minh chứng nguyên byte và manifest SHA-256; kiểm tra quyền trước/sau, chặn tệp hỏng, giới hạn tác vụ và công cụ kiểm tra ngoại tuyến. Phiếu vẫn là bản kê khai chưa ký. Mẫu Word v1 khóa mã băm, không ghi đè hồ sơ cũ bằng thay mẫu.
+
+[Tiến độ và bước tiếp theo](docs/implementation-progress.md) tổng hợp phần đã kiểm chứng và thứ tự chuẩn bị lưu bản bất biến trước khi triển khai ký mô phỏng.
+
 ### Sprint 5 — Bàn giao và thông báo trong ứng dụng
 
 Supervisor đủ quyền/phạm vi bàn giao hồ sơ đang xử lý hoặc chờ bổ sung cho cán bộ đủ điều kiện, giữ nguyên nội dung và lịch sử. Sinh viên/cán bộ có hộp thông báo cá nhân, kiểm tra quyền hiện tại trước khi hiển thị hoặc mở hồ sơ.

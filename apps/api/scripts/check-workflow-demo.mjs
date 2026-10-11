@@ -1,4 +1,5 @@
 import { unzipSync, strFromU8 } from 'fflate'
+import { inspectSubmissionBundle } from './verify-submission-bundle.mjs'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readFile, writeFile } from 'node:fs/promises'
@@ -23,7 +24,7 @@ await assertRecoveryDirectory(runRoot)
 const statePath = join(runRoot, 'state.json')
 await fileDigest(statePath, 65536)
 const state = JSON.parse(await readFile(statePath, 'utf8'))
-assertDemoState(state, projectRoot, statePath)
+assertDemoState(state, projectRoot, statePath, profile.kind)
 assert.equal(state.status, 'READY')
 const require = createRequire(import.meta.url)
 const { chromium } = require(process.env.WORKFLOW_PLAYWRIGHT_MODULE || 'playwright')
@@ -167,7 +168,7 @@ async function upload(page, round) {
   )
 }
 async function download(page, locator, bytes, label) {
-  const pending = page.waitForEvent('download', { timeout: 60000 })
+  const pending = page.waitForEvent('download', { timeout: 120000 })
   await locator.click()
   const file = await pending,
     path = join(runRoot, label + '.pdf')
@@ -178,11 +179,19 @@ async function exportDocument(page, roundNumber, format, label) {
   const panel = page
     .getByRole('region', { name: 'Phiếu hồ sơ lần gửi ' + roundNumber, exact: true })
     .first()
-  const pending = page.waitForEvent('download', { timeout: 60000 })
+  const pending = page.waitForEvent('download', { timeout: 120000 })
   await panel
     .getByRole('button', { name: format === 'docx' ? 'Tải Word' : 'Tải PDF', exact: true })
     .click()
-  const download = await pending
+  const download = await Promise.race([
+    pending,
+    panel
+      .getByRole('alert')
+      .waitFor({ state: 'visible', timeout: 120000 })
+      .then(async () => {
+        throw new Error('DOCUMENT_EXPORT_FAILED: ' + (await panel.getByRole('alert').innerText()))
+      }),
+  ])
   const path = join(runRoot, label + '.' + format)
   await download.saveAs(path)
   const bytes = await readFile(path)
@@ -198,6 +207,36 @@ async function exportDocument(page, roundNumber, format, label) {
     assert.ok(!content.includes('{{fieldValue}}'))
   } else assert.equal(bytes.subarray(0, 5).toString('ascii'), '%PDF-')
   return bytes
+}
+
+async function exportBundle(page, roundNumber, label, expectedEvidence) {
+  const panel = page
+    .getByRole('region', { name: 'Phiếu hồ sơ lần gửi ' + roundNumber, exact: true })
+    .first()
+  const pending = page.waitForEvent('download', { timeout: 120000 })
+  await panel.getByRole('button', { name: 'Tải trọn bộ hồ sơ', exact: true }).click()
+  const downloaded = await Promise.race([
+      pending,
+      panel
+        .getByRole('alert')
+        .waitFor({ state: 'visible', timeout: 120000 })
+        .then(async () => {
+          throw new Error('BUNDLE_EXPORT_FAILED: ' + (await panel.getByRole('alert').innerText()))
+        }),
+    ]),
+    path = join(runRoot, label + '.zip')
+  await downloaded.saveAs(path)
+  const bytes = await readFile(path),
+    result = inspectSubmissionBundle(bytes)
+  assert.equal(result.roundNumber, roundNumber)
+  const parts = unzipSync(bytes),
+    manifest = JSON.parse(strFromU8(parts['manifest.json']))
+  const evidence = manifest.files.filter((item) => item.kind === 'EVIDENCE')
+  assert.equal(evidence.length, 1)
+  assert.deepEqual(Buffer.from(parts[evidence[0].path]), expectedEvidence)
+  const content = strFromU8(unzipSync(parts['phieu-ho-so.docx'])['word/document.xml'])
+  assert.ok(content.includes(recoveryValues(roundNumber).purpose))
+  return { parts, manifest }
 }
 
 try {
@@ -233,9 +272,10 @@ try {
     await owner.page.getByRole('button', { name: 'Lưu bản nháp', exact: true }).count(),
     0,
   )
-  if (profile.kind === 'documents') {
+  if (profile.kind !== 'workflow') {
     await exportDocument(owner.page, 1, 'docx', 'export-round-1')
     await exportDocument(owner.page, 1, 'pdf', 'export-round-1')
+    if (profile.kind === 'bundles') await exportBundle(owner.page, 1, 'bundle-round-1', oldBytes)
     report.checks.exportAvailableImmediatelyAfterSubmit = true
   }
   report.checks.requiredFieldsProfileAndExactTypes = true
@@ -253,9 +293,13 @@ try {
   const anonymous = await browser.newContext()
   await get(anonymous, '/submissions/' + id, 401)
   await anonymous.close()
-  if (profile.kind === 'documents') {
+  if (profile.kind !== 'workflow') {
     await get(other.context, '/submissions/' + id + '/rounds/1/documents/docx', 404)
     await get(foreign.context, '/review-submissions/' + id + '/rounds/1/documents/docx', 404)
+    if (profile.kind === 'bundles') {
+      await get(other.context, '/submissions/' + id + '/rounds/1/bundle', 404)
+      await get(foreign.context, '/review-submissions/' + id + '/rounds/1/bundle', 404)
+    }
   }
   report.checks.studentAndOutsideScopeDenied = true
   phase = 'supplement-request'
@@ -357,12 +401,23 @@ try {
     newBytes,
     'downloaded-current-round-2',
   )
-  if (profile.kind === 'documents') {
+  if (profile.kind !== 'workflow') {
     await exportDocument(owner.page, 2, 'docx', 'export-round-2')
     await exportDocument(owner.page, 2, 'pdf', 'export-round-2')
     const historical = await exportDocument(owner.page, 1, 'docx', 'export-history-round-1')
     assert.deepEqual(historical, await readFile(join(runRoot, 'export-round-1.docx')))
     await exportDocument(reviewer.page, 2, 'docx', 'export-reviewer-round-2')
+    if (profile.kind === 'bundles') {
+      await exportBundle(owner.page, 2, 'bundle-round-2', newBytes)
+      const historicalBundle = await exportBundle(owner.page, 1, 'bundle-history-round-1', oldBytes)
+      const originalBundle = unzipSync(await readFile(join(runRoot, 'bundle-round-1.zip')))
+      assert.deepEqual(
+        historicalBundle.parts['phieu-ho-so.docx'],
+        originalBundle['phieu-ho-so.docx'],
+      )
+      await exportBundle(reviewer.page, 2, 'bundle-reviewer-round-2', newBytes)
+      report.checks.bundleWordPdfEvidenceAndHistoricalIsolation = true
+    }
     report.checks.wordPdfAndFrozenHistoricalExport = true
   }
   await responsive(owner.page, 'student-approved')
@@ -394,8 +449,10 @@ try {
   const admin = await actor('demo.canbo', true)
   await admin.page.goto(demoOrigin + '/admin/review-submissions/' + id)
   await admin.page.getByText('Đã duyệt nội dung', { exact: true }).first().waitFor()
-  if (profile.kind === 'documents') {
+  if (profile.kind !== 'workflow') {
     await exportDocument(admin.page, 2, 'pdf', 'export-admin-round-2')
+    if (profile.kind === 'bundles')
+      await exportBundle(admin.page, 2, 'bundle-admin-round-2', newBytes)
     report.checks.adminDocumentExport = true
   }
   await responsive(admin.page, 'admin-approved')

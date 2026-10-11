@@ -123,4 +123,49 @@ describe('submission document downloads', () => {
       'http://test/api/v1/admin/review-submissions/s1/rounds/2/documents/docx',
     )
   })
+  it.each([undefined, 'user', 'admin'] as const)(
+    'downloads a round bundle in the %s portal',
+    async (portal) => {
+      fetcher.mockResolvedValue(file('application/zip'))
+      const wrapper = await mount(portal)
+      await wrapper.findAll('button')[2]!.trigger('click')
+      await flushPromises()
+      expect(fetcher).toHaveBeenCalledWith(
+        submissionDocumentUrl('http://localhost:3000', portal, 'fake-id', 2, 'zip'),
+        { credentials: 'include' },
+      )
+      expect(click).toHaveBeenCalledTimes(1)
+      expect(wrapper.text()).toContain('Đã tải gói hồ sơ của lần gửi 2.')
+      wrapper.unmount()
+    },
+  )
+  it('disables all actions while preparing a bundle and supports retry after overload', async () => {
+    const pending = Promise.withResolvers<unknown>()
+    fetcher.mockReturnValue(pending.promise)
+    const wrapper = await mount()
+    await wrapper.findAll('button')[2]!.trigger('click')
+    expect(wrapper.text()).toContain('Đang chuẩn bị gói...')
+    expect(
+      wrapper.findAll('button').every((button) => button.attributes('disabled') !== undefined),
+    ).toBe(true)
+    pending.resolve({
+      ok: false,
+      status: 503,
+      json: async () => ({
+        message: 'Máy chủ đang chuẩn bị nhiều gói hồ sơ.',
+        requestId: 'bundle-req',
+      }),
+    })
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('bundle-req')
+    expect(click).not.toHaveBeenCalled()
+    fetcher.mockResolvedValue(file('application/zip'))
+    await wrapper.findAll('button')[2]!.trigger('click')
+    await flushPromises()
+    expect(click).toHaveBeenCalledTimes(1)
+    expect(submissionDocumentUrl('http://test/', undefined, 's/1', 2, 'zip')).toBe(
+      'http://test/api/v1/user/submissions/s%2F1/rounds/2/bundle',
+    )
+    wrapper.unmount()
+  })
 })
