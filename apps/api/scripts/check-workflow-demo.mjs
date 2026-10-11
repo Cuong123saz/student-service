@@ -1,21 +1,23 @@
+import { unzipSync, strFromU8 } from 'fflate'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertDrillInvocation, assertRecoveryDirectory, fileDigest } from './recovery-bundle.mjs'
+import { assertRecoveryDirectory, fileDigest } from './recovery-bundle.mjs'
 import {
   assertDemoState,
-  demoOrigin,
+  demoAction,
+  demoProfile,
   demoPassword,
   demoRunRoot,
 } from './workflow-demo.contract.mjs'
 import { oldBytes, newBytes, recoveryValues, recoveryStudent } from './recovery-fixture.mjs'
-assertDrillInvocation(process.argv.slice(2), process.env)
+assert.equal(demoAction(process.argv.slice(2), process.env), 'start')
+const profile = demoProfile(process.argv.slice(2))
+const demoOrigin = profile.webUrl
 const projectRoot = fileURLToPath(new URL('../../../', import.meta.url))
-const active = JSON.parse(
-  await readFile(resolve(projectRoot, 'run/workflow-demo-active.json'), 'utf8'),
-)
+const active = JSON.parse(await readFile(resolve(projectRoot, 'run', profile.activeFile), 'utf8'))
 const runRoot = demoRunRoot(projectRoot, active.runId)
 await assertRecoveryDirectory(runRoot)
 const statePath = join(runRoot, 'state.json')
@@ -51,7 +53,9 @@ async function actor(username, admin = false) {
   context.on('page', (p) => p.on('pageerror', (error) => report.pageErrors.push(error.message)))
   page.on('pageerror', (error) => report.pageErrors.push(error.message))
   await context.route('**/*', (route) =>
-    new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort(),
+    new URL(route.request().url()).hostname === new URL(demoOrigin).hostname
+      ? route.continue()
+      : route.abort(),
   )
   await page.goto(demoOrigin + (admin ? '/admin/login' : '/login'))
   await page.waitForFunction(() => Boolean(document.querySelector('#__nuxt')?.__vue_app__))
@@ -163,13 +167,39 @@ async function upload(page, round) {
   )
 }
 async function download(page, locator, bytes, label) {
-  const pending = page.waitForEvent('download')
+  const pending = page.waitForEvent('download', { timeout: 60000 })
   await locator.click()
   const file = await pending,
     path = join(runRoot, label + '.pdf')
   await file.saveAs(path)
   assert.deepEqual(await readFile(path), bytes)
 }
+async function exportDocument(page, roundNumber, format, label) {
+  const panel = page
+    .getByRole('region', { name: 'Phiếu hồ sơ lần gửi ' + roundNumber, exact: true })
+    .first()
+  const pending = page.waitForEvent('download', { timeout: 60000 })
+  await panel
+    .getByRole('button', { name: format === 'docx' ? 'Tải Word' : 'Tải PDF', exact: true })
+    .click()
+  const download = await pending
+  const path = join(runRoot, label + '.' + format)
+  await download.saveAs(path)
+  const bytes = await readFile(path)
+  if (format === 'docx') {
+    const content = strFromU8(unzipSync(bytes)['word/document.xml'])
+    for (const value of [
+      recoveryStudent.fullName,
+      recoveryStudent.studentCode,
+      recoveryValues(roundNumber).purpose,
+      roundNumber === 1 ? 'Không' : 'Có',
+    ])
+      assert.ok(content.includes(value), value)
+    assert.ok(!content.includes('{{fieldValue}}'))
+  } else assert.equal(bytes.subarray(0, 5).toString('ascii'), '%PDF-')
+  return bytes
+}
+
 try {
   const owner = await actor('demo.sinhvien'),
     reviewer = await actor('demo.canbo'),
@@ -203,6 +233,11 @@ try {
     await owner.page.getByRole('button', { name: 'Lưu bản nháp', exact: true }).count(),
     0,
   )
+  if (profile.kind === 'documents') {
+    await exportDocument(owner.page, 1, 'docx', 'export-round-1')
+    await exportDocument(owner.page, 1, 'pdf', 'export-round-1')
+    report.checks.exportAvailableImmediatelyAfterSubmit = true
+  }
   report.checks.requiredFieldsProfileAndExactTypes = true
   phase = 'scope-and-ownership'
   await get(owner.context, '/review-submissions', 403)
@@ -218,6 +253,10 @@ try {
   const anonymous = await browser.newContext()
   await get(anonymous, '/submissions/' + id, 401)
   await anonymous.close()
+  if (profile.kind === 'documents') {
+    await get(other.context, '/submissions/' + id + '/rounds/1/documents/docx', 404)
+    await get(foreign.context, '/review-submissions/' + id + '/rounds/1/documents/docx', 404)
+  }
   report.checks.studentAndOutsideScopeDenied = true
   phase = 'supplement-request'
   await reviewer.page.goto(demoOrigin + '/review-submissions')
@@ -318,6 +357,14 @@ try {
     newBytes,
     'downloaded-current-round-2',
   )
+  if (profile.kind === 'documents') {
+    await exportDocument(owner.page, 2, 'docx', 'export-round-2')
+    await exportDocument(owner.page, 2, 'pdf', 'export-round-2')
+    const historical = await exportDocument(owner.page, 1, 'docx', 'export-history-round-1')
+    assert.deepEqual(historical, await readFile(join(runRoot, 'export-round-1.docx')))
+    await exportDocument(reviewer.page, 2, 'docx', 'export-reviewer-round-2')
+    report.checks.wordPdfAndFrozenHistoricalExport = true
+  }
   await responsive(owner.page, 'student-approved')
   report.checks.approveAndIdempotency = true
   report.checks.currentAndHistoricalPdfDownloads = true
@@ -347,6 +394,10 @@ try {
   const admin = await actor('demo.canbo', true)
   await admin.page.goto(demoOrigin + '/admin/review-submissions/' + id)
   await admin.page.getByText('Đã duyệt nội dung', { exact: true }).first().waitFor()
+  if (profile.kind === 'documents') {
+    await exportDocument(admin.page, 2, 'pdf', 'export-admin-round-2')
+    report.checks.adminDocumentExport = true
+  }
   await responsive(admin.page, 'admin-approved')
   await get(owner.context, '/review-submissions/' + id, 401, 'admin')
   await get(admin.context, '/review-submissions/' + id, 401, 'user')

@@ -10,6 +10,12 @@ import {
   type ReviewQueueQuery,
   type ResolutionAction,
 } from './submission.types.js'
+import {
+  LocalSubmissionDocumentRenderer,
+  documentMimeTypes,
+  type SubmissionDocumentRenderer,
+  type DocumentFormat,
+} from './submission-document.js'
 import { inspectEvidence } from './submission.validation.js'
 export type SubmissionRepository = Pick<
   DrizzleSubmissionRepository,
@@ -36,6 +42,7 @@ export class SubmissionService {
   constructor(
     private readonly repository: SubmissionRepository,
     private readonly storage: EvidenceStorage,
+    private readonly documents: SubmissionDocumentRenderer = new LocalSubmissionDocumentRenderer(),
   ) {}
   list(userId: string) {
     return this.repository.list(userId)
@@ -87,6 +94,30 @@ export class SubmissionService {
     note: unknown,
   ) {
     return this.repository.reassign(actor, id, revision, reviewerUserId, note)
+  }
+  async documentDownload(
+    userId: string,
+    id: string,
+    roundNumber: number,
+    format: DocumentFormat,
+    review = false,
+  ) {
+    const read = () =>
+      review ? this.repository.reviewGet(userId, id) : this.repository.get(userId, id)
+    const view = await read()
+    const round = view.rounds.find((item) => item.roundNumber === roundNumber)
+    if (!round) throw new SubmissionError(404, 'NOT_FOUND', 'Không tìm thấy lần gửi hồ sơ.')
+    const bytes = await this.documents.render(
+      { id, serviceName: view.serviceName, procedure: view.procedure, round },
+      format,
+    )
+    // Conversion may be slow. Check current ownership/role/scope again before returning private data.
+    await read()
+    return {
+      bytes,
+      name: 'phieu-ho-so-' + id + '-lan-' + roundNumber + '.' + format,
+      mimeType: documentMimeTypes[format],
+    }
   }
   async upload(
     actor: SubmissionActor,

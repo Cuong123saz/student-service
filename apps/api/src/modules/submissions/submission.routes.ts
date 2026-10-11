@@ -1,3 +1,4 @@
+import { registerSubmissionDocumentRoute } from './submission-document.routes.js'
 import { Type } from '@sinclair/typebox'
 import type { FastifyInstance } from 'fastify'
 import type { SubmissionService } from './submission.service.js'
@@ -22,6 +23,7 @@ export async function submissionRoutes(
   options: { submissionService: SubmissionService },
 ) {
   const service = options.submissionService
+  registerSubmissionDocumentRoute(app, service, 'user', false)
   configureSubmissionErrors(app)
   const guards = [requireSubmissionSession('user', true)]
   const writeGuards = [...guards, origin]

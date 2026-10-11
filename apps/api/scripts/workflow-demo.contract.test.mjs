@@ -10,10 +10,15 @@ import {
   demoApi,
   demoOrigin,
   demoRunRoot,
+  demoProfile,
+  documentDemoApi,
+  documentDemoOrigin,
 } from './workflow-demo.contract.mjs'
 test('fake-only launcher accepts start and stop without arbitrary paths or databases', () => {
   assert.equal(demoAction(['--fake-data-only'], {}), 'start')
   assert.equal(demoAction(['--fake-data-only', 'stop'], {}), 'stop')
+  assert.equal(demoAction(['--fake-data-only', '--documents'], {}), 'start')
+  assert.equal(demoAction(['--fake-data-only', '--documents', 'stop'], {}), 'stop')
   for (const args of [
     [],
     ['stop'],
@@ -73,9 +78,31 @@ test('stop state is bounded by the project UUID folder and separate loopback ori
     { runId: '../../other' },
     { webUrl: 'http://localhost:3001' },
     { apiUrl: 'http://localhost:3000' },
+    { webUrl: 'http://127.0.0.2:3013' },
+    { profile: 'documents' },
   ])
     assert.throws(() =>
       assertDemoState({ ...state, ...change }, project, resolve(root, 'state.json')),
     )
   assert.throws(() => assertDemoState(state, project, resolve(project, 'state.json')))
+})
+
+test('document demo keeps its active state and both URLs separate from the existing workflow', () => {
+  const workflow = demoProfile(['--fake-data-only'])
+  const documents = demoProfile(['--fake-data-only', '--documents'])
+  assert.notEqual(workflow.activeFile, documents.activeFile)
+  assert.equal(documents.apiUrl, documentDemoApi)
+  assert.equal(documents.webUrl, documentDemoOrigin)
+  const project = resolve('fixture-project'),
+    runId = randomUUID(),
+    root = demoRunRoot(project, runId)
+  const state = {
+    version: 1,
+    fakeDataOnly: true,
+    runId,
+    profile: 'documents',
+    webUrl: documentDemoOrigin,
+    apiUrl: documentDemoApi,
+  }
+  assert.equal(assertDemoState(state, project, resolve(root, 'state.json')), root)
 })

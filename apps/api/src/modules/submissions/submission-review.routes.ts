@@ -1,3 +1,4 @@
+import { registerSubmissionDocumentRoute } from './submission-document.routes.js'
 import { Type } from '@sinclair/typebox'
 import type { FastifyInstance } from 'fastify'
 import type { ReviewQueueQuery, ResolutionAction } from './submission.types.js'
@@ -15,6 +16,7 @@ export async function submissionReviewRoutes(
   options: { submissionService: SubmissionService; portal: 'user' | 'admin' },
 ) {
   const service = options.submissionService
+  registerSubmissionDocumentRoute(app, service, options.portal, true)
   const guards = [requireSubmissionSession(options.portal)]
   const params = Type.Object(
     { id: Type.String({ format: 'uuid' }) },

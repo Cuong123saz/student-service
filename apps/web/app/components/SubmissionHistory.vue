@@ -7,6 +7,8 @@ import {
   submissionEventLabels,
 } from '~/utils/submission'
 defineProps<{
+  submissionId?: string
+  reviewPortal?: 'user' | 'admin'
   rounds: SubmissionRound[]
   events: SubmissionEvent[]
   procedure: PublicProcedure
@@ -43,6 +45,13 @@ defineProps<{
       <summary>
         Lần gửi {{ round.roundNumber }} · {{ formatSubmissionTime(round.submittedAt) }}
       </summary>
+      <SubmissionDocumentDownloads
+        v-if="submissionId"
+        :submission-id="submissionId"
+        :round-number="round.roundNumber"
+        :review-portal="reviewPortal"
+        compact
+      />
       <p v-if="round.source === 'MIGRATION'" class="history-help">
         Bản gửi được ghi nhận từ hồ sơ có trước khi bổ sung tính năng lịch sử; không có diễn biến
         thao tác trước đó.

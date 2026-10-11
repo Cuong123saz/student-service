@@ -614,7 +614,14 @@ watch(
           <p class="intake-instructions">{{ detail.procedure.contactInstructions }}</p>
         </aside>
       </div>
+      <SubmissionDocumentDownloads
+        :submission-id="detail.id"
+        :round-number="detail.roundNumber"
+        :review-portal="portal"
+      />
       <SubmissionHistory
+        :submission-id="detail.id"
+        :review-portal="portal"
         :rounds="detail.rounds"
         :events="detail.events"
         :procedure="detail.procedure"

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { fork, spawn } from 'node:child_process'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { createWriteStream } from 'node:fs'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { resolve, join } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
@@ -18,16 +18,20 @@ import {
   assertDemoDatabase,
   assertDemoState,
   demoAction,
-  demoApi,
   demoDatabase,
-  demoOrigin,
+  demoProfile,
   demoPassword,
   demoRunRoot,
 } from './workflow-demo.contract.mjs'
 
 const projectRoot = fileURLToPath(new URL('../../../', import.meta.url)),
   apiRoot = resolve(projectRoot, 'apps/api')
-const activePath = resolve(projectRoot, 'run/workflow-demo-active.json')
+const profile = demoProfile(process.argv.slice(2))
+const demoOrigin = profile.webUrl,
+  demoApi = profile.apiUrl
+const apiAddress = new URL(demoApi),
+  webAddress = new URL(demoOrigin)
+const activePath = resolve(projectRoot, 'run', profile.activeFile)
 async function readJson(path) {
   await fileDigest(path, 65536)
   return JSON.parse(await readFile(path, 'utf8'))
@@ -102,11 +106,11 @@ if (action === 'stop') {
     assertDemoContainer(info, runId, containerId)
     return info
   }
-  async function unused(port) {
+  async function unused(port, host) {
     const server = createServer()
     await new Promise((res, rej) => {
       server.once('error', rej)
-      server.listen(port, '127.0.0.1', res)
+      server.listen(port, host, res)
     })
     await new Promise((res, rej) => server.close((error) => (error ? rej(error) : res())))
   }
@@ -155,8 +159,8 @@ if (action === 'stop') {
   })
   try {
     assert.equal(process.versions.node.split('.')[0], '22', 'NODE_22_REQUIRED')
-    await unused(3010)
-    await unused(3011)
+    await unused(Number(apiAddress.port), apiAddress.hostname)
+    await unused(Number(webAddress.port), webAddress.hostname)
     await assertRecoveryDirectory(projectRoot)
     await mkdir(resolve(projectRoot, 'run'), { recursive: true })
     await assertRecoveryDirectory(resolve(projectRoot, 'run'))
@@ -276,8 +280,9 @@ if (action === 'stop') {
       DOTENV_CONFIG_PATH: join(runRoot, 'fake.env'),
       JWT_SECRET: randomBytes(48).toString('hex'),
       SUBMISSION_STORAGE_ROOT: join(runRoot, 'evidence'),
-      API_HOST: '127.0.0.1',
-      API_PORT: '3010',
+      API_HOST: apiAddress.hostname,
+      API_PORT: apiAddress.port,
+      ...(process.env.LIBREOFFICE_PATH ? { LIBREOFFICE_PATH: process.env.LIBREOFFICE_PATH } : {}),
       CORS_ORIGIN: demoOrigin,
       WEB_BASE_URL: demoOrigin,
       SMTP_HOST: '127.0.0.1',
@@ -285,17 +290,35 @@ if (action === 'stop') {
       SMTP_SECURE: 'false',
       MAIL_FROM: 'demo@example.invalid',
     }
+    phase = 'snapshot-runtime'
+    const runtimeRoot = join(runRoot, 'runtime')
+    await mkdir(runtimeRoot)
+    await cp(resolve(apiRoot, 'dist'), join(runtimeRoot, 'api/dist'), {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+    })
+    await cp(resolve(apiRoot, 'templates'), join(runtimeRoot, 'api/templates'), {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+    })
+    await cp(resolve(projectRoot, 'apps/web/.output'), join(runtimeRoot, 'web/.output'), {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+    })
     phase = 'start-servers'
-    launch(resolve(apiRoot, 'dist/server.js'), apiRoot, env, 'api')
+    launch(join(runtimeRoot, 'api/dist/server.js'), join(runtimeRoot, 'api'), env, 'api')
     launch(
-      resolve(projectRoot, 'apps/web/.output/server/index.mjs'),
-      resolve(projectRoot, 'apps/web'),
+      join(runtimeRoot, 'web/.output/server/index.mjs'),
+      join(runtimeRoot, 'web'),
       {
         ...inherited,
-        PORT: '3011',
-        NITRO_PORT: '3011',
-        HOST: '127.0.0.1',
-        NITRO_HOST: '127.0.0.1',
+        PORT: webAddress.port,
+        NITRO_PORT: webAddress.port,
+        HOST: webAddress.hostname,
+        NITRO_HOST: webAddress.hostname,
         NUXT_PUBLIC_API_BASE: demoApi,
       },
       'web',
@@ -305,6 +328,7 @@ if (action === 'stop') {
     state = {
       version: 1,
       fakeDataOnly: true,
+      profile: profile.kind,
       runId,
       status: 'READY',
       webUrl: demoOrigin,

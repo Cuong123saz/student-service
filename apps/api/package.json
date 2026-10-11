@@ -32,7 +32,9 @@
     "test:fixtures": "node --import tsx --test scripts/recovery-fixture.test.mjs",
     "demo:workflow": "node scripts/workflow-demo.mjs --fake-data-only",
     "demo:workflow:check": "node scripts/check-workflow-demo.mjs --fake-data-only",
-    "test:workflow-demo": "node --test scripts/workflow-demo.contract.test.mjs"
+    "test:workflow-demo": "node --test scripts/workflow-demo.contract.test.mjs",
+    "demo:documents": "node scripts/workflow-demo.mjs --fake-data-only --documents",
+    "demo:documents:check": "node scripts/check-workflow-demo.mjs --fake-data-only --documents"
   },
   "type": "module",
   "dependencies": {

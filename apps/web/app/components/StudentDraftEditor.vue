@@ -346,6 +346,11 @@ onBeforeRouteLeave(
         }}</time>
       </p>
     </div>
+    <SubmissionDocumentDownloads
+      v-if="draft.rounds.length"
+      :submission-id="draft.id"
+      :round-number="draft.roundNumber"
+    />
     <p v-if="!draft.editable && !submitted" class="draft-warning" role="alert">
       {{ draft.readOnlyReason }}
       <NuxtLink :to="'/services/' + draft.serviceId">Xem hướng dẫn hiện hành</NuxtLink>
@@ -628,6 +633,7 @@ onBeforeRouteLeave(
       </aside>
     </div>
     <SubmissionHistory
+      :submission-id="draft.id"
       :rounds="draft.rounds"
       :events="draft.events"
       :procedure="draft.procedure"

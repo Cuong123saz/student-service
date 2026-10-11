@@ -80,6 +80,12 @@ Cán bộ đã nhận hồ sơ được yêu cầu bổ sung, duyệt nội dung
 
 [Hướng dẫn bổ sung và quyết định](docs/submission-resolution.md) mô tả quyền, cách sử dụng, lịch sử và kiểm chứng. Giấy xác nhận sinh viên vẫn thực hiện trực tiếp tại CTSV.
 
+### Sprint 5 — Phiếu thông tin hồ sơ Word và PDF
+
+Sau khi gửi hồ sơ ONLINE/HYBRID, sinh viên và cán bộ đúng quyền/phạm vi có thể tải phiếu Word/PDF tự điền toàn bộ trường từ snapshot của từng lần gửi, gồm danh sách minh chứng. Lịch sử lần gửi cũ giữ nguyên khi bổ sung. Phiếu chưa ký, chưa phải văn bản được cấp; PDF cần LibreOffice tại máy chạy API.
+
+[Hướng dẫn xuất phiếu và cấu hình PDF](docs/submission-documents.md) có cách dùng, API, giới hạn và bản thử dữ liệu giả riêng.
+
 ### Sprint 5 — Bàn giao và thông báo trong ứng dụng
 
 Supervisor đủ quyền/phạm vi bàn giao hồ sơ đang xử lý hoặc chờ bổ sung cho cán bộ đủ điều kiện, giữ nguyên nội dung và lịch sử. Sinh viên/cán bộ có hộp thông báo cá nhân, kiểm tra quyền hiện tại trước khi hiển thị hoặc mở hồ sơ.

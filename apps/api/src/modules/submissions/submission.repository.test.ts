@@ -1,3 +1,5 @@
+import { unzipSync, strFromU8 } from 'fflate'
+import { LocalSubmissionDocumentRenderer } from './submission-document.js'
 import assert from 'node:assert/strict'
 import { randomUUID, createHash } from 'node:crypto'
 import { after, afterEach, beforeEach, test } from 'node:test'
@@ -3452,4 +3454,140 @@ test('indexed queue search preserves short terms, Vietnamese accents and complet
     0,
   )
   assert.equal((await f.service.reviewList(f.reviewer.userId, { q: 'An 6' })).items.length, 8)
+})
+
+test('HTTP document downloads require current owner/scope and return private Word/PDF attachments', async (t) => {
+  const f = await fixture()
+  const reviewer = await addReviewer(f.unitId)
+  const foreignUnit = randomUUID()
+  await db
+    .insert(organizationalUnits)
+    .values({ id: foreignUnit, code: 'S5T_' + randomUUID(), name: 'Đơn vị ngoài' })
+  const foreign = await addReviewer(foreignUnit)
+  let conversions = 0
+  const renderer = new LocalSubmissionDocumentRenderer({
+    convert: () => {
+      conversions++
+      return Promise.resolve(Buffer.from('%PDF-1.7\n' + '.'.repeat(120) + '\n%%EOF'))
+    },
+  })
+  const app = buildApp({
+    submissionService: new SubmissionService(f.repository, f.storage, renderer),
+  })
+  await app.ready()
+  t.after(() => app.close())
+  const owner = reviewCookie(app, f.actor, 'user', ['STUDENT'])
+  const other = reviewCookie(app, { ...f.actor, userId: f.otherId }, 'user', ['STUDENT'])
+  const ready = await complete(f)
+  const path = '/api/v1/user/submissions/' + ready.id + '/rounds/1/documents/'
+  assert.equal(
+    (await app.inject({ url: path + 'docx', headers: { cookie: owner } })).statusCode,
+    404,
+  )
+  const sent = await f.service.submit(f.actor, ready.id, ready.revision)
+  assert.equal((await app.inject({ url: path + 'docx' })).statusCode, 401)
+  assert.equal(
+    (await app.inject({ url: path + 'docx', headers: { cookie: other } })).statusCode,
+    404,
+  )
+  assert.equal(
+    (await app.inject({ url: path + 'exe', headers: { cookie: owner } })).statusCode,
+    400,
+  )
+  assert.equal(
+    (
+      await app.inject({
+        url: path.replace('/rounds/1/', '/rounds/0/') + 'docx',
+        headers: { cookie: owner },
+      })
+    ).statusCode,
+    400,
+  )
+  const word = await app.inject({ url: path + 'docx', headers: { cookie: owner } })
+  assert.equal(word.statusCode, 200, word.body)
+  assert.equal(
+    word.headers['content-type'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  )
+  assert.equal(word.headers['cache-control'], 'private, no-store')
+  assert.equal(word.headers['x-content-type-options'], 'nosniff')
+  assert.ok(String(word.headers['content-disposition']).includes('-lan-1.docx'))
+  const content = strFromU8(unzipSync(word.rawPayload)['word/document.xml']!)
+  assert.ok(content.includes('Nội dung riêng tư'))
+  assert.ok(content.includes('Không'))
+  assert.equal(conversions, 0)
+  const pdfResponse = await app.inject({ url: path + 'pdf', headers: { cookie: owner } })
+  assert.equal(pdfResponse.statusCode, 200)
+  assert.equal(pdfResponse.headers['content-type'], 'application/pdf')
+  assert.equal(conversions, 1)
+  for (const portal of ['user', 'admin'] as const) {
+    const reviewPath =
+      '/api/v1/' + portal + '/review-submissions/' + sent.id + '/rounds/1/documents/docx'
+    assert.equal(
+      (
+        await app.inject({
+          url: reviewPath,
+          headers: { cookie: reviewCookie(app, foreign, portal) },
+        })
+      ).statusCode,
+      404,
+    )
+    assert.equal(
+      (
+        await app.inject({
+          url: reviewPath,
+          headers: { cookie: reviewCookie(app, reviewer, portal) },
+        })
+      ).statusCode,
+      200,
+    )
+    assert.equal(
+      (await app.inject({ url: reviewPath, headers: { cookie: owner } })).statusCode,
+      portal === 'admin' ? 401 : 403,
+    )
+  }
+  await db.update(users).set({ status: 'INACTIVE' }).where(eq(users.id, reviewer.userId))
+  assert.equal(
+    (
+      await app.inject({
+        url: '/api/v1/user/review-submissions/' + sent.id + '/rounds/1/documents/docx',
+        headers: { cookie: reviewCookie(app, reviewer, 'user') },
+      })
+    ).statusCode,
+    403,
+  )
+})
+
+test('Word for an old round remains identical after supplementation and profile changes', async () => {
+  const f = await resolutionFixture()
+  const first = await f.service.documentDownload(f.actor.userId, f.sent.id, 1, 'docx')
+  const requested = await f.service.resolve(
+    f.reviewer,
+    f.sent.id,
+    f.claimed.revision,
+    'REQUEST_SUPPLEMENT',
+    'Bổ sung',
+  )
+  await db
+    .update(users)
+    .set({ fullName: 'Tên mới sau lần gửi đầu' })
+    .where(eq(users.id, f.actor.userId))
+  const working = await f.service.save(f.actor, f.sent.id, requested.revision, {
+    purpose: 'Nội dung bổ sung mới',
+    amount: 15,
+    agreed: true,
+  })
+  const during = await f.service.documentDownload(f.actor.userId, f.sent.id, 1, 'docx')
+  assert.deepEqual(during.bytes, first.bytes)
+  const second = await f.service.submit(f.actor, f.sent.id, working.revision)
+  assert.equal(second.roundNumber, 2)
+  const old = await f.service.documentDownload(f.reviewer.userId, f.sent.id, 1, 'docx', true)
+  assert.deepEqual(old.bytes, first.bytes)
+  const latest = await f.service.documentDownload(f.actor.userId, f.sent.id, 2, 'docx')
+  const content = strFromU8(unzipSync(latest.bytes)['word/document.xml']!)
+  assert.ok(content.includes('Tên mới sau lần gửi đầu'))
+  assert.ok(content.includes('Nội dung bổ sung mới'))
+  assert.ok(
+    !strFromU8(unzipSync(old.bytes)['word/document.xml']!).includes('Tên mới sau lần gửi đầu'),
+  )
 })

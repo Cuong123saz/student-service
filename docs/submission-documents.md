@@ -1,0 +1,77 @@
+# Phiếu thông tin hồ sơ Word và PDF
+
+## Cách dùng
+
+Sinh viên kê khai, lưu, xem lại, xác nhận và gửi hồ sơ ONLINE/HYBRID. Sau khi máy chủ ghi nhận thành công, phần **Phiếu thông tin hồ sơ** có hai nút **Tải Word** và **Tải PDF**. Không cần nhập lại thông tin vào Word. Cán bộ có quyền xem hồ sơ trong phạm vi được giao cũng tải được phiếu ở trang tiếp nhận của cổng người dùng hoặc quản trị.
+
+Phiếu dùng chung cho mọi thủ tục đã có hồ sơ điện tử: tên thủ tục, mã hồ sơ, lần gửi, thời điểm gửi theo giờ Việt Nam, phiên bản biểu mẫu, đơn vị xử lý, thông tin sinh viên và toàn bộ trường được cấu hình. Sáu kiểu TEXT/TEXTAREA/NUMBER/DATE/SELECT/BOOLEAN được chuyển thành nội dung dễ đọc; số `0`, lựa chọn `Không`, nhãn lựa chọn và xuống dòng được giữ đúng. Phiếu liệt kê tên, loại và dung lượng minh chứng của chính lần gửi đó; tệp gốc tải riêng trong hồ sơ.
+
+Khi bổ sung rồi gửi lại, phiếu lần hai lấy snapshot lần hai. Mở **Lịch sử hồ sơ**, mở lần gửi cần xem và tải phiếu của lần đó. Thay đổi nội dung đang bổ sung hoặc hồ sơ cá nhân không viết lại lần gửi cũ. Bản nháp chưa gửi chưa có phiếu; mục chưa kê khai được ghi rõ, không tự bịa dữ liệu.
+
+Phiếu là **bản kê khai chưa ký**, không phải kết quả đã được cấp. Phê duyệt nội dung không làm phát sinh chữ ký số hoặc con dấu. Minh chứng vẫn có trạng thái chữ ký chưa xác minh. Giấy xác nhận sinh viên đang OFFLINE tiếp tục hướng dẫn làm việc tại Phòng CTSV.
+
+## Vận hành
+
+Word được điền từ template `apps/api/templates/submission-summary-v1.docx`, không gọi mô hình AI. PDF được chuyển từ đúng Word đã điền bằng LibreOffice chạy headless. Tệp được tạo khi chọn tải, ngoài transaction gửi hồ sơ: lỗi tạo PDF không làm mất hồ sơ hoặc yêu cầu sinh viên gửi lại. Word vẫn tải được nếu bộ chuyển PDF chưa sẵn sàng.
+
+Cài LibreOffice trên máy chạy API và cấu hình biến `LIBREOFFICE_PATH` bằng đường dẫn tuyệt đối đến executable. Windows dùng `soffice.com` để chờ đúng tiến trình; Linux dùng `soffice`. Nếu bỏ trống, máy chủ tìm tên tương ứng trong PATH. Cần thư mục tạm ghi được và font hỗ trợ tiếng Việt; máy triển khai phải kiểm tra lại bố cục sau khi thay font.
+
+Máy local hiện dùng bản LibreOffice 26.8.1 được giải nén riêng tại `D:/student-service/run/tools/LibreOffice/program/soffice.com`; không cài đè ứng dụng hệ thống. MSI từ The Document Foundation, chữ ký Authenticode Valid, SHA-256 `c6298b10cfa1748bcbedad94c62ce771e240e5021bfd6d7a967cd571b04b5312` được đối chiếu trước khi giải nén. Binaries trong `run/` được Git bỏ qua, cần chuẩn bị lại trên máy khác.
+
+Khi triển khai, giữ `apps/api/templates/` cạnh `apps/api/dist/`; bản dựng TypeScript không tự đóng gói tài nguyên. Chỉ dùng template quản lý trong mã nguồn, không nhận DOCX tuỳ ý từ người dùng để chuyển đổi.
+
+Mỗi API instance cho chạy tối đa hai tác vụ chuyển PDF cùng lúc, tác vụ tối đa 45 giây trước khi dừng tiến trình do nó tạo. Quá tải trả `503 DOCUMENT_BUSY`; lỗi/thiếu converter trả `503 DOCUMENT_PDF_UNAVAILABLE` với hướng dẫn tải Word hoặc thử lại. Route giới hạn 12 yêu cầu/phút. Đây là giới hạn bảo vệ ban đầu cho local; cần đo tải trước khi xác định năng lực vận hành thực tế. Mỗi tác vụ có thư mục/profile LibreOffice riêng và được dọn sau khi xử lý; không ghi nội dung riêng tư vào log chuyển đổi.
+
+Tài liệu được trả với `Content-Disposition: attachment`, `Cache-Control: private, no-store` và `X-Content-Type-Options: nosniff`. Kiểm tra chủ sở hữu hoặc quyền/phạm vi cán bộ cả trước và sau khi chuyển đổi. Mất quyền trong lúc chờ không nhận được tệp. Không có đường dẫn tải công khai.
+
+Tham khảo chính thức: [tham số dòng lệnh LibreOffice](https://help.libreoffice.org/latest/en-US/text/shared/guide/start_parameters.html), [xuất PDF](https://help.libreoffice.org/latest/en-US/text/shared/guide/pdf_params.html).
+
+## API
+
+Các route GET yêu cầu session đúng cổng:
+
+- `/api/v1/user/submissions/:id/rounds/:roundNumber/documents/:format`: sinh viên sở hữu hồ sơ.
+- `/api/v1/user/review-submissions/:id/rounds/:roundNumber/documents/:format`: cán bộ đúng quyền/phạm vi.
+- `/api/v1/admin/review-submissions/:id/rounds/:roundNumber/documents/:format`: cán bộ đăng nhập cổng quản trị, vẫn kiểm tra quyền/phạm vi.
+
+`format` chỉ nhận `docx` hoặc `pdf`. Không có lần gửi trả 404; định dạng hoặc số lần gửi không hợp lệ trả 400. Tên tải `phieu-ho-so-<id>-lan-<round>.<format>`. Chưa lưu tài liệu đã sinh hoặc chữ ký/hash tài liệu vào database; tải lại Word của cùng lần gửi dưới template v1 cho cùng nội dung. Nếu thay template trong tương lai phải quản lý phiên bản trước khi áp dụng cho hồ sơ đã lưu.
+
+## Bản thử riêng cho xuất phiếu
+
+Giữ được môi trường thực hành trước đó ở `127.0.0.1:3011`. Bản thử xuất phiếu dùng `http://127.0.0.2:3013/login`, API `127.0.0.2:3012`, database và kho minh chứng giả riêng. Cookie tách theo địa chỉ máy; mở đúng `127.0.0.2`. Mỗi lượt mới chép bản dựng API/Web và template vào thư mục runtime riêng trong runRoot, để build tiếp ở mã nguồn không làm mất tệp của demo đang chạy.
+
+Chạy từ thư mục gốc, Node 22, Docker và image `postgres:17-alpine` đã sẵn, không nạp DATABASE_URL/SUBMISSION_STORAGE_ROOT từ môi trường khác:
+
+```powershell
+npm run build
+$env:LIBREOFFICE_PATH = 'D:/student-service/run/tools/LibreOffice/program/soffice.com'
+npm run demo:documents --workspace @student-service/api
+```
+
+Chờ `WORKFLOW_DEMO_READY`. Tài khoản `demo.sinhvien` và `demo.canbo`, mật khẩu demo chung `DemoSinhVien#2026!`. Trong Dịch vụ chọn **DEMO 3 - Bạn tự thực hành**, kê khai đủ, tải minh chứng PDF giả rồi gửi. Hai thủ tục DEMO 1/2 dành cho bài kiểm thử. Tệp mẫu nằm trong `apps/api/scripts/fixtures/recovery/`.
+
+Trên lượt mới, có Playwright/Chromium, chạy:
+
+```powershell
+npm run demo:documents:check --workspace @student-service/api
+```
+
+Bài kiểm thử dùng trình duyệt riêng để gửi, tải Word/PDF ngay sau gửi, bổ sung, tải lần hai và đối chiếu Word lịch sử lần đầu khớp toàn bộ byte; kiểm tra tải từ cán bộ và quản trị, chặn ngoài phạm vi, cùng luồng duyệt/từ chối và giao diện ở bốn độ rộng. `run/workflow-document-demo-active.json` trỏ đến lượt này; `browser-report.json`, ảnh giao diện và tài liệu tải nằm trong thư mục lượt demo được Git bỏ qua.
+
+Dừng chỉ bản thử xuất phiếu:
+
+```powershell
+npm run demo:documents --workspace @student-service/api -- stop
+```
+
+Dữ liệu giả ở bộ nhớ tạm mất khi dừng; không dùng môi trường này lưu hồ sơ thật. Môi trường demo quy trình cũ có lệnh start/stop và active file riêng.
+
+## Kiểm chứng local ngày 11/10/2026
+
+Build API/Web, typecheck, lint, format và cổng ADR đạt; không thay schema/database. Hồi quy API đạt 109 unit, 262 integration, 22 storage, 20 fixture, 126 recovery và 5 rào chắn demo ở lượt đầy đủ; sau khi bổ sung danh sách minh chứng đã chạy lại toàn bộ 11 kiểm thử xuất phiếu và hai integration liên quan. Web đạt 112 kiểm thử, cùng lượt acceptance riêng 91 kiểm thử.
+
+Chromium chạy trọn luồng bằng dữ liệu giả: đủ sáu kiểu trường, gửi, tải Word/PDF ngay sau gửi, bổ sung rồi tải lần hai, đối chiếu toàn bộ byte của Word lịch sử, tải từ cán bộ và quản trị, chặn người khác/ngoài phạm vi, duyệt/từ chối, giữ hướng dẫn CTSV và 20 kiểm tra độ rộng. Không có lỗi JavaScript trang. Sau chỉnh template, lượt tải lại qua ba vai trò cũng đạt.
+
+Word mẫu và PDF tải thật đã được dựng thành ảnh và xem trực quan; bản thông thường một trang. Phiếu 50 trường dùng chính renderer của ứng dụng, có hai nội dung 2000 ký tự (một không có khoảng trắng), giữ đủ trường cuối và ký tự khi sang nhiều trang. Đây là kiểm chứng local, chưa phải đo tải đồng thời hoặc nghiệm thu vận hành dữ liệu thật.
+
+Đã kiểm tra lại việc tách runtime trên lượt mới: luồng trình duyệt Word/PDF đạt. Môi trường thực hành cũ được sao lưu và phục hồi sang lượt mới tại cùng địa chỉ 3011 sau khi bản dựng làm mất tài nguyên cũ; hồ sơ đã duyệt và minh chứng từng lần gửi được giữ nguyên, không yêu cầu sinh viên kê khai lại. Các lượt khởi động từ mã mới sử dụng runtime riêng để tránh lặp lại vấn đề này.

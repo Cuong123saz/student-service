@@ -4,12 +4,24 @@ import { assertDrillInvocation } from './recovery-bundle.mjs'
 export const demoDatabase = 'student_service_workflow_demo'
 export const demoOrigin = 'http://127.0.0.1:3011'
 export const demoApi = 'http://127.0.0.1:3010'
+export const documentDemoOrigin = 'http://127.0.0.2:3013'
+export const documentDemoApi = 'http://127.0.0.2:3012'
+export function demoProfile(args) {
+  const documents = args[1] === '--documents'
+  return {
+    kind: documents ? 'documents' : 'workflow',
+    webUrl: documents ? documentDemoOrigin : demoOrigin,
+    apiUrl: documents ? documentDemoApi : demoApi,
+    activeFile: documents ? 'workflow-document-demo-active.json' : 'workflow-demo-active.json',
+  }
+}
 export const demoPassword = 'DemoSinhVien#2026!'
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 export function demoAction(args, env) {
   assertDrillInvocation(args.slice(0, 1), env)
-  if (args.length === 1) return 'start'
-  if (args.length === 2 && args[1] === 'stop') return 'stop'
+  const rest = args.slice(args[1] === '--documents' ? 2 : 1)
+  if (!rest.length) return 'start'
+  if (rest.length === 1 && rest[0] === 'stop') return 'stop'
   throw new Error('INVALID_WORKFLOW_DEMO_OPTIONS')
 }
 export function assertDemoDatabase(url) {
@@ -47,8 +59,8 @@ export function assertDemoState(state, projectRoot, statePath) {
   assert.ok(
     state?.version === 1 &&
       state.fakeDataOnly === true &&
-      state.webUrl === demoOrigin &&
-      state.apiUrl === demoApi &&
+      state.webUrl === (state.profile === 'documents' ? documentDemoOrigin : demoOrigin) &&
+      state.apiUrl === (state.profile === 'documents' ? documentDemoApi : demoApi) &&
       isAbsolute(statePath) &&
       resolve(statePath) === resolve(root, 'state.json'),
     'INVALID_WORKFLOW_DEMO_STATE',
