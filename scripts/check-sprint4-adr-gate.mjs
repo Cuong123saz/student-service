@@ -26,7 +26,12 @@ const tableAdrMap = new Map([
       'docs/adr/0006-submission-reassignment-and-notifications.md',
     ],
   ],
-  ['submission_rounds', 'docs/adr/0005-submission-resolution.md'],
+  [
+    'submission_rounds',
+    ['docs/adr/0005-submission-resolution.md', 'docs/adr/0009-immutable-generated-documents.md'],
+  ],
+  ['submission_documents', 'docs/adr/0009-immutable-generated-documents.md'],
+  ['submission_document_jobs', 'docs/adr/0009-immutable-generated-documents.md'],
   [
     'submission_events',
     [

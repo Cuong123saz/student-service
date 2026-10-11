@@ -17,6 +17,8 @@ const protectedTables = [
   'submissions',
   'submission_files',
   'submission_rounds',
+  'submission_documents',
+  'submission_document_jobs',
   'submission_events',
   'personal_notifications',
   'form_versions',
@@ -79,6 +81,7 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
     )
   }
   if (adr !== undefined) {
+    write('docs/adr/0009-immutable-generated-documents.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0008-review-search-index.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0007-review-queue-pagination.md', '---\nstatus: ' + adr + '\n---\n')
     write(adrPath, '---\nstatus: ' + adr + '\n---\n')
