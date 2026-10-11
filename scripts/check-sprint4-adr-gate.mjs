@@ -49,8 +49,10 @@ const tableAdrMap = new Map([
     [
       'docs/adr/0009-immutable-generated-documents.md',
       'docs/adr/0010-document-vault-and-recovery.md',
+      'docs/adr/0011-controlled-document-retry.md',
     ],
   ],
+  ['submission_document_retries', 'docs/adr/0011-controlled-document-retry.md'],
   [
     'submission_events',
     [
