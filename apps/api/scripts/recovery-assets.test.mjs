@@ -494,3 +494,39 @@ test('bounded copy writes exact bytes, refuses an existing destination and retai
   )
   await assert.rejects(readFile(overflow), (error) => error.code === 'ENOENT')
 })
+
+for (const [label, schema, counts, expected] of [
+  ['old schema', { sets: false, documents: false, jobs: false }, null, 'ABSENT'],
+  [
+    'empty registry',
+    { sets: true, documents: true, jobs: true },
+    { sets: 0, documents: 0, jobs: 0 },
+    'EMPTY',
+  ],
+  [
+    'published output',
+    { sets: true, documents: true, jobs: true },
+    { sets: 1, documents: 1, jobs: 1 },
+    'DOCUMENT_REGISTRY_RECOVERY_REQUIRED',
+  ],
+  [
+    'pending job',
+    { sets: true, documents: true, jobs: true },
+    { sets: 1, documents: 0, jobs: 1 },
+    'DOCUMENT_REGISTRY_RECOVERY_REQUIRED',
+  ],
+  [
+    'partial schema',
+    { sets: true, documents: false, jobs: false },
+    null,
+    'DOCUMENT_REGISTRY_SCHEMA_INCOMPLETE',
+  ],
+])
+  test('fixture recovery preflight handles ' + label, async () => {
+    const { assertNoDocumentRegistryRows } = await import('./recovery-assets.mjs')
+    let calls = 0
+    const sql = { unsafe: async () => [calls++ === 0 ? schema : counts] }
+    if (expected === 'EMPTY' || expected === 'ABSENT')
+      assert.equal(await assertNoDocumentRegistryRows(sql), expected)
+    else await assert.rejects(assertNoDocumentRegistryRows(sql), new RegExp(expected))
+  })

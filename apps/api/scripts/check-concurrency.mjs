@@ -21,7 +21,7 @@ assert.equal(process.env.APP_ENV, 'test', 'Requires APP_ENV=test')
 const root = fileURLToPath(new URL('../../../', import.meta.url))
 const origin = 'http://localhost:3011'
 const protectedTables =
-  'personal_notifications, submission_events, submission_rounds, submission_files, submissions, procedure_versions'
+  'submission_document_jobs, submission_documents, submission_document_sets, personal_notifications, submission_events, submission_rounds, submission_files, submissions, procedure_versions'
 
 if (process.argv.includes('--serve')) {
   // Separate API process: the load generator does not share its event loop or DB pool.

@@ -162,6 +162,13 @@
       "when": 1791704855792,
       "tag": "0022_round_declaration_template",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791719993412,
+      "tag": "0023_document_registry",
+      "breakpoints": true
     }
   ]
 }

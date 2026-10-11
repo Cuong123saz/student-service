@@ -1,6 +1,6 @@
 # Phục hồi mẫu và tài liệu đầu ra — nền tảng B1
 
-Cập nhật 11/10/2026. Đã triển khai B1 của [ADR0010](adr/0010-document-vault-and-recovery.md), tiếp [ADR0009](adr/0009-immutable-generated-documents.md). Chỉ dùng dữ liệu giả. Đây là công cụ và phép thử phục hồi; chưa có registry/job tài liệu trong DB, chưa chuyển route tải sang kho cố định, chưa ký hoặc phát hành.
+Cập nhật 11/10/2026. Đã triển khai B1 của [ADR0010](adr/0010-document-vault-and-recovery.md), tiếp [ADR0009](adr/0009-immutable-generated-documents.md). Chỉ dùng dữ liệu giả. Đây là công cụ và phép thử phục hồi; registry/job đã có schema và repository ở DB test theo [nền tảng B2](document-registry.md), chưa chuyển route tải sang kho cố định, chưa ký hoặc phát hành.
 
 ## Cấu trúc và tương thích
 
@@ -61,4 +61,7 @@ Log local bị Git bỏ qua: `run/recovery-v2-regression-copy-fixed.log`, `run/d
 
 ## Phần chưa triển khai
 
-B2 vẫn cần migration registry/job, lease/fencing, worker, công bố append-only từng định dạng, đọc lại byte đã lưu qua route và fault injection process chết/commit mất phản hồi. Phải thay metadata fixture bằng dữ liệu registry từ cùng DB snapshot, cập nhật audit thật và chứng minh phục hồi registry trước khi bật tính năng. Chưa có cleanup tự động, backup dữ liệu thật, backup sang thiết bị khác, power-loss/TCP/nhiều worker hoặc chữ ký có hiệu lực pháp lý. SHA-256 chỉ đối chiếu byte với metadata; metadata tự nhất quán không chứng minh nguồn gốc hay PDF thật sự được chuyển từ Word khi không có quy trình tin cậy bên ngoài.
+B2 đã có migration registry/job và lease/fencing metadata; vẫn cần worker/vault, công bố byte append-only từng định dạng, đọc lại byte đã lưu qua route và fault injection process chết/commit mất phản hồi. Phải thay metadata fixture bằng dữ liệu registry từ cùng DB snapshot, cập nhật audit thật và chứng minh phục hồi registry trước khi bật tính năng. Chưa có cleanup tự động, backup dữ liệu thật, backup sang thiết bị khác, power-loss/TCP/nhiều worker hoặc chữ ký có hiệu lực pháp lý. SHA-256 chỉ đối chiếu byte với metadata; metadata tự nhất quán không chứng minh nguồn gốc hay PDF thật sự được chuyển từ Word khi không có quy trình tin cậy bên ngoài.
+
+
+Sau migration0023, preflight của rehearsal từ chối registry có bất kỳ hàng nào ở sets/documents/jobs. V1 hoặc v2 fixture không được giả sao lưu output/lease thật. Lượt056c3f7f-aeff-409c-956c-f56f9f318bc0 chỉ chứng minh schema29 bảng/4 sequence cùng registry rỗng phục hồi được; xem nền tảngB2 để tiếp đường phục hồi registry có dữ liệu.

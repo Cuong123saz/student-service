@@ -45,6 +45,7 @@ import {
   origin,
 } from './recovery-fixture.mjs'
 
+import { assertNoDocumentRegistryRows } from './recovery-assets.mjs'
 import { createRecoveryDocumentFixture } from './recovery-document-fixture.mjs'
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url))
@@ -381,9 +382,11 @@ try {
     assert.equal(mode.default_transaction_read_only, 'on')
     const [sessions] = await source`SELECT count(*)::int AS others FROM pg_stat_activity
       WHERE datname=current_database() AND pid<>pg_backend_pid()`
+    await assertNoDocumentRegistryRows(source)
     assert.equal(sessions.others, 0, 'Controlled source must have no other sessions')
   }
   await assertQuiescent()
+  report.checks.documentRegistryEmptyOrAbsent = true
   const before = await snapshot(source),
     sourceAudit = await audit(source, sourceRoot)
   assert.equal(sourceAudit.status, 'OK')

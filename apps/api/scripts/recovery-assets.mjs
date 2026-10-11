@@ -169,3 +169,24 @@ export function assertDisjointRecoveryRoots(roots) {
         fail()
     }
 }
+
+// Until B2 connects an actual registry snapshot to all vault bytes, v1 and fixture-v2
+// must fail closed rather than restore metadata whose published files were omitted.
+export async function assertNoDocumentRegistryRows(sql) {
+  const [schema] = await sql.unsafe(`SELECT
+    to_regclass('public.submission_document_sets') IS NOT NULL AS sets,
+    to_regclass('public.submission_documents') IS NOT NULL AS documents,
+    to_regclass('public.submission_document_jobs') IS NOT NULL AS jobs`)
+  if (!schema || Object.values(schema).some((value) => typeof value !== 'boolean'))
+    throw new Error('DOCUMENT_REGISTRY_SCHEMA_UNAVAILABLE')
+  if (Object.values(schema).every((value) => value === false)) return 'ABSENT'
+  if (!Object.values(schema).every((value) => value === true))
+    throw new Error('DOCUMENT_REGISTRY_SCHEMA_INCOMPLETE')
+  const [counts] = await sql.unsafe(`SELECT
+    (SELECT count(*)::int FROM public.submission_document_sets) AS sets,
+    (SELECT count(*)::int FROM public.submission_documents) AS documents,
+    (SELECT count(*)::int FROM public.submission_document_jobs) AS jobs`)
+  if (!counts || Object.values(counts).some((value) => value !== 0))
+    throw new Error('DOCUMENT_REGISTRY_RECOVERY_REQUIRED')
+  return 'EMPTY'
+}
