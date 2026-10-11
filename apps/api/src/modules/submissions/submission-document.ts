@@ -1,3 +1,4 @@
+import { readPrivateFile } from '../../lib/private-file.js'
 import {
   resolveDeclarationTemplate,
   unavailableTemplate,
@@ -6,7 +7,7 @@ import {
 export { submissionDocumentTemplate } from './submission-document-template.js'
 import { spawn, execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -203,7 +204,7 @@ export class LibreOfficePdfConverter implements PdfConverter {
         directory,
         input,
       ])
-      const pdf = await readFile(join(directory, 'input.pdf'))
+      const pdf = await readPrivateFile(join(directory, 'input.pdf'), 16 * 1024 * 1024)
       if (
         pdf.length < 100 ||
         pdf.length > 16 * 1024 * 1024 ||
@@ -237,7 +238,7 @@ export class LocalSubmissionDocumentRenderer implements SubmissionDocumentRender
       const path =
         this.templatePath ??
         fileURLToPath(new URL('../../../templates/' + definition.fileName, import.meta.url))
-      const template = await readFile(path)
+      const template = await readPrivateFile(path, 1024 * 1024)
       // v1 is immutable. A new layout must use a new version, never overwrite this one.
       if (createHash('sha256').update(template).digest('hex') !== definition.sha256)
         throw new Error('DOCUMENT_TEMPLATE_CHANGED')

@@ -2,7 +2,10 @@ import { newDeclarationTemplateBinding } from './submission-document-template.js
 import type { SubmissionBundleManifest } from './submission-bundle.js'
 import { unzipSync, strFromU8 } from 'fflate'
 import { LocalSubmissionDocumentRenderer, LibreOfficePdfConverter } from './submission-document.js'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, mkdtemp, rm } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { LocalEvidenceStorage } from './submission.storage.js'
 import assert from 'node:assert/strict'
 import { randomUUID, createHash } from 'node:crypto'
 import { after, afterEach, beforeEach, test } from 'node:test'
@@ -3755,6 +3758,33 @@ test('20 MiB bundle keeps four maximum-size PDFs intact, rejects overflow and re
       process.env.LIBREOFFICE_PATH,
       'Real-converter profile requires an explicit LibreOffice path',
     )
+  let diskRoot: string | undefined
+  if (realConverter) {
+    const parent = resolve(fileURLToPath(new URL('../../../../../run/', import.meta.url)))
+    await mkdir(parent, { recursive: true })
+    diskRoot = await mkdtemp(join(parent, 'capacity-evidence-'))
+    const ownedRoot = diskRoot
+    t.after(async () => {
+      assert.equal(dirname(resolve(ownedRoot)), parent)
+      assert.ok(resolve(ownedRoot).startsWith(join(parent, 'capacity-evidence-')))
+      await rm(ownedRoot, { recursive: true, force: true })
+    })
+  }
+  const disk = diskRoot ? new LocalEvidenceStorage(diskRoot) : undefined
+  const httpStorage = disk
+    ? {
+        put: async (bytes: Buffer) => {
+          const key = await disk.put(bytes)
+          f.storage.files.set(key, bytes)
+          return key
+        },
+        read: (key: string) => disk.read(key),
+        remove: async (key: string) => {
+          await disk.remove(key)
+          f.storage.files.delete(key)
+        },
+      }
+    : f.storage
   let conversions = 0
   const converter = realConverter
     ? new LibreOfficePdfConverter()
@@ -3768,7 +3798,7 @@ test('20 MiB bundle keeps four maximum-size PDFs intact, rejects overflow and re
     },
   })
   const app = buildApp({
-    submissionService: new SubmissionService(f.repository, f.storage, renderer),
+    submissionService: new SubmissionService(f.repository, httpStorage, renderer),
   })
   await app.ready()
   t.after(() => app.close())
@@ -3959,6 +3989,7 @@ test('20 MiB bundle keeps four maximum-size PDFs intact, rejects overflow and re
         status: 'PASS',
         fakeDataOnly: true,
         transport: 'FASTIFY_INJECT_IN_PROCESS',
+        storage: 'LOCAL_FILESYSTEM_WITH_TEST_MIRROR',
         evidenceBytesPerJob: 4 * fileBytes,
         jobs: results.map((result) => ({
           status: result.response.statusCode,
@@ -3995,8 +4026,16 @@ test('20 MiB bundle keeps four maximum-size PDFs intact, rejects overflow and re
   const stored = await f.repository.roundFile(f.actor.userId, draft.id, 1, proofs.at(-1)!.fileId!)
   const altered = f.storage.files.get(stored.key)!
   altered[altered.length - 1] = altered.at(-1)! ^ 1
+  if (diskRoot) await writeFile(join(diskRoot, stored.key), altered)
   const corrupted = await app.inject({ url, headers: { cookie } })
   assert.equal(corrupted.statusCode, 503)
   assert.equal(corrupted.json<{ code: string }>().code, 'FILE_INTEGRITY')
+  if (diskRoot) {
+    await writeFile(join(diskRoot, stored.key), Buffer.alloc(fileBytes + 1))
+    const oversized = await app.inject({ url, headers: { cookie } })
+    assert.equal(oversized.statusCode, 503)
+    assert.equal(oversized.json<{ code: string }>().code, 'FILE_INTEGRITY')
+    assert.equal(conversions, 3)
+  }
   assert.equal(conversions, realConverter ? 3 : 1)
 })

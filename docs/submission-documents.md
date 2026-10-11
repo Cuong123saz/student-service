@@ -85,7 +85,7 @@ Kiểm thử gói ngày 11/10 ghi nhận một số lượt chuyển PDF bằng 
 
 ## Gắn phiên bản mẫu cho từng lần gửi
 
-Theo ADR0009 và migration0022, mỗi round có declarationTemplate gồm id, sha256 và bindingSource. Ghi SUBMITTED cùng transaction gửi; client không chọn mẫu. Round cũ được gắn v1 với LEGACY_V1 để tương thích, không khẳng định đã lưu PDF hoặc chứng minh mẫu từng được tải trước đây. Trigger lịch sử cấm sửa cả binding. Renderer đọc đúng catalog/binding; thiếu hoặc không khớp trả DOCUMENT_TEMPLATE_UNAVAILABLE, không chuyển sang mẫu mới tự động. Mẫu v1 và byte Word giữ nguyên.
+Theo ADR0009 và migration0022, mỗi round có declarationTemplate gồm id, sha256 và bindingSource. Ghi SUBMITTED cùng transaction gửi; client không chọn mẫu. Round cũ được gắn v1 với LEGACY_V1 để tương thích, không khẳng định đã lưu PDF hoặc chứng minh mẫu từng được tải trước đây. Trigger lịch sử cấm sửa cả binding. Renderer đọc đúng catalog/binding; thiếu hoặc không khớp trả DOCUMENT_TEMPLATE_UNAVAILABLE, không chuyển sang mẫu mới tự động. Thay đổi này không sửa mẫu v1 hoặc cách tạo byte Word. Pin mẫu không thay cho việc lưu byte đầu ra và phiên bản renderer/runtime.
 
 Đây mới là gắn phiên bản mẫu. File đầu ra vẫn tạo theo yêu cầu; chưa lưu lâu dài byte Word/PDF, chưa có lease/job hoặc registry phát hành. Trước phần đó phải bổ sung thiết kế registry, kho output và kiểm chứng backup/restore theo ADR0009. Không gán hiệu lực chữ ký từ metadata này.
 

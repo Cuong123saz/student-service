@@ -88,6 +88,8 @@ Sau khi gửi hồ sơ ONLINE/HYBRID, sinh viên và cán bộ đúng quyền/ph
 
 Đã bổ sung [gói tải theo từng lần gửi](docs/submission-bundles.md): Word, PDF, minh chứng nguyên byte và manifest SHA-256; kiểm tra quyền trước/sau, chặn tệp hỏng, giới hạn tác vụ và công cụ kiểm tra ngoại tuyến. Phiếu vẫn là bản kê khai chưa ký. Mẫu Word v1 khóa mã băm, không ghi đè hồ sơ cũ bằng thay mẫu.
 
+[Giới hạn đọc tệp riêng tư](docs/bounded-private-files.md) mô tả cách chặn tệp quá lớn trước khi cấp phát bộ nhớ và bằng chứng xuất hai gói20MiB từ kho đĩa giả trên D.
+
 [Tiến độ và bước tiếp theo](docs/implementation-progress.md) tổng hợp phần đã kiểm chứng và thứ tự chuẩn bị lưu bản bất biến trước khi triển khai ký mô phỏng.
 
 ### Sprint 5 — Bàn giao và thông báo trong ứng dụng

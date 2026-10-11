@@ -24,7 +24,7 @@ Tải gói trả `attachment`, `application/zip`, `private, no-store`, `nosniff`
 
 Mẫu `submission-summary-v1.docx` được khóa SHA-256 trong renderer. Thiếu/sửa mẫu trả `503 DOCUMENT_TEMPLATE_UNAVAILABLE` thay vì tạo phiếu âm thầm khác cho hồ sơ cũ. Word/PDF dùng chung một lần đọc mẫu khi tạo gói. Migration0022 đã gắn id/hash/nguồn mẫu vào từng round theo ADR0009; renderer dùng binding đó. Chưa có mẫu v2; khi bổ sung phải giữ v1 và kiểm chứng khả năng đọc lại. Không đổi hằng hash để ghi đè bố cục v1.
 
-Tài liệu và ZIP được tạo theo yêu cầu, chưa lưu lâu dài trong kho. Word cùng snapshot/v1 giữ nguyên byte; PDF và ZIP có metadata thời điểm tạo nên không cam kết cùng byte ở hai lần tải. Muốn đối chiếu chính gói đã tải, lưu mã băm của gói ở nơi tin cậy riêng. Mã băm tải mới không thay mã của bản đã ký trong tương lai.
+Tài liệu và ZIP được tạo theo yêu cầu, chưa lưu lâu dài trong kho. Trong cùng phiên bản renderer/runtime hiện tại, Word cùng snapshot/mẫu v1 giữ nguyên byte; PDF và ZIP có metadata thời điểm tạo nên không cam kết cùng byte ở hai lần tải. Pin mẫu không khóa mã renderer hoặc dữ liệu định dạng của runtime; chưa cam kết tái sinh đúng byte qua các lần nâng cấp phần mềm. Muốn đối chiếu chính gói đã tải, lưu mã băm của gói ở nơi tin cậy riêng. Mã băm tải mới không thay mã của bản đã ký trong tương lai.
 
 ## API
 
@@ -111,4 +111,7 @@ $env:LIBREOFFICE_PATH = 'D:/student-service/run/tools/LibreOffice/program/soffic
 node --env-file=apps/api/.env.test --import tsx --test --test-name-pattern='20 MiB bundle' apps/api/src/modules/submissions/submission.repository.test.ts
 ```
 
-Không chạy đồng thời với nhóm test khác dùng5434. Profile mặc định dùng converter giả, không đo tải thật và không tạo ZIP ra run/. Profile thật chỉ ghi dữ liệu giả vào run/ đã bị Git bỏ qua. Bằng chứng: run/bundle-capacity-20m-concurrent-real.log, run/bundle-capacity-20m-concurrent-validation.log, run/capacity-20m-concurrent-report.json và ba gói run/capacity-full-20m*.zip. File trước binding giữ tên riêng như mốc trên. Gói mẫu nhỏ có binding mới cho thao tác xem: run/output/archives/goi-ho-so-co-phien-ban.zip.
+Không chạy đồng thời với nhóm test khác dùng5434. Profile mặc định dùng converter giả, không đo tải thật và không tạo ZIP ra run/. Profile thật chỉ ghi dữ liệu giả vào run/ đã bị Git bỏ qua. Bằng chứng: run/bundle-capacity-20m-concurrent-memory.log, run/bundle-capacity-20m-concurrent-validation.log, run/capacity-20m-concurrent-memory-report.json và ba gói run/capacity-full-20m*.zip. File trước binding giữ tên riêng như mốc trên. Gói mẫu nhỏ có binding mới cho thao tác xem: run/output/archives/goi-ho-so-co-phien-ban.zip.
+
+
+Sau bước trên, runtime đã chuyển sang [đọc tệp riêng tư có giới hạn](bounded-private-files.md) và profile bổ sung dùng kho đĩa thật trên D đạt. Lượt đó có báo cáo riêng, không gộp số đo với MemoryStorage. ZIP hiện tại trong run/capacity-full-20m*.zip là của lượt kho đĩa; bản trước binding và báo cáo MemoryStorage được giữ tên riêng. Chưa đo TCP cho gói lớn hoặc bộ nhớ toàn bộ máy.

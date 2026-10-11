@@ -1,5 +1,6 @@
+import { readPrivateFile } from '../../lib/private-file.js'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, unlink, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 export interface EvidenceStorage {
   put(bytes: Buffer): Promise<string>
@@ -18,13 +19,14 @@ export class LocalEvidenceStorage implements EvidenceStorage {
     return resolve(this.root, key)
   }
   async put(bytes: Buffer) {
-    await mkdir(this.root, { recursive: true })
+    if (!bytes.length || bytes.length > 5 * 1024 * 1024) throw new Error('INVALID_EVIDENCE_SIZE')
+    await mkdir(this.root, { recursive: true, mode: 0o700 })
     const key = randomUUID()
-    await writeFile(this.path(key), bytes, { flag: 'wx' })
+    await writeFile(this.path(key), bytes, { flag: 'wx', mode: 0o600 })
     return key
   }
   read(key: string) {
-    return readFile(this.path(key))
+    return readPrivateFile(this.path(key), 5 * 1024 * 1024)
   }
   async remove(key: string) {
     await unlink(this.path(key))
