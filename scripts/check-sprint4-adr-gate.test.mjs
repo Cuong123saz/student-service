@@ -17,6 +17,7 @@ const protectedTables = [
   'submissions',
   'submission_files',
   'submission_rounds',
+  'submission_document_sets',
   'submission_documents',
   'submission_document_jobs',
   'submission_events',
@@ -81,6 +82,7 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
     )
   }
   if (adr !== undefined) {
+    write('docs/adr/0010-document-vault-and-recovery.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0009-immutable-generated-documents.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0008-review-search-index.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0007-review-queue-pagination.md', '---\nstatus: ' + adr + '\n---\n')
@@ -331,3 +333,18 @@ test('template-binding ADR must be accepted before its round migration, not in t
     /0009-immutable-generated-documents\.md existed but was not Accepted before/u,
   )
 })
+
+for (const table of ['submission_document_sets', 'submission_documents', 'submission_document_jobs']) {
+  test('vault migration requires ADR0010 accepted before ' + table, (t) => {
+    const repo = fixture(t, { adr: 'Accepted' })
+    const path = 'docs/adr/0010-document-vault-and-recovery.md'
+    repo.write(path, '---\nstatus: Proposed\n---\n')
+    const base = repo.commit()
+    repo.write(path, '---\nstatus: Accepted\n---\n')
+    repo.write('apps/api/drizzle/0023_fixture.sql', 'CREATE TABLE ' + table + ' (id uuid);\n')
+    repo.commit()
+    const result = repo.run(base)
+    assert.equal(result.status, 1, result.output)
+    assert.match(result.output, /0010-document-vault-and-recovery\.md existed but was not Accepted before/u)
+  })
+}

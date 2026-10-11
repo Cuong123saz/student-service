@@ -28,7 +28,7 @@ Phần A không lưu file đầu ra, không đổi trạng thái hồ sơ, quy�
 
 ### B. Lưu byte đầu ra trước khi ký — phần kế tiếp
 
-Dùng registry tài liệu riêng, append-only, liên kết round và loại DECLARATION; pin id/hash mẫu, định dạng, size/hash, storage key, thời điểm tạo và phiên bản renderer/converter. Word/PDF là một cặp: PDF chuyển từ đúng Word đó. Tạo qua staging riêng, kiểm tra cấu trúc/dung lượng/hash, công bố bằng transaction có khóa/unique theo round và loại; tải lại đọc byte đã lưu. Hai request không được sinh hai bản cùng được công bố. Nếu converter lỗi, không xuất metadata thành công; lỗi tạo không yêu cầu gửi lại hồ sơ.
+Dùng registry tài liệu riêng, append-only, liên kết round và loại DECLARATION; pin id/hash mẫu, định dạng, size/hash, storage key, thời điểm tạo và phiên bản renderer/converter. Word/PDF có chung bộ tài liệu: PDF chuyển từ đúng Word đã lưu. ADR0010 điều chỉnh công bố tuần tự Word trước/PDF sau để lỗi converter không chặn Word. Tạo qua staging riêng, kiểm tra cấu trúc/dung lượng/hash, công bố từng định dạng bằng transaction có khóa/unique theo round, loại và định dạng; tải lại đọc byte đã lưu. Hai request không được sinh hai bản cùng được công bố. Nếu converter lỗi, không xuất metadata thành công; lỗi tạo không yêu cầu gửi lại hồ sơ.
 
 Không giữ transaction DB qua thời gian chạy converter. Cần lease/job với thời hạn, idempotency, retry có kiểm soát và xử lý tình huống process chết giữa ghi file/công bố. Không tự xóa tệp khi chưa chứng minh không có registry tham chiếu. Audit kỹ thuật ghi mã tài liệu/round/hash/version và kết quả, không ghi câu trả lời, khóa bí mật hoặc giả quyết định nghiệp vụ. Registry lưu trạng thái UNSIGNED_DECLARATION, không dùng APPROVED như ISSUED.
 

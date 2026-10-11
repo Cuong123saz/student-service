@@ -30,8 +30,9 @@ const tableAdrMap = new Map([
     'submission_rounds',
     ['docs/adr/0005-submission-resolution.md', 'docs/adr/0009-immutable-generated-documents.md'],
   ],
-  ['submission_documents', 'docs/adr/0009-immutable-generated-documents.md'],
-  ['submission_document_jobs', 'docs/adr/0009-immutable-generated-documents.md'],
+  ['submission_document_sets', ['docs/adr/0009-immutable-generated-documents.md', 'docs/adr/0010-document-vault-and-recovery.md']],
+  ['submission_documents', ['docs/adr/0009-immutable-generated-documents.md', 'docs/adr/0010-document-vault-and-recovery.md']],
+  ['submission_document_jobs', ['docs/adr/0009-immutable-generated-documents.md', 'docs/adr/0010-document-vault-and-recovery.md']],
   [
     'submission_events',
     [
