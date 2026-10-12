@@ -14,7 +14,7 @@ Phiếu là **bản kê khai chưa ký**, không phải kết quả đã đượ
 
 Word được điền từ template `apps/api/templates/submission-summary-v1.docx`, không gọi mô hình AI. PDF được chuyển từ đúng Word đã điền bằng LibreOffice chạy headless. Tệp được tạo khi chọn tải, ngoài transaction gửi hồ sơ: lỗi tạo PDF không làm mất hồ sơ hoặc yêu cầu sinh viên gửi lại. Word vẫn tải được nếu bộ chuyển PDF chưa sẵn sàng.
 
-Cài LibreOffice trên máy chạy API và cấu hình biến `LIBREOFFICE_PATH` bằng đường dẫn tuyệt đối đến executable. Windows dùng `soffice.com` để chờ đúng tiến trình; Linux dùng `soffice`. Nếu bỏ trống, máy chủ tìm tên tương ứng trong PATH. Cần thư mục tạm ghi được và font hỗ trợ tiếng Việt; máy triển khai phải kiểm tra lại bố cục sau khi thay font.
+Cài LibreOffice trên máy chạy API và cấu hình biến `LIBREOFFICE_PATH` bằng đường dẫn tuyệt đối đến executable. Windows dùng `soffice.com` để chờ đúng tiến trình; Linux dùng `soffice`. Windows bắt buộc cấu hình đường dẫn tuyệt đối để chạy dưới bộ giám sát; thiếu cấu hình thì PDF chưa sẵn sàng, Word vẫn tải được. Linux hiện tìm soffice trong PATH nếu bỏ trống và chưa có bằng chứng thu hồi khi ứng dụng cha chết tương đương Windows. Cần thư mục tạm ghi được và font hỗ trợ tiếng Việt; máy triển khai phải kiểm tra lại bố cục sau khi thay font.
 
 Máy local hiện dùng bản LibreOffice 26.8.1 được giải nén riêng tại `D:/student-service/run/tools/LibreOffice/program/soffice.com`; không cài đè ứng dụng hệ thống. MSI từ The Document Foundation, chữ ký Authenticode Valid, SHA-256 `c6298b10cfa1748bcbedad94c62ce771e240e5021bfd6d7a967cd571b04b5312` được đối chiếu trước khi giải nén. Binaries trong `run/` được Git bỏ qua, cần chuẩn bị lại trên máy khác.
 

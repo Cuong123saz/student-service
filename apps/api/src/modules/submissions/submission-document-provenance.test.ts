@@ -55,6 +55,7 @@ test('adding a compiled module changes the build; sourcemaps are excluded', asyn
   await provenance.renderer()
   await writeFile(join(f.code, 'additional.js'), 'export const other = 1')
   await assert.rejects(provenance.renderer(), /DOCUMENT_DEPLOYMENT_CHANGED/)
+  await assert.rejects(provenance.converter(), /DOCUMENT_DEPLOYMENT_CHANGED/)
 })
 test('build collector rejects directory junctions and relative or empty configuration', async (t) => {
   const f = await fixture(t),
@@ -72,4 +73,15 @@ test('build collector rejects directory junctions and relative or empty configur
     LocalDocumentProvenance.create({ ...f.options, metadataFiles: ['relative.json'] }),
     /INVALID_DOCUMENT_PROVENANCE_CONFIG/,
   )
+})
+
+test('build provenance includes the deployed Windows supervisor script', async (t) => {
+  const f = await fixture(t),
+    script = join(f.code, 'windows-document-supervisor.ps1')
+  await writeFile(script, '# synthetic supervisor v1')
+  const provenance = await LocalDocumentProvenance.create(f.options)
+  await provenance.renderer()
+  await writeFile(script, '# synthetic supervisor changed')
+  await assert.rejects(provenance.renderer(), /DOCUMENT_DEPLOYMENT_CHANGED/)
+  await assert.rejects(provenance.converter(), /DOCUMENT_DEPLOYMENT_CHANGED/)
 })

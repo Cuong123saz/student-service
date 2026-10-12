@@ -49,3 +49,5 @@ Cần retry vận hành có audit sau khi khắc phục lỗi khi job đã hết
 ## Bổ sung lượt chạy có kiểm soát
 
 Migration0024/ADR0011 mở thêm một lần thử có quyền riêng, audit và idempotency, giữ attempts cộng dồn tối đa sáu lần. Inventory/restore nhận biết allowance và bảng quyết định; diễn tập mới `f741a234-6dc1-4d3c-819f-51f8c3a182eb` đạt 30 bảng/4 sequence, lịch sử mở lượt và PDF lần5 từ cùng Word. Những giới hạn ba lần/schema0023 và số liệu diễn tập phía trên là mốc lịch sử. Chi tiết, quyền và bằng chứng hiện tại: [mở thêm lượt tạo tài liệu](controlled-document-retry.md). Chưa bật development/demo cũ.
+
+Lượt supervisor cuối `a9f57c69-e85e-4767-9f23-e20b54c6a47e` PASS, cleanup=true,106.51 giây,30 bảng/4 sequence. Cùng lịch sử retry và PDF lần5, mọi lời gọi LibreOffice trên Windows gồm --version đi qua Job Object. Xem [cơ chế và giới hạn](document-process-supervisor.md). Bằng chứng cũ phía trên giữ làm mốc, không dùng để thay UAT/TCP.

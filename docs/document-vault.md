@@ -22,7 +22,7 @@ Giữ cả staging và final, kể cả sau thành công, phục vụ bước in
 
 ## Provenance thật và giới hạn
 
-`LocalDocumentProvenance` thu digest các file JS/CJS/MJS/JSON trong codeRoots đã cấu hình (bản compiled API và dependency fflate được cài), cùng package-lock/package metadata. Digest có tên tương đối/size/byte, không chứa đường dẫn máy trong metadata công bố. Có giới hạn file/thư mục/tổng byte, từ chối junction/symlink. Trước/sau render kiểm tra lại manifest ban đầu để không gán code đã sửa trên đĩa cho module đã nạp. Ghi Node/ICU thực tế. Cần khởi tạo từ deployment bất biến; đây không phải chứng thực chuỗi cung ứng hoặc hash toàn bộ hệ điều hành/Node binary.
+`LocalDocumentProvenance` thu digest các file JS/CJS/MJS/JSON/PS1 trong codeRoots đã cấu hình (bản compiled API và dependency fflate được cài), cùng package-lock/package metadata. Digest có tên tương đối/size/byte, không chứa đường dẫn máy trong metadata công bố. Có giới hạn file/thư mục/tổng byte, từ chối junction/symlink. Trước/sau render kiểm tra lại manifest ban đầu để không gán code đã sửa trên đĩa cho module đã nạp. Ghi Node/ICU thực tế. Cần khởi tạo từ deployment bất biến; đây không phải chứng thực chuỗi cung ứng hoặc hash toàn bộ hệ điều hành/Node binary.
 
 Converter ghi phiên bản thực từ `--version` và SHA-256 của soffice.bin thực tế, kiểm tra launcher và binary trước/sau; thay đổi launcher/binary giữa các lần dùng bị từ chối. Word không phụ thuộc converter sẵn sàng. Không coi digest soffice.bin là digest toàn bộ thư viện/font/config của LibreOffice, hoặc cam kết tái tạo PDF giống byte ở máy khác. Tính bất biến được chứng minh bằng lưu/đọc cùng byte.
 
@@ -43,3 +43,7 @@ Bằng chứng Git bỏ qua: run/document-vault-unit-first.log, run/document-vau
 Audit inventory và backup/restore registry thật đã có qua [diễn tập B2](registry-recovery.md), giữ stage đã đối soát và từ chối orphan. Đã thu lease RUNNING trước API mới và thử chạy tiếp PDF từ Word cũ. Guard v1/fixture-v2 vẫn từ chối registry có hàng; chỉ chế độ DATABASE_REGISTRY riêng mới dùng snapshot đủ kho. v1 không đủ phục hồi hệ thống đã bật vault.
 
 Cần đường retry vận hành có audit sau khi khắc phục nguyên nhân, vì job hiện dừng sau3 attempt và không cho reset tùy ý. Route owner/reviewer/admin và ZIP cùng byte đã đạt sau restore trên API rehearsal riêng. Cần kiểm chứng kill/supervisor của converter, rồi mới demo riêng và nâng development có backup/đối chiếu. Không migrate/stop các demo3011/3013/3015 đang thực hành. B3 đo TCP/nhiều worker, backup ngoài thiết bị nguồn, UAT và mock signer vẫn chưa hoàn thành.
+
+## Bổ sung supervisor Windows
+
+Đường retry có quyền/audit đã có theo [ADR0011](adr/0011-controlled-document-retry.md). [Supervisor Windows](document-process-supervisor.md) đã chứng minh thu process LibreOffice thật khi API/host chết; bước --version cũng được giám sát. Compiled runtime đạt38 bài và diễn tập mã hóa a9f57c69-e85e-4767-9f23-e20b54c6a47e đạt. Tiếp demo vault mới với backend/giao diện thật; development và demo cũ chưa bật. Các số liệu/điều kiện retry3 lần phía trên là mốc trước0024; trần hiện tại tối đa6 lần có lịch sử quyết định, không reset attempts.

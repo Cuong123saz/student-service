@@ -1,3 +1,4 @@
+import { readWindowsDocumentProcessOutput } from './submission-document-supervisor.js'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { lstat, readdir } from 'node:fs/promises'
@@ -42,7 +43,7 @@ async function buildDigest(options: LocalDocumentProvenanceOptions) {
       if (info.isSymbolicLink()) throw new Error('UNSAFE_DOCUMENT_BUILD')
       if (info.isDirectory()) await tree(path, label)
       else if (!info.isFile()) throw new Error('UNSAFE_DOCUMENT_BUILD')
-      else if (/\.(?:[cm]?js|json)$/.test(entry.name)) await file(path, label)
+      else if (/\.(?:[cm]?js|json|ps1)$/.test(entry.name)) await file(path, label)
     }
   }
   for (const [index, root] of options.codeRoots.entries()) await tree(root, 'code-' + index)
@@ -77,10 +78,13 @@ export class LocalDocumentProvenance implements DocumentProvenance {
     const frozen = structuredClone(options)
     return new LocalDocumentProvenance(frozen, await buildDigest(frozen))
   }
-  async renderer(): Promise<RendererProvenance> {
-    // Do not hash newly edited disk code and falsely attribute already-loaded modules to it.
+  private async unchanged() {
     if ((await buildDigest(this.options)) !== this.buildSha256)
       throw new Error('DOCUMENT_DEPLOYMENT_CHANGED')
+  }
+  async renderer(): Promise<RendererProvenance> {
+    // Do not attribute newly edited disk code to already-loaded modules.
+    await this.unchanged()
     if (!process.versions.icu) throw new Error('DOCUMENT_ICU_UNAVAILABLE')
     return {
       version: 'submission-declaration-v1',
@@ -90,17 +94,30 @@ export class LocalDocumentProvenance implements DocumentProvenance {
     }
   }
   async converter(): Promise<ConverterProvenance> {
+    // PDF can resume from an older Word: its current supervisor still must be immutable.
+    await this.unchanged()
     await assertDocumentDirectory(join(this.options.converterCommand, '..'))
     await assertDocumentDirectory(join(this.options.converterBinary, '..'))
     // Bound both launcher and actual executable; the launcher alone is not the conversion binary.
     const commandBefore = await readPrivateFile(this.options.converterCommand, 16 * 1024 * 1024)
     const binaryBefore = await readPrivateFile(this.options.converterBinary, 16 * 1024 * 1024)
-    const { stdout } = await promisify(execFile)(this.options.converterCommand, ['--version'], {
-      windowsHide: true,
-      timeout: 5000,
-      maxBuffer: 4096,
-      encoding: 'utf8',
-    })
+    const { stdout } =
+      process.platform === 'win32'
+        ? {
+            stdout: (
+              await readWindowsDocumentProcessOutput(
+                this.options.converterCommand,
+                ['--version'],
+                10000,
+              )
+            ).toString('utf8'),
+          }
+        : await promisify(execFile)(this.options.converterCommand, ['--version'], {
+            windowsHide: true,
+            timeout: 5000,
+            maxBuffer: 4096,
+            encoding: 'utf8',
+          })
     const version = stdout.trim()
     if (
       !version ||
@@ -130,6 +147,7 @@ export class LocalDocumentProvenance implements DocumentProvenance {
         this.converterSnapshot.binarySha256 !== snapshot.binarySha256)
     )
       throw new Error('DOCUMENT_CONVERTER_CHANGED')
+    await this.unchanged()
     this.converterSnapshot = snapshot
     this.launcherSha256 = launcherSha256
     return { ...snapshot }

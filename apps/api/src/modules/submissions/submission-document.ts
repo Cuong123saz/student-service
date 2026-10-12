@@ -1,3 +1,7 @@
+import {
+  runWindowsDocumentProcess,
+  DocumentProcessUncertainError,
+} from './submission-document-supervisor.js'
 import { readPrivateFile } from '../../lib/private-file.js'
 import {
   resolveDeclarationTemplate,
@@ -5,7 +9,7 @@ import {
   type DeclarationTemplateBinding,
 } from './submission-document-template.js'
 export { submissionDocumentTemplate } from './submission-document-template.js'
-import { spawn, execFile } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -141,46 +145,55 @@ export function runDocumentConversion(
   args: string[],
   timeoutMs = 90000,
 ): Promise<void> {
+  if (process.platform === 'win32') return runWindowsDocumentProcess(command, args, timeoutMs)
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 90000)
+    return Promise.reject(new Error('INVALID_DOCUMENT_PROCESS_CONFIG'))
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { windowsHide: true, stdio: 'ignore', shell: false })
-    let timedOut = false
+    const child = spawn(command, args, {
+      windowsHide: true,
+      stdio: 'ignore',
+      shell: false,
+      detached: true,
+    })
+    let timedOut = false,
+      failed = false
     const timer = setTimeout(() => {
       timedOut = true
-      if (process.platform === 'win32' && child.pid) {
-        // Only terminate the converter process tree started by this call.
-        execFile(
-          'taskkill.exe',
-          ['/PID', String(child.pid), '/T', '/F'],
-          { windowsHide: true, timeout: 5000 },
-          () => {
-            child.kill('SIGKILL')
-            reject(new Error('DOCUMENT_CONVERSION_TIMEOUT'))
-          },
-        )
-      } else {
+      try {
+        if (child.pid) process.kill(-child.pid, 'SIGKILL')
+      } catch {
+        failed = true
         child.kill('SIGKILL')
-        reject(new Error('DOCUMENT_CONVERSION_TIMEOUT'))
       }
     }, timeoutMs)
-    child.once('error', (error) => {
-      clearTimeout(timer)
-      reject(error)
+    child.once('error', () => {
+      failed = true
     })
     child.once('close', (code) => {
       clearTimeout(timer)
-      if (timedOut) reject(new Error('DOCUMENT_CONVERSION_TIMEOUT'))
+      if (failed) reject(new Error('DOCUMENT_CONVERSION_FAILED'))
+      else if (timedOut) reject(new Error('DOCUMENT_CONVERSION_TIMEOUT'))
       else if (code === 0) resolve()
       else reject(new Error('DOCUMENT_CONVERSION_FAILED'))
     })
   })
 }
+
 export class LibreOfficePdfConverter implements PdfConverter {
   private active = 0
+  private quarantined = false
   constructor(
     private readonly command = process.env.LIBREOFFICE_PATH?.trim() ||
       (process.platform === 'win32' ? 'soffice.com' : 'soffice'),
+    private readonly processRunner: typeof runDocumentConversion = runDocumentConversion,
   ) {}
   async convert(docx: Buffer): Promise<Buffer> {
+    if (this.quarantined)
+      throw new SubmissionError(
+        503,
+        'DOCUMENT_CONVERTER_QUARANTINED',
+        'Bộ chuyển PDF cần được người phụ trách kiểm tra trước khi chạy tiếp. Bản Word và hồ sơ vẫn được giữ nguyên.',
+      )
     if (this.active >= 2)
       throw new SubmissionError(
         503,
@@ -193,7 +206,7 @@ export class LibreOfficePdfConverter implements PdfConverter {
       directory = await mkdtemp(join(tmpdir(), 'student-service-document-'))
       const input = join(directory, 'input.docx')
       await writeFile(input, docx, { flag: 'wx', mode: 0o600 })
-      await runDocumentConversion(this.command, [
+      await this.processRunner(this.command, [
         '-env:UserInstallation=' + pathToFileURL(join(directory, 'profile')).href,
         '--headless',
         '--nologo',
@@ -214,6 +227,7 @@ export class LibreOfficePdfConverter implements PdfConverter {
         throw new Error('INVALID_CONVERTED_PDF')
       return pdf
     } catch (error) {
+      if (error instanceof DocumentProcessUncertainError) this.quarantined = true
       if (error instanceof SubmissionError) throw error
       throw new SubmissionError(
         503,
@@ -222,8 +236,10 @@ export class LibreOfficePdfConverter implements PdfConverter {
       )
     } finally {
       // directory is created here with a fixed prefix; no user path is accepted.
-      if (directory) await rm(directory, { recursive: true, force: true }).catch(() => {})
-      this.active--
+      if (!this.quarantined) {
+        if (directory) await rm(directory, { recursive: true, force: true }).catch(() => {})
+        this.active--
+      }
     }
   }
 }

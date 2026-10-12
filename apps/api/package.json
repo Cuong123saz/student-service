@@ -5,7 +5,7 @@
   "description": "Student service API",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-document-supervisor.mjs",
     "start": "node dist/server.js",
     "db:seed": "tsx src/db/seed.ts",
     "db:migrate:test": "drizzle-kit migrate --config=drizzle.test.config.ts",
