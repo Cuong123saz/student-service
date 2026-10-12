@@ -11,6 +11,7 @@ import {
   runWindowsDocumentProcess,
   readWindowsDocumentProcessOutput,
   DocumentProcessUncertainError,
+  type DocumentProcessReport,
 } from './submission-document-supervisor.js'
 import { LibreOfficePdfConverter } from './submission-document.js'
 import { SubmissionError } from './submission.types.js'
@@ -68,9 +69,13 @@ if (process.platform === 'win32') {
       'Windows atomic job kills timed-out root and child before returning capacity: ' + run.name,
       async (t) => {
         const f = await fixture(t)
+        let finished: DocumentProcessReport | undefined
         let supervisor = 0,
           root = 0
         const outcome = run(process.execPath, ['-e', program(f.info)], 6000, {
+          finished: (report) => {
+            finished = report
+          },
           started: (owner, pid) => {
             supervisor = owner
             root = pid
@@ -83,6 +88,10 @@ if (process.platform === 'win32') {
         assert.equal(active(root), false)
         assert.equal(active(tree.child), false)
         assert.equal(active(supervisor), false)
+        assert.equal(finished?.outcome, 'TIMEOUT')
+        assert.equal(finished?.empty, true)
+        assert.equal(finished?.started, true)
+        assert.ok(['TIMEOUT', 'CANCELLED'].includes(finished?.nativeReason ?? ''))
       },
     )
   test('Windows argument quoting preserves Unicode, quotes, spaces, empty and trailing backslashes without a shell', async (t) => {
@@ -159,6 +168,45 @@ if (process.platform === 'win32') {
             })
         },
       )
+  test('finite process report contains no command, arguments or output and observer errors cannot poison capacity', async () => {
+    const reports: DocumentProcessReport[] = []
+    const output = await readWindowsDocumentProcessOutput(
+      process.execPath,
+      ['-e', 'process.stdout.write("private sample")'],
+      10000,
+      {
+        started: () => {
+          throw new Error('diagnostic failure')
+        },
+        finished: (report) => {
+          reports.push(report)
+          throw new Error('diagnostic failure')
+        },
+      },
+    )
+    assert.equal(output.toString(), 'private sample')
+    assert.equal(reports.length, 1)
+    const r = reports[0]!
+    assert.deepEqual(
+      Object.keys(r).sort(),
+      [
+        'watchdogExpired',
+        'elapsedMs',
+        'empty',
+        'nativeReason',
+        'outcome',
+        'started',
+        'startupMs',
+      ].sort(),
+    )
+    assert.equal(r.outcome, 'EXITED')
+    assert.equal(r.nativeReason, 'EXITED')
+    assert.equal(r.empty, true)
+    assert.equal(r.started, true)
+    assert.equal(r.watchdogExpired, false)
+    assert.ok(r.startupMs !== null && r.startupMs >= 0 && r.elapsedMs >= r.startupMs)
+    await runWindowsDocumentProcess(process.execPath, ['-e', 'process.exit(0)'], 10000)
+  })
   test('captured output preserves Unicode and its exact 4096-byte bound', async () => {
     for (const value of ['Phiếu sinh viên Nguyễn Minh An\n', 'x'.repeat(4096)]) {
       const output = await readWindowsDocumentProcessOutput(

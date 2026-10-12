@@ -7,8 +7,18 @@ export class DocumentProcessUncertainError extends Error {
     super('DOCUMENT_PROCESS_TERMINATION_UNCERTAIN')
   }
 }
+export interface DocumentProcessReport {
+  outcome: 'EXITED' | 'FAILED' | 'TIMEOUT' | 'UNCERTAIN' | 'UNAVAILABLE'
+  nativeReason: 'EXITED' | 'FAILED' | 'TIMEOUT' | 'CANCELLED' | 'ABANDONED_CHILD' | null
+  started: boolean
+  empty: boolean
+  watchdogExpired: boolean
+  elapsedMs: number
+  startupMs: number | null
+}
 export interface DocumentProcessObserver {
   started?(ownerPid: number, converterPid: number): void
+  finished?(report: DocumentProcessReport): void
 }
 let quarantined = false
 async function windowsProcess(
@@ -18,6 +28,7 @@ async function windowsProcess(
   observer?: DocumentProcessObserver,
   captureOutput = false,
 ) {
+  const began = performance.now()
   if (quarantined) throw new DocumentProcessUncertainError()
   if (
     !isAbsolute(command) ||
@@ -58,6 +69,7 @@ async function windowsProcess(
       unsafe = false,
       spawnFailed = false
     let result: { reason: string; empty: boolean; output: Buffer } | undefined
+    let startupMs: number | null = null
     let reapTimer: ReturnType<typeof setTimeout> | undefined
     const kill = () => {
       unsafe = true
@@ -94,7 +106,13 @@ async function windowsProcess(
             Object.keys(message).length === 2
           ) {
             started = true
-            observer?.started?.(child.pid!, Number(message.pid))
+            startupMs = Math.round(performance.now() - began)
+            // Instrumentation must not change conversion or cleanup outcomes.
+            try {
+              observer?.started?.(child.pid!, Number(message.pid))
+            } catch {
+              /* Best-effort diagnostics only. */
+            }
           } else if (
             message.type === 'RESULT' &&
             !result &&
@@ -131,6 +149,30 @@ async function windowsProcess(
       clearTimeout(timer)
       if (reapTimer) clearTimeout(reapTimer)
       child.stdin.destroy()
+      const outcome: DocumentProcessReport['outcome'] =
+        spawnFailed && !started
+          ? 'UNAVAILABLE'
+          : unsafe || !result?.empty || pending.trim()
+            ? 'UNCERTAIN'
+            : timedOut || result.reason === 'TIMEOUT' || result.reason === 'CANCELLED'
+              ? 'TIMEOUT'
+              : result.reason === 'EXITED' && started
+                ? 'EXITED'
+                : 'FAILED'
+      if (outcome === 'UNCERTAIN') quarantined = true
+      try {
+        observer?.finished?.({
+          outcome,
+          nativeReason: (result?.reason ?? null) as DocumentProcessReport['nativeReason'],
+          started,
+          empty: result?.empty ?? false,
+          watchdogExpired: timedOut,
+          elapsedMs: Math.round(performance.now() - began),
+          startupMs,
+        })
+      } catch {
+        /* Best-effort diagnostics only. */
+      }
       if (spawnFailed && !started) reject(new Error('DOCUMENT_SUPERVISOR_UNAVAILABLE'))
       else if (unsafe || !result?.empty || pending.trim()) {
         quarantined = true

@@ -1,4 +1,7 @@
-import { readWindowsDocumentProcessOutput } from './submission-document-supervisor.js'
+import {
+  readWindowsDocumentProcessOutput,
+  type DocumentProcessObserver,
+} from './submission-document-supervisor.js'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { lstat, readdir } from 'node:fs/promises'
@@ -60,8 +63,12 @@ export class LocalDocumentProvenance implements DocumentProvenance {
   private constructor(
     private readonly options: LocalDocumentProvenanceOptions,
     private readonly buildSha256: string,
+    private readonly processObserver?: DocumentProcessObserver,
   ) {}
-  static async create(options: LocalDocumentProvenanceOptions) {
+  static async create(
+    options: LocalDocumentProvenanceOptions,
+    processObserver?: DocumentProcessObserver,
+  ) {
     if (
       !options.codeRoots.length ||
       !options.metadataFiles.length ||
@@ -76,7 +83,7 @@ export class LocalDocumentProvenance implements DocumentProvenance {
     )
       throw new Error('INVALID_DOCUMENT_PROVENANCE_CONFIG')
     const frozen = structuredClone(options)
-    return new LocalDocumentProvenance(frozen, await buildDigest(frozen))
+    return new LocalDocumentProvenance(frozen, await buildDigest(frozen), processObserver)
   }
   private async unchanged() {
     if ((await buildDigest(this.options)) !== this.buildSha256)
@@ -109,6 +116,7 @@ export class LocalDocumentProvenance implements DocumentProvenance {
                 this.options.converterCommand,
                 ['--version'],
                 10000,
+                this.processObserver,
               )
             ).toString('utf8'),
           }

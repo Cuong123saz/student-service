@@ -27,3 +27,17 @@ Lượt capture với ngân sách phiên bản5 giây đã FAILED vì gồm th�
 ## Giới hạn còn lại
 
 Linux/POSIX hiện dùng process group để thu khi hết hạn; chưa chứng minh thu hồi khi API cha chết tương đương Windows. Chưa đưa ra cam kết vận hành Linux. Quota2 job qua lease DB là điều phối hợp tác giữa các instance; không phải giới hạn tổng CPU/RAM hoặc bằng chứng không thể vượt quá hai process trên mọi host trong mọi lỗi. Cần đo TCP/nhiều worker/gói lớn và tổng bộ nhớ máy theo B3. Chưa có kiểm tra mất điện, backup trên thiết bị khác hoặc nghiệm thu người dùng.
+
+## Chẩn đoán hữu hạn ngày12/10
+
+Observer nội bộ nhận outcome EXITED/FAILED/TIMEOUT/UNCERTAIN/UNAVAILABLE, nativeReason hữu hạn, started/empty, watchdogExpired, elapsedMs và startupMs. startupMs tính từ đầu lời gọi tới STARTED; elapsedMs tới lúc host đóng. watchdogExpired chỉ là timer phía Node đã kích hoạt, không thay nativeReason hoặc đồng hồ deadline của host. Không chứa command, đối số, PID, đường dẫn, output hoặc driver log. Lỗi logger/observer không được biến một lượt chuyển thành lỗi hoặc mở lại năng lực đang cách ly; trạng thái UNCERTAIN được khóa trước khi phát chẩn đoán.
+
+LocalDocumentProvenance nhận observer qua tham số nội bộ riêng, không đưa hàm vào cấu hình/digest và không đổi metadata công bố. Demo mới tạo sau thay đổi ghi rõ phase VERSION hoặc PDF. Demo12d8bed0 đang thực hành vẫn dùng runtime đã sao chép trước đó, không sửa deployment đang chạy chỉ để có log mới.
+
+Công cụ npm run documents:process-check --workspace @student-service/api chạy ba lần đọc phiên bản, không DB và không nhận command từ đối số. Yêu cầu --fake-data-only, Windows và LIBREOFFICE_PATH tuyệt đối; từ chối môi trường có DATABASE_URL/SUBMISSION_STORAGE_ROOT hoặc APP_ENV production. Mỗi lần giữ ngân sách10 giây và cùng rào chắn thu hồi; nếu chưa xác nhận job rỗng thì dừng mẫu tiếp theo. Không dùng probe để reset job/retry hoặc kết luận ký số hợp lệ.
+
+Lượt probe đạt3/3, startup847/899/926ms, tổng7092/7051/7046ms; version digest giống nhau và job rỗng, watchdog không kích hoạt. Đây là các host/process mới trong phiên máy hiện tại, không phải thử khởi động nguội toàn máy hoặc tái hiện lỗi PDF lần trước. Chưa đủ bằng chứng kết luận nguyên nhân hoặc nới thời hạn. Log run/document-process-diagnostics-probe.log.
+
+22 bài chuyên biệt (17 supervisor có LibreOffice thật +5 provenance) đạt. Sau đổi tên chỉ số thành watchdogExpired, ba bài timeout/report chạy lại đạt, gồm callback ném lỗi không gây cách ly sai và output riêng tư không nằm trong report. Typecheck/build/lint đạt. Không thay schema hoặc route HTTP; không dùng số kiểm thử này để thay306 integration của mốc trước hoặc nghiệm thu giao diện mở lượt.
+
+Bốn bài thu hồi/cách ly chạy lại sau đặt khóa UNCERTAIN trước observer đều đạt, gồm tắt host lúc LibreOffice thật đang chạy. Demo hiện tại vẫn trả HTTP200. Bằng chứng bổ sung: run/document-process-diagnostics-quarantine-tests.log; bộ chẩn đoán không sửa dữ liệu hồ sơ hoặc bật retry ở development.

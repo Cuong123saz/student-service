@@ -34,17 +34,26 @@ const vault = await LocalDocumentVault.create({
   stagingRoot: p.staging,
   protectedRoots: [p.projectRoot, p.evidence, p.templates],
 })
-const provenance = await LocalDocumentProvenance.create({
-  codeRoots: [join(p.api, 'dist'), join(p.projectRoot, 'node_modules/fflate')],
-  metadataFiles: [
-    join(p.api, 'package.json'),
-    join(p.api, 'package-lock.json'),
-    p.entry,
-    join(p.api, 'workflow-vault.contract.mjs'),
-  ],
-  converterCommand: process.env.LIBREOFFICE_PATH,
-  converterBinary: join(process.env.LIBREOFFICE_PATH, '..', 'soffice.bin'),
+const processObserver = (phase) => ({
+  finished: (report) =>
+    console.log(JSON.stringify({ event: 'VAULT_DEMO_PROCESS', phase, ...report })),
 })
+const { runWindowsDocumentProcess } =
+  await import('./dist/modules/submissions/submission-document-supervisor.js')
+const provenance = await LocalDocumentProvenance.create(
+  {
+    codeRoots: [join(p.api, 'dist'), join(p.projectRoot, 'node_modules/fflate')],
+    metadataFiles: [
+      join(p.api, 'package.json'),
+      join(p.api, 'package-lock.json'),
+      p.entry,
+      join(p.api, 'workflow-vault.contract.mjs'),
+    ],
+    converterCommand: process.env.LIBREOFFICE_PATH,
+    converterBinary: join(process.env.LIBREOFFICE_PATH, '..', 'soffice.bin'),
+  },
+  processObserver('VERSION'),
+)
 const observedProvenance = {
   renderer: () => provenance.renderer(),
   converter: async () => {
@@ -69,7 +78,11 @@ const observedProvenance = {
     }
   },
 }
-const converter = new LibreOfficePdfConverter(process.env.LIBREOFFICE_PATH)
+const converter = new LibreOfficePdfConverter(
+  process.env.LIBREOFFICE_PATH,
+  (command, args, timeoutMs) =>
+    runWindowsDocumentProcess(command, args, timeoutMs ?? 90000, processObserver('PDF')),
+)
 const localRenderer = new LocalSubmissionDocumentRenderer(
   converter,
   join(p.templates, 'submission-summary-v1.docx'),
