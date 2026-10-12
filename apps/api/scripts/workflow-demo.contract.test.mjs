@@ -1,3 +1,6 @@
+import { mkdtemp, mkdir, rm, readFile, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, dirname } from 'node:path'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
@@ -6,6 +9,7 @@ import {
   assertDemoContainer,
   assertDemoDatabase,
   assertDemoState,
+  claimDemoBrowserRun,
   demoAction,
   demoApi,
   demoOrigin,
@@ -134,5 +138,62 @@ test('bundle demo isolates cookies, state and ports and rejects mismatched stop 
   assert.throws(() => assertDemoState(state, project, resolve(root, 'state.json'), 'workflow'))
   assert.throws(() =>
     assertDemoState({ ...state, profile: 'unknown' }, project, resolve(root, 'state.json')),
+  )
+})
+
+test('vault profile has its own origin, state and stop request', () => {
+  assert.equal(demoAction(['--fake-data-only', '--vault'], {}), 'start')
+  assert.equal(demoAction(['--fake-data-only', '--vault', 'stop'], {}), 'stop')
+  assert.throws(() => demoAction(['--fake-data-only', '--vault', '--bundles'], {}))
+  const all = ['--documents', '--bundles', '--vault'].map((flag) =>
+    demoProfile(['--fake-data-only', flag]),
+  )
+  assert.equal(new Set(all.map((p) => p.webUrl)).size, 3)
+  assert.equal(new Set(all.map((p) => p.activeFile)).size, 3)
+  const p = all.at(-1),
+    project = resolve('fixture-project'),
+    id = randomUUID(),
+    root = demoRunRoot(project, id)
+  const state = {
+    version: 1,
+    fakeDataOnly: true,
+    runId: id,
+    profile: 'vault',
+    webUrl: p.webUrl,
+    apiUrl: p.apiUrl,
+  }
+  assert.equal(assertDemoState(state, project, resolve(root, 'state.json'), 'vault'), root)
+  assert.throws(() => assertDemoState(state, project, resolve(root, 'state.json'), 'bundles'))
+})
+
+test('browser claim refuses an existing report and atomically prevents concurrent repeat checks', async (t) => {
+  const parent = resolve(tmpdir()),
+    project = await mkdtemp(join(parent, 'student-demo-claim-'))
+  t.after(async () => {
+    assert.equal(dirname(project), parent)
+    assert.ok(project.startsWith(join(parent, 'student-demo-claim-')))
+    await rm(project, { recursive: true, force: true })
+  })
+  const id = randomUUID(),
+    root = demoRunRoot(project, id)
+  await mkdir(root, { recursive: true })
+  const outcomes = await Promise.allSettled([
+    claimDemoBrowserRun(project, id),
+    claimDemoBrowserRun(project, id),
+  ])
+  assert.equal(outcomes.filter((r) => r.status === 'fulfilled').length, 1)
+  assert.equal(outcomes.filter((r) => r.status === 'rejected').length, 1)
+  const marker = await readFile(join(root, 'browser-check.claim.json'), 'utf8')
+  assert.equal(JSON.parse(marker).runId, id)
+  await assert.rejects(claimDemoBrowserRun(project, id))
+  assert.equal(await readFile(join(root, 'browser-check.claim.json'), 'utf8'), marker)
+  const checked = randomUUID(),
+    checkedRoot = demoRunRoot(project, checked)
+  await mkdir(checkedRoot)
+  await writeFile(join(checkedRoot, 'browser-report.json'), 'existing practice evidence')
+  await assert.rejects(claimDemoBrowserRun(project, checked), /WORKFLOW_DEMO_ALREADY_CHECKED/)
+  assert.equal(
+    await readFile(join(checkedRoot, 'browser-report.json'), 'utf8'),
+    'existing practice evidence',
   )
 })

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { assertRecoveryDirectory, fileDigest } from './recovery-bundle.mjs'
 import {
   assertDemoState,
+  claimDemoBrowserRun,
   demoAction,
   demoProfile,
   demoPassword,
@@ -26,6 +27,7 @@ await fileDigest(statePath, 65536)
 const state = JSON.parse(await readFile(statePath, 'utf8'))
 assertDemoState(state, projectRoot, statePath, profile.kind)
 assert.equal(state.status, 'READY')
+await claimDemoBrowserRun(projectRoot, state.runId)
 const require = createRequire(import.meta.url)
 const { chromium } = require(process.env.WORKFLOW_PLAYWRIGHT_MODULE || 'playwright')
 const browser = await chromium.launch({
@@ -206,6 +208,32 @@ async function exportDocument(page, roundNumber, format, label) {
       assert.ok(content.includes(value), value)
     assert.ok(!content.includes('{{fieldValue}}'))
   } else assert.equal(bytes.subarray(0, 5).toString('ascii'), '%PDF-')
+  if (profile.kind === 'vault') {
+    const review = new URL(page.url()).pathname.includes('/review-submissions/'),
+      portal = new URL(page.url()).pathname.startsWith('/admin/') ? 'admin' : 'user'
+    const result = await get(
+      page.context(),
+      (review ? '/review-submissions/' : '/submissions/') +
+        new URL(page.url()).pathname.split('/').at(-1) +
+        '/rounds/' +
+        roundNumber +
+        '/document-status',
+      200,
+      portal,
+    )
+    assert.equal(result.enabled, true)
+    const document = result.documents.find((item) => item.format === format)
+    assert.ok(document)
+    assert.equal(document.state, 'READY')
+    assert.equal(document.attempts, 1)
+    assert.equal(document.errorCode, null)
+    assert.equal(document.retryAllowed, false)
+    assert.deepEqual(
+      bytes,
+      await readFile(join(runRoot, 'export-round-' + roundNumber + '.' + format)),
+    )
+    report.checks.storedDocumentsReadyWithoutNewAttempts = true
+  }
   return bytes
 }
 
@@ -282,7 +310,8 @@ try {
   if (profile.kind !== 'workflow') {
     await exportDocument(owner.page, 1, 'docx', 'export-round-1')
     await exportDocument(owner.page, 1, 'pdf', 'export-round-1')
-    if (profile.kind === 'bundles') await exportBundle(owner.page, 1, 'bundle-round-1', oldBytes)
+    if (['bundles', 'vault'].includes(profile.kind))
+      await exportBundle(owner.page, 1, 'bundle-round-1', oldBytes)
     report.checks.exportAvailableImmediatelyAfterSubmit = true
   }
   report.checks.requiredFieldsProfileAndExactTypes = true
@@ -303,7 +332,7 @@ try {
   if (profile.kind !== 'workflow') {
     await get(other.context, '/submissions/' + id + '/rounds/1/documents/docx', 404)
     await get(foreign.context, '/review-submissions/' + id + '/rounds/1/documents/docx', 404)
-    if (profile.kind === 'bundles') {
+    if (['bundles', 'vault'].includes(profile.kind)) {
       await get(other.context, '/submissions/' + id + '/rounds/1/bundle', 404)
       await get(foreign.context, '/review-submissions/' + id + '/rounds/1/bundle', 404)
     }
@@ -414,7 +443,18 @@ try {
     const historical = await exportDocument(owner.page, 1, 'docx', 'export-history-round-1')
     assert.deepEqual(historical, await readFile(join(runRoot, 'export-round-1.docx')))
     await exportDocument(reviewer.page, 2, 'docx', 'export-reviewer-round-2')
-    if (profile.kind === 'bundles') {
+    if (profile.kind === 'vault') {
+      await exportDocument(owner.page, 1, 'pdf', 'export-history-round-1')
+      const panel = owner.page
+        .getByRole('region', { name: 'Phiếu hồ sơ lần gửi 2', exact: true })
+        .first()
+      await panel.getByRole('button', { name: 'Kiểm tra tình trạng tài liệu', exact: true }).click()
+      await panel.getByText('Word: Đã lưu thành công', { exact: true }).waitFor()
+      await panel.getByText('PDF: Đã lưu thành công', { exact: true }).waitFor()
+      await responsive(owner.page, 'stored-document-status')
+      report.checks.realBackendStoredStatusVisible = true
+    }
+    if (['bundles', 'vault'].includes(profile.kind)) {
       await exportBundle(owner.page, 2, 'bundle-round-2', newBytes)
       const historicalBundle = await exportBundle(owner.page, 1, 'bundle-history-round-1', oldBytes)
       const originalBundle = unzipSync(await readFile(join(runRoot, 'bundle-round-1.zip')))
@@ -458,7 +498,7 @@ try {
   await admin.page.getByText('Đã duyệt nội dung', { exact: true }).first().waitFor()
   if (profile.kind !== 'workflow') {
     await exportDocument(admin.page, 2, 'pdf', 'export-admin-round-2')
-    if (profile.kind === 'bundles')
+    if (['bundles', 'vault'].includes(profile.kind))
       await exportBundle(admin.page, 2, 'bundle-admin-round-2', newBytes)
     report.checks.adminDocumentExport = true
   }

@@ -32,7 +32,7 @@
     "test:fixtures": "node --import tsx --test scripts/recovery-fixture.test.mjs",
     "demo:workflow": "node scripts/workflow-demo.mjs --fake-data-only",
     "demo:workflow:check": "node scripts/check-workflow-demo.mjs --fake-data-only",
-    "test:workflow-demo": "node --test scripts/workflow-demo.contract.test.mjs",
+    "test:workflow-demo": "node --test scripts/workflow-demo.contract.test.mjs scripts/workflow-vault.contract.test.mjs",
     "demo:documents": "node scripts/workflow-demo.mjs --fake-data-only --documents",
     "demo:documents:check": "node scripts/check-workflow-demo.mjs --fake-data-only --documents",
     "bundle:verify": "node scripts/verify-submission-bundle.mjs",
@@ -42,7 +42,9 @@
     "documents:check": "node --env-file-if-exists=.env scripts/check-document-runtime.mjs",
     "rehearse:document-recovery": "npm run test:recovery && npm run build && node scripts/rehearse-recovery.mjs --fake-data-only --document-assets",
     "rehearse:registry-recovery": "npm run test:recovery && npm run build && node scripts/rehearse-recovery.mjs --fake-data-only --document-registry",
-    "audit:documents": "node --env-file=.env scripts/audit-documents.mjs"
+    "audit:documents": "node --env-file=.env scripts/audit-documents.mjs",
+    "demo:vault": "node scripts/workflow-demo.mjs --fake-data-only --vault",
+    "demo:vault:check": "node scripts/check-workflow-demo.mjs --fake-data-only --vault"
   },
   "type": "module",
   "dependencies": {

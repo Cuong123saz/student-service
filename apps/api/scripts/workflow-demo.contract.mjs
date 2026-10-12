@@ -1,3 +1,4 @@
+import { lstat, writeFile } from 'node:fs/promises'
 import assert from 'node:assert/strict'
 import { isAbsolute, resolve } from 'node:path'
 import { assertDrillInvocation } from './recovery-bundle.mjs'
@@ -21,6 +22,12 @@ const profiles = {
     apiUrl: documentDemoApi,
     activeFile: 'workflow-document-demo-active.json',
   },
+  vault: {
+    kind: 'vault',
+    webUrl: 'http://127.0.0.4:3017',
+    apiUrl: 'http://127.0.0.4:3016',
+    activeFile: 'workflow-vault-demo-active.json',
+  },
   bundles: {
     kind: 'bundles',
     webUrl: bundleDemoOrigin,
@@ -30,14 +37,20 @@ const profiles = {
 }
 export function demoProfile(args) {
   return profiles[
-    args[1] === '--documents' ? 'documents' : args[1] === '--bundles' ? 'bundles' : 'workflow'
+    args[1] === '--vault'
+      ? 'vault'
+      : args[1] === '--documents'
+        ? 'documents'
+        : args[1] === '--bundles'
+          ? 'bundles'
+          : 'workflow'
   ]
 }
 export const demoPassword = 'DemoSinhVien#2026!'
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 export function demoAction(args, env) {
   assertDrillInvocation(args.slice(0, 1), env)
-  const rest = args.slice(['--documents', '--bundles'].includes(args[1]) ? 2 : 1)
+  const rest = args.slice(['--documents', '--bundles', '--vault'].includes(args[1]) ? 2 : 1)
   if (!rest.length) return 'start'
   if (rest.length === 1 && rest[0] === 'stop') return 'stop'
   throw new Error('INVALID_WORKFLOW_DEMO_OPTIONS')
@@ -88,4 +101,21 @@ export function assertDemoState(state, projectRoot, statePath, expectedProfile) 
     'INVALID_WORKFLOW_DEMO_STATE',
   )
   return root
+}
+
+// One-shot browser checks must never consume another practice run or race each other.
+export async function claimDemoBrowserRun(projectRoot, runId) {
+  const root = demoRunRoot(projectRoot, runId)
+  try {
+    await lstat(resolve(root, 'browser-report.json'))
+    throw new Error('WORKFLOW_DEMO_ALREADY_CHECKED')
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error
+  }
+  await writeFile(
+    resolve(root, 'browser-check.claim.json'),
+    JSON.stringify({ version: 1, fakeDataOnly: true, runId, startedAt: new Date().toISOString() }) +
+      '\n',
+    { flag: 'wx', mode: 0o600 },
+  )
 }

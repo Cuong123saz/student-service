@@ -1,6 +1,6 @@
 # Kho Word/PDF và điều phối công bố — B2 đang thực hiện
 
-Cập nhật 11/10/2026 theo [ADR0010](adr/0010-document-vault-and-recovery.md). Đã có hạ tầng kho, điều phối và provenance; chỉ chạy qua kiểm thử với dữ liệu giả. Chưa nối vào route hoặc bật trong development/demo. Không ghi nhận phát hành, chữ ký hoặc nghiệm thu Sprint4.
+Cập nhật 12/10/2026 theo [ADR0010](adr/0010-document-vault-and-recovery.md). Đã có hạ tầng kho, điều phối và provenance; chỉ chạy qua kiểm thử với dữ liệu giả. Đã nối vào route ở demo vault riêng; development và demo cũ giữ renderer trước. Không ghi nhận phát hành, chữ ký hoặc nghiệm thu Sprint4.
 
 ## Luồng đã triển khai
 
@@ -46,4 +46,6 @@ Cần đường retry vận hành có audit sau khi khắc phục nguyên nhân,
 
 ## Bổ sung supervisor Windows
 
-Đường retry có quyền/audit đã có theo [ADR0011](adr/0011-controlled-document-retry.md). [Supervisor Windows](document-process-supervisor.md) đã chứng minh thu process LibreOffice thật khi API/host chết; bước --version cũng được giám sát. Compiled runtime đạt38 bài và diễn tập mã hóa a9f57c69-e85e-4767-9f23-e20b54c6a47e đạt. Tiếp demo vault mới với backend/giao diện thật; development và demo cũ chưa bật. Các số liệu/điều kiện retry3 lần phía trên là mốc trước0024; trần hiện tại tối đa6 lần có lịch sử quyết định, không reset attempts.
+Đường retry có quyền/audit đã có theo [ADR0011](adr/0011-controlled-document-retry.md). [Supervisor Windows](document-process-supervisor.md) đã chứng minh thu process LibreOffice thật khi API/host chết; bước --version cũng được giám sát. Compiled runtime đạt38 bài và diễn tập mã hóa a9f57c69-e85e-4767-9f23-e20b54c6a47e đạt. Demo vault mới với backend/giao diện thật đã đạt ở mốc bên dưới; development và demo cũ chưa bật. Các số liệu/điều kiện retry3 lần phía trên là mốc trước0024; trần hiện tại tối đa6 lần có lịch sử quyết định, không reset attempts.
+
+[Demo vault riêng](vault-demo.md) đã đạt luồng backend/giao diện và đối chiếu4 tài liệu/4 stage. Bản demo kiểm tra sẵn sàng Word/PDF trước mở HTTP. Lỗi PDF đầu ở lượt demo trước chưa kết luận nguyên nhân; không coi readiness hoặc một lượt browser đạt là bảo đảm mọi lần chuyển. Default development chưa nâng.

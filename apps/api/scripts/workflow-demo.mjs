@@ -4,13 +4,14 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { createWriteStream } from 'node:fs'
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
-import { resolve, join } from 'node:path'
+import { resolve, join, isAbsolute } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 import argon2 from 'argon2'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import { vaultDemoPaths } from './workflow-vault.contract.mjs'
 import { assertRecoveryDirectory, fileDigest } from './recovery-bundle.mjs'
 import { recoveryConfig, seedRecoveryFixture } from './recovery-fixture.mjs'
 import {
@@ -137,7 +138,7 @@ if (action === 'stop') {
     })
   }
   async function ready(url) {
-    for (let i = 0; i < 160; i++) {
+    for (let i = 0; i < (profile.kind === 'vault' ? 600 : 160); i++) {
       if (stopping) throw new Error('WORKFLOW_DEMO_CHILD_EXITED')
       try {
         if ((await fetch(url, { signal: AbortSignal.timeout(1000) })).ok) return
@@ -159,6 +160,15 @@ if (action === 'stop') {
   })
   try {
     assert.equal(process.versions.node.split('.')[0], '22', 'NODE_22_REQUIRED')
+    if (profile.kind === 'vault') {
+      assert.equal(process.platform, 'win32', 'VAULT_DEMO_REQUIRES_WINDOWS')
+      assert.ok(
+        process.env.LIBREOFFICE_PATH &&
+          process.env.LIBREOFFICE_PATH.endsWith('soffice.com') &&
+          isAbsolute(process.env.LIBREOFFICE_PATH),
+        'VAULT_DEMO_REQUIRES_ABSOLUTE_CONVERTER',
+      )
+    }
     await unused(Number(apiAddress.port), apiAddress.hostname)
     await unused(Number(webAddress.port), webAddress.hostname)
     await assertRecoveryDirectory(projectRoot)
@@ -308,8 +318,37 @@ if (action === 'stop') {
       errorOnExist: true,
       force: false,
     })
+    let apiEntry = join(runtimeRoot, 'api/dist/server.js')
+    if (profile.kind === 'vault') {
+      const p = vaultDemoPaths(projectRoot, runId)
+      await assertRecoveryDirectory('D:/')
+      await mkdir(p.vault)
+      await assertRecoveryDirectory(p.vault)
+      await mkdir(p.templates)
+      await mkdir(p.evidence)
+      await cp(
+        join(apiRoot, 'templates/submission-summary-v1.docx'),
+        join(p.templates, 'submission-summary-v1.docx'),
+        { errorOnExist: true, force: false },
+      )
+      for (const name of ['workflow-vault-api.mjs', 'workflow-vault.contract.mjs'])
+        await cp(join(apiRoot, 'scripts', name), join(p.api, name), {
+          errorOnExist: true,
+          force: false,
+        })
+      await cp(join(apiRoot, 'package.json'), join(p.api, 'package.json'), {
+        errorOnExist: true,
+        force: false,
+      })
+      await cp(join(projectRoot, 'package-lock.json'), join(p.api, 'package-lock.json'), {
+        errorOnExist: true,
+        force: false,
+      })
+      env.WORKFLOW_VAULT_DEMO_ID = runId
+      apiEntry = p.entry
+    }
     phase = 'start-servers'
-    launch(join(runtimeRoot, 'api/dist/server.js'), join(runtimeRoot, 'api'), env, 'api')
+    launch(apiEntry, join(runtimeRoot, 'api'), env, 'api')
     launch(
       join(runtimeRoot, 'web/.output/server/index.mjs'),
       join(runtimeRoot, 'web'),
