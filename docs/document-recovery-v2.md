@@ -1,5 +1,7 @@
 # Phục hồi mẫu và tài liệu đầu ra — B1 và phần registry B2
 
+> Cập nhật12/10: các archive/khóa thử ngoài project đã được xóa theo yêu cầu chủ dự án. Các đường dẫn/lượt đạt dưới đây là lịch sử; xem [biên bản dọn](external-artifact-cleanup.md).
+
 Cập nhật 11/10/2026. Đã triển khai B1 của [ADR0010](adr/0010-document-vault-and-recovery.md), tiếp [ADR0009](adr/0009-immutable-generated-documents.md). Chỉ dùng dữ liệu giả. Đây là công cụ và phép thử phục hồi; registry/job đã có schema và repository ở DB test theo [nền tảng B2](document-registry.md), chưa chuyển route tải sang kho cố định, chưa ký hoặc phát hành.
 
 Phần dưới giữ bằng chứng B1 ban đầu; phần [phục hồi registry B2](registry-recovery.md) đã bổ sung nguồn DATABASE_REGISTRY, namespace staging, audit inventory, thu lease và diễn tập restore có tài liệu thật. V1/fixture-v2 vẫn giữ guard khi registry có hàng.

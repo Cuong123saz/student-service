@@ -1,5 +1,7 @@
 # Lưu bản sao riêng và đề xuất giữ bản cũ — dữ liệu giả
 
+> Cập nhật12/10: các archive/khóa thử ngoài project đã được xóa theo yêu cầu chủ dự án. Các đường dẫn/lượt đạt dưới đây là lịch sử; xem [biên bản dọn](external-artifact-cleanup.md).
+
 Ngày 10/10/2026. Người dùng chọn lưu thử trên **ổ D**, tại `D:\student-service-fake-backups`. Windows nhận D là ổ cố định (NTFS), và mã nguồn cũng trên D. Đây là kho cục bộ; chưa kiểm chứng ổ ngoài hoặc máy khác, chưa triển khai sao lưu production hoặc lịch chạy.
 
 ## Công cụ làm gì

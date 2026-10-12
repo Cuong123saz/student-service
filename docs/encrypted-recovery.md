@@ -1,5 +1,7 @@
 # Bản sao mã hóa và khóa riêng — diễn tập dữ liệu giả
 
+> Cập nhật12/10: các archive/khóa thử ngoài project đã được xóa theo yêu cầu chủ dự án. Các đường dẫn/lượt đạt dưới đây là lịch sử; xem [biên bản dọn](external-artifact-cleanup.md).
+
 Ngày 10/10/2026. Kho thử: `D:\student-service-fake-encrypted-backups`. Khóa thử được tạo ở thư mục riêng trong LocalAppData của người dùng trên C, ngoài repository và ngoài kho D. Chỉ dùng dữ liệu giả; chưa triển khai backup hồ sơ thật, lịch tự động hoặc quản lý khóa production.
 
 ## Phạm vi bảo vệ
