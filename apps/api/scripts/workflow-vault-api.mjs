@@ -1,5 +1,7 @@
 // Copied into a fresh demo runtime; deliberately refuses direct/source invocation.
 import { fileURLToPath } from 'node:url'
+import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { assertVaultDemoEnvironment } from './workflow-vault.contract.mjs'
 const projectRoot = fileURLToPath(new URL('../../../../../', import.meta.url))
@@ -97,11 +99,90 @@ if (readiness.status !== 'READY' || JSON.stringify(versionBefore) !== JSON.strin
 console.log(
   JSON.stringify({ event: 'VAULT_DEMO_DOCUMENTS_READY', word: readiness.word, pdf: readiness.pdf }),
 )
+// Fault injection exists only in the fixed, fake-data retry profile and over parent IPC.
+// It never changes job counters: real HTTP requests and the coordinator record failures.
+let armedSha,
+  remainingFailures = 0,
+  repaired = false
+const retryMode = process.env.WORKFLOW_VAULT_MODE === 'retry'
+const retryConverter = {
+  convert: async (bytes) => {
+    if (retryMode && armedSha === createHash('sha256').update(bytes).digest('hex') && !repaired) {
+      if (remainingFailures > 0) remainingFailures--
+      throw new Error('FAKE_REHEARSAL_CONVERSION_FAILED')
+    }
+    return converter.convert(bytes)
+  },
+}
+async function inspectRetry() {
+  const documents =
+    await databaseClient`SELECT format,sha256,source_docx_sha256,status,renderer,converter FROM submission_documents ORDER BY format`
+  const jobs =
+    await databaseClient`SELECT format,state,attempts,retry_allowance,error_code FROM submission_document_jobs ORDER BY format`
+  const retries =
+    await databaseClient`SELECT attempts,allowance,reason_code,actor_user_id FROM submission_document_retries ORDER BY created_at`
+  const audits =
+    await databaseClient`SELECT action,actor_type,actor_user_id FROM audit_logs WHERE action='document.retry.authorized'`
+  return { documents, jobs, retries, audits, remainingFailures, repaired }
+}
+if (retryMode)
+  process.on('message', (m) => {
+    if (
+      !['ARM', 'REPAIR', 'INSPECT'].includes(m?.type) ||
+      !/^[a-f0-9-]{36}$/.test(m.requestId || '')
+    )
+      return
+    void (async () => {
+      try {
+        if (m.type === 'ARM') {
+          assert.ok(!armedSha && /^[a-f0-9]{64}$/.test(m.wordSha || ''), 'RETRY_ALREADY_ARMED')
+          const [counts] =
+            await databaseClient`SELECT (SELECT count(*) FROM submissions)::int AS submissions,(SELECT count(*) FROM submission_rounds)::int AS rounds`
+          const snapshot = await inspectRetry()
+          assert.ok(
+            counts.submissions === 1 &&
+              counts.rounds === 1 &&
+              snapshot.documents.length === 1 &&
+              snapshot.documents[0].format === 'DOCX' &&
+              snapshot.documents[0].sha256 === m.wordSha &&
+              snapshot.jobs.length === 1 &&
+              snapshot.jobs[0].state === 'COMPLETE' &&
+              snapshot.retries.length === 0,
+            'RETRY_FIXTURE_MISMATCH',
+          )
+          armedSha = m.wordSha
+          remainingFailures = 3
+        } else if (m.type === 'REPAIR') {
+          const snapshot = await inspectRetry(),
+            pdf = snapshot.jobs.find((j) => j.format === 'PDF')
+          assert.ok(
+            armedSha &&
+              remainingFailures === 0 &&
+              !repaired &&
+              pdf?.attempts === 3 &&
+              pdf.retry_allowance === 0 &&
+              pdf.state === 'RETRYABLE' &&
+              pdf.error_code === 'CONVERT_FAILED',
+            'RETRY_NOT_EXHAUSTED',
+          )
+          repaired = true
+        }
+        process.send({
+          type: 'RETRY_REHEARSAL_RESULT',
+          requestId: m.requestId,
+          ok: true,
+          snapshot: await inspectRetry(),
+        })
+      } catch {
+        process.send({ type: 'RETRY_REHEARSAL_RESULT', requestId: m.requestId, ok: false })
+      }
+    })()
+  })
 const documents = new StoredSubmissionDocumentRenderer(
   registry,
   vault,
   localRenderer,
-  converter,
+  retryConverter,
   observedProvenance,
 )
 const service = new SubmissionService(
@@ -111,7 +192,7 @@ const service = new SubmissionService(
   new DrizzleSubmissionDocumentOperations(),
 )
 const app = buildApp({ submissionService: service })
-await app.listen({ host: '127.0.0.4', port: 3016 })
+await app.listen({ host: process.env.API_HOST, port: Number(process.env.API_PORT) })
 let stopping = false
 async function stop() {
   if (stopping) return

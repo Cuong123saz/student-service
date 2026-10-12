@@ -19,6 +19,7 @@ import {
   assertDemoDatabase,
   assertDemoState,
   demoAction,
+  demoChildExitFailed,
   demoDatabase,
   demoProfile,
   demoPassword,
@@ -28,6 +29,8 @@ import {
 const projectRoot = fileURLToPath(new URL('../../../', import.meta.url)),
   apiRoot = resolve(projectRoot, 'apps/api')
 const profile = demoProfile(process.argv.slice(2))
+const retryRehearsal = profile.kind === 'retry'
+const vaultEnabled = profile.kind === 'vault' || retryRehearsal
 const demoOrigin = profile.webUrl,
   demoApi = profile.apiUrl
 const apiAddress = new URL(demoApi),
@@ -84,9 +87,12 @@ if (action === 'stop') {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    let output = ''
+    let output = '',
+      overflow = false
+    child.stdout.setEncoding('utf8')
     child.stdout.on('data', (chunk) => {
-      if (output.length < 1048576) output += chunk.toString()
+      if (output.length + chunk.length <= 16 * 1048576) output += chunk
+      else overflow = true
     })
     child.stderr.resume()
     const timer = setTimeout(() => child.kill(), 60000)
@@ -100,6 +106,7 @@ if (action === 'stop') {
     } finally {
       clearTimeout(timer)
     }
+    assert.ok(!overflow, 'WORKFLOW_DEMO_DOCKER_OUTPUT_LIMIT')
     return output.trim()
   }
   async function owned() {
@@ -132,13 +139,14 @@ if (action === 'stop') {
       if (!stopping) process.exitCode = 1
       stopping = true
     })
-    child.on('exit', () => {
-      if (!stopping) process.exitCode = 1
+    child.on('exit', (code) => {
+      if (!stopping && demoChildExitFailed(label, code)) process.exitCode = 1
       stopping = true
     })
+    return child
   }
   async function ready(url) {
-    for (let i = 0; i < (profile.kind === 'vault' ? 600 : 160); i++) {
+    for (let i = 0; i < (vaultEnabled ? 600 : 160); i++) {
       if (stopping) throw new Error('WORKFLOW_DEMO_CHILD_EXITED')
       try {
         if ((await fetch(url, { signal: AbortSignal.timeout(1000) })).ok) return
@@ -160,7 +168,7 @@ if (action === 'stop') {
   })
   try {
     assert.equal(process.versions.node.split('.')[0], '22', 'NODE_22_REQUIRED')
-    if (profile.kind === 'vault') {
+    if (vaultEnabled) {
       assert.equal(process.platform, 'win32', 'VAULT_DEMO_REQUIRES_WINDOWS')
       assert.ok(
         process.env.LIBREOFFICE_PATH &&
@@ -236,6 +244,10 @@ if (action === 'stop') {
     phase = 'seed-fake-data'
     const fixture = await seedRecoveryFixture(sql),
       hash = await argon2.hash(demoPassword)
+    if (retryRehearsal)
+      await sql`INSERT INTO role_permissions(role_id,permission_id)
+        SELECT r.id,p.id FROM roles r CROSS JOIN permissions p
+        WHERE r.code='DRILL_REVIEW' AND p.code='document.retry' ON CONFLICT DO NOTHING`
     const accounts = []
     for (const [actor, username, label] of [
       [fixture.owner, 'demo.sinhvien', 'Sinh viên'],
@@ -319,7 +331,7 @@ if (action === 'stop') {
       force: false,
     })
     let apiEntry = join(runtimeRoot, 'api/dist/server.js')
-    if (profile.kind === 'vault') {
+    if (vaultEnabled) {
       const p = vaultDemoPaths(projectRoot, runId)
       await assertRecoveryDirectory('D:/')
       await mkdir(p.vault)
@@ -345,10 +357,11 @@ if (action === 'stop') {
         force: false,
       })
       env.WORKFLOW_VAULT_DEMO_ID = runId
+      if (retryRehearsal) env.WORKFLOW_VAULT_MODE = 'retry'
       apiEntry = p.entry
     }
     phase = 'start-servers'
-    launch(apiEntry, join(runtimeRoot, 'api'), env, 'api')
+    const apiChild = launch(apiEntry, join(runtimeRoot, 'api'), env, 'api')
     launch(
       join(runtimeRoot, 'web/.output/server/index.mjs'),
       join(runtimeRoot, 'web'),
@@ -390,6 +403,35 @@ if (action === 'stop') {
       'WORKFLOW_DEMO_READY ' +
         JSON.stringify({ webUrl: demoOrigin, statePath: join(runRoot, 'state.json') }),
     )
+    if (retryRehearsal) {
+      const checker = launch(
+        join(apiRoot, 'scripts/check-workflow-retry.mjs'),
+        apiRoot,
+        {
+          ...inherited,
+          WORKFLOW_RETRY_STATE_PATH: join(runRoot, 'state.json'),
+          ...(process.env.WORKFLOW_PLAYWRIGHT_MODULE
+            ? { WORKFLOW_PLAYWRIGHT_MODULE: process.env.WORKFLOW_PLAYWRIGHT_MODULE }
+            : {}),
+          ...(process.env.WORKFLOW_CHROMIUM_EXECUTABLE
+            ? { WORKFLOW_CHROMIUM_EXECUTABLE: process.env.WORKFLOW_CHROMIUM_EXECUTABLE }
+            : {}),
+        },
+        'retry-browser',
+      )
+      checker.on('message', (m) => {
+        if (
+          ['ARM', 'REPAIR', 'INSPECT'].includes(m?.type) &&
+          /^[a-f0-9-]{36}$/.test(m.requestId || '') &&
+          apiChild.connected
+        )
+          apiChild.send(m)
+      })
+      apiChild.on('message', (m) => {
+        if (m?.type === 'RETRY_REHEARSAL_RESULT' && checker.connected) checker.send(m)
+      })
+      // The one-shot checker owns this isolated run; exit always stops only its children/database.
+    }
     while (!stopping) {
       try {
         const stop = await readJson(join(runRoot, 'stop.request.json'))
@@ -409,6 +451,29 @@ if (action === 'stop') {
     process.exitCode = 1
     await saveState('FAILED')
   } finally {
+    if (retryRehearsal && containerId) {
+      try {
+        await owned()
+        const dump = await docker([
+          'exec',
+          containerId,
+          'pg_dump',
+          '-U',
+          'postgres',
+          '-d',
+          demoDatabase,
+          '--no-owner',
+          '--no-privileges',
+        ])
+        await writeFile(join(runRoot, 'retry-diagnostic.sql'), dump + '\n', {
+          flag: 'wx',
+          mode: 0o600,
+        })
+      } catch {
+        console.error('RETRY_DIAGNOSTIC_SNAPSHOT_FAILED')
+        process.exitCode = 1
+      }
+    }
     for (const child of children) if (child.exitCode === null) child.kill()
     for (const child of children)
       if (child.exitCode === null)

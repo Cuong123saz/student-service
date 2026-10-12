@@ -45,7 +45,8 @@
     "audit:documents": "node --env-file=.env scripts/audit-documents.mjs",
     "demo:vault": "node scripts/workflow-demo.mjs --fake-data-only --vault",
     "demo:vault:check": "node scripts/check-workflow-demo.mjs --fake-data-only --vault",
-    "documents:process-check": "node scripts/check-document-supervisor.mjs --fake-data-only"
+    "documents:process-check": "node scripts/check-document-supervisor.mjs --fake-data-only",
+    "rehearse:retry-browser": "node scripts/workflow-demo.mjs --fake-data-only --retry"
   },
   "type": "module",
   "dependencies": {

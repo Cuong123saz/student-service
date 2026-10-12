@@ -32,10 +32,12 @@ export function assertVaultDemoEnvironment(projectRoot, env, entry, hasIpc) {
     env.DOTENV_CONFIG_PATH === p.fakeEnv && env.SUBMISSION_STORAGE_ROOT === p.evidence,
     'INVALID_VAULT_DEMO_STORAGE',
   )
+  const retry = env.WORKFLOW_VAULT_MODE === 'retry'
+  assert.ok(!env.WORKFLOW_VAULT_MODE || retry, 'INVALID_VAULT_DEMO_MODE')
   assert.ok(
-    env.API_HOST === '127.0.0.4' &&
-      env.API_PORT === '3016' &&
-      env.CORS_ORIGIN === 'http://127.0.0.4:3017' &&
+    env.API_HOST === (retry ? '127.0.0.5' : '127.0.0.4') &&
+      env.API_PORT === (retry ? '3018' : '3016') &&
+      env.CORS_ORIGIN === (retry ? 'http://127.0.0.5:3019' : 'http://127.0.0.4:3017') &&
       env.WEB_BASE_URL === env.CORS_ORIGIN,
     'INVALID_VAULT_DEMO_ORIGIN',
   )

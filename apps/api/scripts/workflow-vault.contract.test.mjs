@@ -44,3 +44,33 @@ test('vault child refuses source entry, absent IPC, inherited development databa
   ])
     assert.throws(() => assertVaultDemoEnvironment(root, { ...env, ...changes }, p.entry, true))
 })
+
+test('fault-capable retry child requires its exact separate mode and loopback origins', () => {
+  const root = resolve('fixture-project'),
+    id = randomUUID(),
+    p = vaultDemoPaths(root, id)
+  const env = {
+    WORKFLOW_VAULT_DEMO_ID: id,
+    WORKFLOW_VAULT_MODE: 'retry',
+    APP_ENV: 'test',
+    DOTENV_CONFIG_PATH: p.fakeEnv,
+    SUBMISSION_STORAGE_ROOT: p.evidence,
+    API_HOST: '127.0.0.5',
+    API_PORT: '3018',
+    CORS_ORIGIN: 'http://127.0.0.5:3019',
+    WEB_BASE_URL: 'http://127.0.0.5:3019',
+    DATABASE_URL: 'postgres://postgres:fake@127.0.0.1:55555/student_service_workflow_demo',
+    LIBREOFFICE_PATH: resolve('tools/soffice.com'),
+  }
+  assert.deepEqual(assertVaultDemoEnvironment(root, env, p.entry, true), p)
+  for (const changes of [
+    { WORKFLOW_VAULT_MODE: undefined },
+    { WORKFLOW_VAULT_MODE: 'production' },
+    { API_HOST: '127.0.0.4' },
+    { API_PORT: '3016' },
+    { CORS_ORIGIN: 'http://127.0.0.4:3017' },
+    { APP_ENV: 'production' },
+  ])
+    assert.throws(() => assertVaultDemoEnvironment(root, { ...env, ...changes }, p.entry, true))
+  assert.throws(() => assertVaultDemoEnvironment(root, env, p.entry, false))
+})

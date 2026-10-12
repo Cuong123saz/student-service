@@ -10,7 +10,7 @@ Launcher tạo container PostgreSQL17 tmpfs có tên/label/UUID riêng, migrate 
 
 API có kho chỉ khởi động bằng child riêng đã kiểm tra IPC với parent, UUID, entry path, môi trường test, database loopback/cổng riêng, evidence/fake.env đúng root và origin cố định. Trước khi mở HTTP, kiểm tra phiên bản converter, tạo thử Word/PDF bằng dữ liệu giả đủ sáu kiểu trường/0/false, rồi kiểm tra lại phiên bản. Không tạo hồ sơ hay job trong DB từ phép kiểm tra sẵn sàng. Kiểm tra thất bại thì demo không được báo READY. Log lỗi provenance chỉ có mã hữu hạn, không đưa đường dẫn/driver log vào HTTP.
 
-Các tài khoản demo.sinhvien, demo.svkhac, demo.canbo, demo.ngoai dùng mật khẩu giả DemoSinhVien#2026!. DEMO1/2 phục vụ kiểm tra tự động; DEMO3 để người dùng thực hành. Giấy xác nhận sinh viên vẫn trực tiếp tại CTSV. Quyền document.retry không tự cấp thêm cho ADMIN trong demo; luồng mở thêm lượt trên giao diện với backend thật còn cần bài kiểm chứng riêng.
+Các tài khoản demo.sinhvien, demo.svkhac, demo.canbo, demo.ngoai dùng mật khẩu giả DemoSinhVien#2026!. DEMO1/2 phục vụ kiểm tra tự động; DEMO3 để người dùng thực hành. Giấy xác nhận sinh viên vẫn trực tiếp tại CTSV. Quyền document.retry không tự cấp thêm cho ADMIN trong demo; luồng mở thêm lượt trên giao diện với backend thật đã đạt trong [profile retry riêng](retry-browser-rehearsal.md), không đổi quyền hoặc dữ liệu demo này.
 
 Database tmpfs của demo không dùng để lưu dữ liệu thật hoặc làm bản lưu lâu dài. Dừng launcher sẽ xóa đúng container của nó; kho/báo cáo trên D được giữ. Trước khi dừng một demo có dữ liệu người dùng tự thực hành, phải bảo toàn dữ liệu cần giữ. Không chạy lại checker trên demo đã có báo cáo hoặc claim. Hai checker cạnh tranh chỉ một được lấy marker wx; checker còn lại dừng trước mở trình duyệt/thao tác hồ sơ.
 
@@ -26,4 +26,4 @@ Sau khi khởi động lại môi trường máy ngày12/10, Docker và ba web d
 
 ## Việc kế tiếp
 
-Theo dõi và khoanh vùng dứt điểm lỗi PDF đầu ở lượt trước; readiness là rào chắn trước mở demo, không chứng minh mọi lần chuyển tương lai sẽ thành công. Chưa đổi ngân sách10 giây đọc phiên bản hoặc90 giây chuyển PDF. Cần thử UI mở lượt có quyền/audit trên backend thật, backup/đối chiếu trước nâng development, rồi B3 với TCP/gói20MiB/nhiều worker và tổng tài nguyên máy. Backup ở cùng ổ D chưa đáp ứng lưu trên thiết bị khác. Không tự đóng B2/B3 hoặc Sprint4.
+Theo dõi và khoanh vùng dứt điểm lỗi PDF đầu ở lượt trước; readiness là rào chắn trước mở demo, không chứng minh mọi lần chuyển tương lai sẽ thành công. Chưa đổi ngân sách10 giây đọc phiên bản hoặc90 giây chuyển PDF. UI mở lượt có quyền/audit trên backend thật đã được kiểm chứng ở profile retry riêng. Tiếp backup/đối chiếu trước nâng development, rồi B3 với TCP/gói20MiB/nhiều worker và tổng tài nguyên máy. Backup ở cùng ổ D chưa đáp ứng lưu trên thiết bị khác. Không tự đóng B2/B3 hoặc Sprint4.

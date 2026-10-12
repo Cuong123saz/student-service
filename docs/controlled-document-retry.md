@@ -29,3 +29,5 @@ Hồi quy: 144 unit đạt/1 skip Windows EPERM cũ, 306 integration đạt (g�
 Supervisor Windows và converter thật đã được kiểm chứng, gồm --version; xem [bằng chứng thu hồi process](document-process-supervisor.md). Diễn tập mã hóa mới a9f57c69-e85e-4767-9f23-e20b54c6a47e đạt với supervisor. Tiếp theo: demo vault mới với backend thật, runtime/ports riêng; backup/đối chiếu trước khi nâng development. Chưa tự reset dữ liệu hoặc migrate các demo 3011/3013/3015. Chưa hoàn tất B2/B3 hay ký/phát hành thật.
 
 Demo kho riêng đã có kiểm chứng tải/tải lại và UI trạng thái với backend thật; xem [demo vault](vault-demo.md). UI mở thêm lượt khi hết số lần vẫn cần kiểm chứng riêng trên backend thật, không suy ra từ bài bố cục/API giả hoặc trạng thái READY. Development/demo cũ chưa bật retry.
+
+Diễn tập giao diện trên backend thật ngày12/10 đã đạt với bộ chuyển PDF thật: ba lỗi có kiểm soát, quyền/phạm vi, checkbox, audit,429/Retry-After và replay, PDF lần4 giữ Word gốc. Chi tiết và giới hạn: [retry browser rehearsal](retry-browser-rehearsal.md). Demo phát triển mặc định chưa được nâng theo mốc này.

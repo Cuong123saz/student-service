@@ -11,6 +11,7 @@ import {
   assertDemoState,
   claimDemoBrowserRun,
   demoAction,
+  demoChildExitFailed,
   demoApi,
   demoOrigin,
   demoRunRoot,
@@ -196,4 +197,41 @@ test('browser claim refuses an existing report and atomically prevents concurren
     await readFile(join(checkedRoot, 'browser-report.json'), 'utf8'),
     'existing practice evidence',
   )
+})
+
+test('retry rehearsal has a fifth isolated origin and refuses arbitrary mixed options', () => {
+  const p = demoProfile(['--fake-data-only', '--retry'])
+  assert.equal(p.kind, 'retry')
+  assert.equal(demoAction(['--fake-data-only', '--retry'], {}), 'start')
+  assert.equal(demoAction(['--fake-data-only', '--retry', 'stop'], {}), 'stop')
+  assert.throws(() => demoAction(['--fake-data-only', '--retry', '--vault'], {}))
+  const all = [undefined, '--documents', '--bundles', '--vault', '--retry'].map((flag) =>
+    demoProfile(['--fake-data-only', flag]),
+  )
+  assert.equal(new Set(all.map((p) => new URL(p.webUrl).hostname)).size, 5)
+  assert.equal(new Set(all.map((p) => p.activeFile)).size, 5)
+  const project = resolve('fixture-project'),
+    id = randomUUID(),
+    root = demoRunRoot(project, id)
+  const state = {
+    version: 1,
+    fakeDataOnly: true,
+    runId: id,
+    profile: p.kind,
+    webUrl: p.webUrl,
+    apiUrl: p.apiUrl,
+  }
+  assert.equal(assertDemoState(state, project, resolve(root, 'state.json'), 'retry'), root)
+  assert.throws(() => assertDemoState(state, project, resolve(root, 'state.json'), 'vault'))
+})
+
+test('only a successful one-shot checker exit is normal; server death remains a failure', () => {
+  assert.equal(demoChildExitFailed('retry-browser', 0), false)
+  for (const [label, code] of [
+    ['api', 0],
+    ['web', 0],
+    ['retry-browser', 1],
+    ['retry-browser', null],
+  ])
+    assert.equal(demoChildExitFailed(label, code), true)
 })
