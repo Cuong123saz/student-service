@@ -301,8 +301,7 @@ onMounted(() => {
               <option value="HYBRID">Kết hợp trực tuyến và trực tiếp</option>
             </select>
             <p v-if="form.processingMode !== 'OFFLINE'" class="muted">
-              Cấu hình cho bước mở nộp hồ sơ trực tuyến sau này. Hiện chưa có chức năng nộp/xét
-              duyệt online.
+              Chọn đơn vị và cán bộ có quyền phù hợp để tiếp nhận hồ sơ trực tuyến.
             </p>
             <label for="processing-unit">Đơn vị xử lý thực tế</label
             ><select id="processing-unit" v-model="form.processingUnitId" @change="changeUnit">
@@ -471,8 +470,8 @@ onMounted(() => {
                 <option value="image/jpeg">JPEG</option>
               </select>
               <small
-                >Giới hạn 5 MB/file, tổng 20 MB/hồ sơ. Phần này chỉ khai báo yêu cầu, chưa tải file
-                lên.</small
+                >Giới hạn 5 MB/file, tổng 20 MB/hồ sơ. Mục này cấu hình yêu cầu; sinh viên tải minh
+                chứng khi kê khai hồ sơ.</small
               >
               <p v-if="issue('attachments.' + index)" class="field-error">
                 {{ issue('attachments.' + index) }}

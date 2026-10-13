@@ -17,6 +17,7 @@ import {
 import { oldBytes, newBytes, recoveryValues, recoveryStudent } from './recovery-fixture.mjs'
 assert.equal(demoAction(process.argv.slice(2), process.env), 'start')
 const profile = demoProfile(process.argv.slice(2))
+assert.notEqual(profile.kind, 'sprint4', 'USE_PRIVATE_SPRINT4_CHECKER')
 const vaultProfile = ['vault', 'workspace-vault'].includes(profile.kind)
 const demoOrigin = profile.webUrl
 const projectRoot = fileURLToPath(new URL('../../../', import.meta.url))

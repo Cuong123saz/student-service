@@ -227,6 +227,7 @@ test('retry rehearsal has a fifth isolated origin and refuses arbitrary mixed op
 
 test('only a successful one-shot checker exit is normal; server death remains a failure', () => {
   assert.equal(demoChildExitFailed('retry-browser', 0), false)
+  assert.equal(demoChildExitFailed('sprint4-browser', 0), false)
   for (const [label, code] of [
     ['api', 0],
     ['web', 0],
@@ -257,4 +258,31 @@ test('workspace demo has separate fixed origins/state and cannot stop the histor
     root,
   )
   assert.throws(() => assertDemoState(state, project, resolve(root, 'state.json'), 'vault'))
+})
+
+test('Sprint 4 rehearsal has fixed isolated origins/state and refuses mixed profiles or foreign stop state', () => {
+  const profile = demoProfile(['--fake-data-only', '--sprint4'])
+  assert.equal(profile.kind, 'sprint4')
+  assert.equal(profile.webUrl, 'http://127.0.0.7:3023')
+  assert.equal(profile.apiUrl, 'http://127.0.0.7:3022')
+  assert.equal(demoAction(['--fake-data-only', '--sprint4'], {}), 'start')
+  for (const extra of ['--workspace-vault', '--vault', 'reset'])
+    assert.throws(() => demoAction(['--fake-data-only', '--sprint4', extra], {}))
+  const project = resolve('fixture-project'),
+    runId = randomUUID(),
+    root = demoRunRoot(project, runId)
+  const state = {
+    version: 1,
+    fakeDataOnly: true,
+    profile: 'sprint4',
+    runId,
+    webUrl: profile.webUrl,
+    apiUrl: profile.apiUrl,
+  }
+  assert.equal(assertDemoState(state, project, resolve(root, 'state.json'), 'sprint4'), root)
+  assert.throws(() =>
+    assertDemoState(state, project, resolve(root, 'state.json'), 'workspace-vault'),
+  )
+  assert.equal(demoChildExitFailed('sprint4-browser', 1), true)
+  assert.equal(demoChildExitFailed('sprint4-browser', null), true)
 })

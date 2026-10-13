@@ -30,6 +30,7 @@ const projectRoot = fileURLToPath(new URL('../../../', import.meta.url)),
   apiRoot = resolve(projectRoot, 'apps/api')
 const profile = demoProfile(process.argv.slice(2))
 const retryRehearsal = profile.kind === 'retry'
+const sprint4Rehearsal = profile.kind === 'sprint4'
 const vaultEnabled = ['vault', 'workspace-vault'].includes(profile.kind) || retryRehearsal
 const demoOrigin = profile.webUrl,
   demoApi = profile.apiUrl
@@ -288,6 +289,28 @@ if (action === 'stop') {
         await sql`INSERT INTO procedure_versions(service_id,owner_unit_id,version_number,status,config,created_by,updated_by,published_at) VALUES(${service.id},${first.owner_unit_id},1,'PUBLISHED',${sql.json(selected)},${fixture.reviewer.id},${fixture.reviewer.id},now()) RETURNING id`
       services.push({ id: service.id, versionId: version.id, purpose })
     }
+    if (sprint4Rehearsal) {
+      await sql`UPDATE organizational_units SET name='Phòng Công tác Sinh viên (CTSV) — giả định' WHERE id=${first.owner_unit_id}`
+      await sql`INSERT INTO roles(code,name,is_system) VALUES('SPRINT4_CONFIG','Cấu hình trong đơn vị — giả định',false)`
+      await sql`INSERT INTO role_permissions(role_id,permission_id)
+        SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code='SPRINT4_CONFIG' AND p.code='service.configure'`
+      for (const actor of [fixture.reviewer, fixture.foreign]) {
+        await sql`INSERT INTO user_roles(user_id,role_id) SELECT ${actor.id},id FROM roles WHERE code IN ('SPRINT4_CONFIG','ADMIN') ON CONFLICT DO NOTHING`
+        await sql`INSERT INTO user_role_scopes(user_id,role_id,scope_id)
+          SELECT ${actor.id},c.id,s.scope_id FROM user_role_scopes s JOIN roles old ON old.id=s.role_id
+          CROSS JOIN roles c WHERE s.user_id=${actor.id} AND old.code='DRILL_REVIEW' AND c.code='SPRINT4_CONFIG'`
+      }
+      const adminId = randomUUID()
+      await sql`INSERT INTO users(id,username,full_name,password_hash,status,must_change_password,activated_at)
+        VALUES(${adminId},'demo.quantri','Quản trị cấu hình — giả định',${hash},'ACTIVE',false,now())`
+      await sql`INSERT INTO user_roles(user_id,role_id) SELECT ${adminId},id FROM roles WHERE code='SYSTEM_ADMIN'`
+      await sql`INSERT INTO user_role_scopes(user_id,role_id,scope_id)
+        SELECT ${adminId},r.id,s.id FROM roles r CROSS JOIN authorization_scopes s WHERE r.code='SYSTEM_ADMIN' AND s.scope_type='GLOBAL'`
+      accounts.push({ username: 'demo.quantri', label: 'Quản trị GLOBAL — giả định' })
+      const [service] = await sql`INSERT INTO services(code,name,description,processing_days,status)
+        VALUES('SPRINT4_FORM_DEMO','SPRINT 4 - Biểu mẫu thực hành','Thủ tục giả để kiểm chứng cấu hình; không cấp văn bản.',3,'ACTIVE') RETURNING id`
+      services.push({ id: service.id, purpose: 'configuration', ownerUnitId: first.owner_unit_id })
+    }
     await sql.end()
     sql = undefined
     const inherited = Object.fromEntries(
@@ -432,6 +455,23 @@ if (action === 'stop') {
         if (m?.type === 'RETRY_REHEARSAL_RESULT' && checker.connected) checker.send(m)
       })
       // The one-shot checker owns this isolated run; exit always stops only its children/database.
+    }
+    if (sprint4Rehearsal) {
+      launch(
+        join(apiRoot, 'scripts/check-sprint4-demo.mjs'),
+        apiRoot,
+        {
+          ...inherited,
+          WORKFLOW_SPRINT4_STATE_PATH: join(runRoot, 'state.json'),
+          ...(process.env.WORKFLOW_PLAYWRIGHT_MODULE
+            ? { WORKFLOW_PLAYWRIGHT_MODULE: process.env.WORKFLOW_PLAYWRIGHT_MODULE }
+            : {}),
+          ...(process.env.WORKFLOW_CHROMIUM_EXECUTABLE
+            ? { WORKFLOW_CHROMIUM_EXECUTABLE: process.env.WORKFLOW_CHROMIUM_EXECUTABLE }
+            : {}),
+        },
+        'sprint4-browser',
+      )
     }
     while (!stopping) {
       try {
