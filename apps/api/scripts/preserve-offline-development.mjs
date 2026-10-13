@@ -18,6 +18,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import {
   inspectMigrationHistory,
   assertPreservedCatalogRows,
+  assertUpgradeSequences,
 } from './development-upgrade.contract.mjs'
 import {
   developmentVolume,
@@ -26,13 +27,10 @@ import {
   assertDevelopmentVolumeQuiescent,
   assertPreservationContainer,
 } from './offline-development.contract.mjs'
-import {
-  assertRecoveryDirectory,
-  fileDigest,
-  normalizeRecoveryDefinition,
-} from './recovery-bundle.mjs'
+import { assertRecoveryDirectory, fileDigest } from './recovery-bundle.mjs'
 import { copyRecoveryPrivateFile } from './recovery-private-file.mjs'
 import { auditEvidence, readEvidenceReferences } from './evidence-integrity.mjs'
+import { snapshotDevelopment as snapshot } from './development-snapshot.mjs'
 assertOfflineDevelopmentInvocation(process.argv.slice(2), process.env)
 assert.equal(process.versions.node.split('.')[0], '22', 'NODE_22_REQUIRED')
 const project = fileURLToPath(new URL('../../../', import.meta.url)),
@@ -206,90 +204,6 @@ async function inventory(path, pattern, maximum, missingAllowed = false) {
   const result = []
   for (const key of entries) result.push({ key, ...(await fileDigest(join(path, key), maximum)) })
   return result
-}
-async function snapshot(client) {
-  return client.begin('isolation level repeatable read read only', async (sql) => {
-    const tables = await sql`SELECT schemaname,tablename FROM pg_tables
-      WHERE schemaname IN ('public','drizzle') ORDER BY schemaname,tablename`
-    const rows = []
-    for (const table of tables) {
-      assert.match(table.schemaname, /^[a-z_]+$/)
-      assert.match(table.tablename, /^[a-z0-9_]+$/)
-      const digest = createHash('sha256')
-      let count = 0
-      for await (const batch of sql
-        .unsafe(
-          `SELECT to_jsonb(t)::text AS row FROM "${table.schemaname}"."${table.tablename}" t ORDER BY to_jsonb(t)::text`,
-        )
-        .cursor(256))
-        for (const row of batch) {
-          digest.update(row.row + '\n')
-          count++
-        }
-      rows.push({
-        table: table.schemaname + '.' + table.tablename,
-        count,
-        sha256: digest.digest('hex'),
-      })
-    }
-    const sequences = []
-    for (const seq of await sql`SELECT schemaname,sequencename FROM pg_sequences WHERE schemaname IN ('public','drizzle') ORDER BY schemaname,sequencename`) {
-      assert.match(seq.schemaname, /^[a-z_]+$/)
-      assert.match(seq.sequencename, /^[a-z0-9_]+$/)
-      const [state] = await sql.unsafe(
-        `SELECT last_value::text,is_called FROM "${seq.schemaname}"."${seq.sequencename}"`,
-      )
-      sequences.push({ name: seq.schemaname + '.' + seq.sequencename, ...state })
-    }
-    const indexes =
-      await sql`SELECT schemaname,indexname,indexdef FROM pg_indexes WHERE schemaname IN ('public','drizzle') ORDER BY schemaname,indexname`
-    const triggers = await sql`SELECT n.nspname,t.tgname,pg_get_triggerdef(t.oid) AS definition
-      FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
-      WHERE NOT t.tgisinternal AND n.nspname='public' ORDER BY t.tgname,definition`
-    const constraints =
-      await sql`SELECT n.nspname,c.conname,pg_get_constraintdef(c.oid) AS definition
-      FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace
-      WHERE n.nspname IN ('public','drizzle') ORDER BY n.nspname,c.conname,definition`
-    const extensions = await sql`SELECT extname,extversion FROM pg_extension ORDER BY extname`
-    const columns = await sql`SELECT n.nspname,c.relname,a.attnum,a.attname,
-      format_type(a.atttypid,a.atttypmod) AS type,a.attnotnull,a.attidentity,a.attgenerated,
-      pg_get_expr(d.adbin,d.adrelid) AS default_expression
-      FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace
-      LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
-      WHERE n.nspname IN ('public','drizzle') AND c.relkind IN ('r','p','v','m') AND a.attnum>0 AND NOT a.attisdropped
-      ORDER BY n.nspname,c.relname,a.attnum`
-    const functions =
-      await sql`SELECT n.nspname,p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,pg_get_functiondef(p.oid) AS definition
-      FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-      WHERE n.nspname IN ('public','drizzle') AND p.prokind IN ('f','p') ORDER BY n.nspname,p.proname,arguments`
-    const types =
-      await sql`SELECT n.nspname,t.typname,t.typtype,format_type(t.typbasetype,t.typtypmod) AS base_type,t.typnotnull,t.typdefault,
-      COALESCE((SELECT jsonb_agg(e.enumlabel ORDER BY e.enumsortorder) FROM pg_enum e WHERE e.enumtypid=t.oid),'[]'::jsonb) AS labels
-      FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname IN ('public','drizzle') AND t.typtype IN ('d','e') ORDER BY n.nspname,t.typname`
-    const views =
-      await sql`SELECT schemaname,viewname,definition FROM pg_views WHERE schemaname IN ('public','drizzle') ORDER BY schemaname,viewname`
-    const policies =
-      await sql`SELECT schemaname,tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname IN ('public','drizzle') ORDER BY schemaname,tablename,policyname`
-    return {
-      tables: rows,
-      sequences,
-      columns: [...columns],
-      functions: [...functions],
-      types: [...types],
-      views: [...views],
-      policies: [...policies],
-      indexes: indexes.map((row) => ({
-        ...row,
-        indexdef: normalizeRecoveryDefinition(row.indexdef),
-      })),
-      triggers: [...triggers],
-      constraints: constraints.map((row) => ({
-        ...row,
-        definition: normalizeRecoveryDefinition(row.definition),
-      })),
-      extensions: [...extensions],
-    }
-  })
 }
 
 try {
@@ -590,11 +504,9 @@ try {
       const table = current.tables.find((t) => t.table === 'public.' + name)
       assert.ok(table && table.count === 0, 'UPGRADE_DOCUMENT_REGISTRY_NOT_EMPTY')
     }
-    assert.deepEqual(
-      current.sequences.filter((s) => s.name !== 'drizzle.__drizzle_migrations_id_seq'),
-      before.sequences.filter((s) => s.name !== 'drizzle.__drizzle_migrations_id_seq'),
-      'UPGRADE_APPLICATION_SEQUENCE_CHANGED',
-    )
+    assertUpgradeSequences(before.sequences, current.sequences, {
+      permissionNextval: history.length < migrations.length,
+    })
     await owned(target)
     report.upgrade = {
       ...report.upgrade,

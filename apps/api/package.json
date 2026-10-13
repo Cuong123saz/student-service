@@ -51,7 +51,8 @@
     "test:offline-development": "node --test scripts/offline-development.contract.test.mjs scripts/development-upgrade.contract.test.mjs",
     "development:verify-upgrade": "node scripts/preserve-offline-development.mjs --offline-development-only --verify-upgrade",
     "demo:workspace-vault": "node scripts/workflow-demo.mjs --fake-data-only --workspace-vault",
-    "demo:workspace-vault:check": "node scripts/check-workflow-demo.mjs --fake-data-only --workspace-vault"
+    "demo:workspace-vault:check": "node scripts/check-workflow-demo.mjs --fake-data-only --workspace-vault",
+    "development:audit-upgrade": "node scripts/audit-development-upgrade.mjs --offline-development-only"
   },
   "type": "module",
   "dependencies": {
