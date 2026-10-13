@@ -1,3 +1,6 @@
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import type { DocumentProcessReport } from './submission-document-supervisor.js'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -85,3 +88,47 @@ test('build provenance includes the deployed Windows supervisor script', async (
   await assert.rejects(provenance.renderer(), /DOCUMENT_DEPLOYMENT_CHANGED/)
   await assert.rejects(provenance.converter(), /DOCUMENT_DEPLOYMENT_CHANGED/)
 })
+
+test(
+  'Windows version reader accepts an eleven-second response and confirms process reaping',
+  { skip: process.platform !== 'win32' },
+  async (t) => {
+    const f = await fixture(t),
+      executable = join(f.root, 'slow-version.exe')
+    const code =
+      'using System; using System.Threading; public static class SlowVersion { public static void Main() { Thread.Sleep(11000); Console.WriteLine("LibreOffice 0.0.0 synthetic"); } }'
+    const quote = (value: string) => "'" + value.replaceAll("'", "''") + "'"
+    await promisify(execFile)(
+      join(
+        process.env.SystemRoot || 'C:/Windows',
+        'System32/WindowsPowerShell/v1.0/powershell.exe',
+      ),
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        'Add-Type -TypeDefinition ' +
+          quote(code) +
+          ' -OutputAssembly ' +
+          quote(executable) +
+          ' -OutputType ConsoleApplication',
+      ],
+      { windowsHide: true, timeout: 15000 },
+    )
+    let report: DocumentProcessReport | undefined
+    const provenance = await LocalDocumentProvenance.create(
+      { ...f.options, converterCommand: executable, converterBinary: executable },
+      {
+        finished: (value) => {
+          report = value
+        },
+      },
+    )
+    const result = await provenance.converter()
+    assert.equal(result.version, 'LibreOffice 0.0.0 synthetic')
+    assert.equal(report?.outcome, 'EXITED')
+    assert.equal(report?.empty, true)
+    assert.equal(report?.watchdogExpired, false)
+    assert.ok((report?.elapsedMs || 0) >= 11000)
+  },
+)

@@ -27,3 +27,11 @@ Tar67866112 byte/SHA256 `cbd911ed59648e63d7d9212fd3e716ccdc1c25d332c0fe9706616af
 Đây là bản sao trước nâng tại cùng ổ D, chưa mã hóa, không phải kho backup ngoài thiết bị hoặc format bundle dữ liệu giả của recovery rehearsal. Không cam kết hỗ trợ mọi object/global role/tablespace/ACL PostgreSQL; reader từ chối tablespace/WAL symlink và bản dump logical không giữ owner/ACL. Tar vật lý chỉ mở bằng đúng image nguồn đã ghi. Không dùng công cụ này để suy ra khả năng phục hồi production.
 
 Tiếp thử migration và runtime có kho trên bản sao đã kiểm chứng, xác nhận dữ liệu nền giữ nguyên và bản Word/PDF mới chỉ dùng hồ sơ giả. Sau đó mới nâng cấu hình development có đường quay lại; chưa thay startup mặc định trong mốc này.
+
+## Thử nâng cấp ngày13/10
+
+Thêm `npm run development:verify-upgrade --workspace @student-service/api`. Luôn hoàn tất giữ/khôi phục/đối chiếu nguồn trước khi thử migration trên target riêng; source vẫn không mở hoặc migrate. Ledger phải khớp đúng prefix của journal/SQL hash, không chấp nhận record lạ, thiếu tiền nhiệm, đổi hash hoặc duplicate. Sau migration dự kiến đối chiếu dữ liệu cũ, chỉ cho thêm permission document.retry và role_permission của SYSTEM_ADMIN, giữ sequence ứng dụng và registry mới trống. Nhánh áp migration chưa được chứng minh trên development hiện tại do guard dừng trước đó; không gọi thử nâng nguồn là đạt.
+
+Run `02a62789-32c5-4e3a-a490-fbd19ddeba49` có preservationStatus VERIFIED_PREUPGRADE_COPY, đủ5 nhóm giữ/phục hồi/source unchanged; upgrade REFUSED và cleanup=true trước migrate.24 record nguồn:23 record khớp hash/timestamp hiện tại, một record id3/timestamp1788422683657/hash a8f239a60d54744ce6019b4be0b8dfdb96b50e13050ca8cb49b8bfcf10c8105e không có trong journal. Không phải chênh LF/CRLF. Source còn bảng account_activation_tokens6 cột/ba constraint, hiện0 dòng; chưa chứng minh record lạ chỉ tạo bảng này. Không xóa record hoặc tự viết lại lịch sử, không nới guard để giả nâng thành công.8 bài guard fixture giả đạt.
+
+Tiếp đối chiếu schema với database tạo mới từ canonical migration đến0022, xác định mọi khác biệt và đường nâng giữ nguyên record cũ; chỉ thử trên bản sao. Trong lúc này [demo mới trong project](workspace-vault-demo.md) dùng database giả riêng đã đạt, không phụ thuộc ledger development.

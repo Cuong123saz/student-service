@@ -12,6 +12,13 @@ import { pipeline } from 'node:stream/promises'
 import { setTimeout as pause } from 'node:timers/promises'
 import postgres from 'postgres'
 import { parse } from 'dotenv'
+import { readMigrationFiles } from 'drizzle-orm/migrator'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import {
+  inspectMigrationHistory,
+  assertPreservedCatalogRows,
+} from './development-upgrade.contract.mjs'
 import {
   developmentVolume,
   assertOfflineDevelopmentInvocation,
@@ -520,9 +527,88 @@ try {
     ? 'VERIFIED_PREUPGRADE_COPY'
     : 'DATABASE_ONLY_ATTENTION'
   report.offDeviceBackup = false
+  report.preservationStatus = report.status
+  if (process.argv.includes('--verify-upgrade')) {
+    assert.ok(report.systemPreservationReady, 'PREUPGRADE_COPY_INCOMPLETE')
+    phase = 'check-upgrade-migration-history'
+    const migrations = readMigrationFiles({ migrationsFolder: join(api, 'drizzle') })
+    const history =
+      await restored`SELECT id,hash,created_at FROM drizzle.__drizzle_migrations ORDER BY created_at,id`
+    report.upgrade = { history: inspectMigrationHistory(history, migrations), status: 'RUNNING' }
+    assert.ok(report.upgrade.history.canonical, 'UPGRADE_MIGRATION_HISTORY_MISMATCH')
+    await owned(target)
+    report.upgrade.attempted = true
+    phase = 'migrate-private-target-only'
+    const migrationClient = await client(target, targetDatabase, password)
+    await migrate(drizzle(migrationClient), { migrationsFolder: join(api, 'drizzle') })
+    await migrationClient.end({ timeout: 5 })
+    const upgraded = await client(target, targetDatabase, password)
+    phase = 'compare-data-after-upgrade'
+    const migratedHistory =
+      await upgraded`SELECT id,hash,created_at FROM drizzle.__drizzle_migrations ORDER BY created_at,id`
+    report.upgrade.afterHistory = inspectMigrationHistory(migratedHistory, migrations)
+    assert.ok(
+      report.upgrade.afterHistory.canonical && migratedHistory.length === migrations.length,
+      'UPGRADE_MIGRATION_HISTORY_MISMATCH',
+    )
+    const current = await snapshot(upgraded)
+    await writeFile(join(root, 'upgraded-digests.json'), JSON.stringify(current, null, 2) + '\n', {
+      flag: 'wx',
+      mode: 0o600,
+    })
+    const catalogAdditions = {}
+    for (const originalTable of before.tables) {
+      if (originalTable.table === 'drizzle.__drizzle_migrations') continue
+      const currentTable = current.tables.find((t) => t.table === originalTable.table)
+      assert.ok(currentTable, 'UPGRADE_OLD_TABLE_MISSING')
+      if (['public.permissions', 'public.role_permissions'].includes(originalTable.table)) {
+        const name = originalTable.table.split('.')[1]
+        const oldRows = await sql.unsafe(
+          'SELECT to_jsonb(t) AS value FROM public."' + name + '" t ORDER BY to_jsonb(t)::text',
+        )
+        const newRows = await upgraded.unsafe(
+          'SELECT to_jsonb(t) AS value FROM public."' + name + '" t ORDER BY to_jsonb(t)::text',
+        )
+        const [permission] = await upgraded`SELECT id FROM permissions WHERE code='document.retry'`
+        const [role] = await upgraded`SELECT id FROM roles WHERE code='SYSTEM_ADMIN'`
+        catalogAdditions[name] = assertPreservedCatalogRows(
+          oldRows.map((r) => r.value),
+          newRows.map((r) => r.value),
+          (r) =>
+            name === 'permissions'
+              ? r.code === 'document.retry'
+              : r.permission_id === permission?.id && r.role_id === role?.id,
+        )
+      } else assert.deepEqual(currentTable, originalTable, 'UPGRADE_EXISTING_DATA_CHANGED')
+    }
+    for (const name of [
+      'submission_document_sets',
+      'submission_documents',
+      'submission_document_jobs',
+      'submission_document_retries',
+    ]) {
+      const table = current.tables.find((t) => t.table === 'public.' + name)
+      assert.ok(table && table.count === 0, 'UPGRADE_DOCUMENT_REGISTRY_NOT_EMPTY')
+    }
+    assert.deepEqual(
+      current.sequences.filter((s) => s.name !== 'drizzle.__drizzle_migrations_id_seq'),
+      before.sequences.filter((s) => s.name !== 'drizzle.__drizzle_migrations_id_seq'),
+      'UPGRADE_APPLICATION_SEQUENCE_CHANGED',
+    )
+    await owned(target)
+    report.upgrade = {
+      ...report.upgrade,
+      status: 'PASS',
+      tables: current.tables.length,
+      catalogAdditions,
+    }
+    report.checks.privateUpgradePreservesExistingData = true
+  }
 } catch (error) {
   if (!report) report = { version: 1, runId, checks: {}, sourceModified: false }
   report.status = 'FAILED'
+  if (report.upgrade)
+    report.upgrade.status = phase === 'check-upgrade-migration-history' ? 'REFUSED' : 'FAILED'
   report.phase = phase
   report.code = /^[A-Z0-9_]+$/.test(error.message) ? error.message : 'PRESERVATION_OPERATION_FAILED'
   process.exitCode = 1

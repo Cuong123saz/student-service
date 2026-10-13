@@ -30,7 +30,7 @@ const projectRoot = fileURLToPath(new URL('../../../', import.meta.url)),
   apiRoot = resolve(projectRoot, 'apps/api')
 const profile = demoProfile(process.argv.slice(2))
 const retryRehearsal = profile.kind === 'retry'
-const vaultEnabled = profile.kind === 'vault' || retryRehearsal
+const vaultEnabled = ['vault', 'workspace-vault'].includes(profile.kind) || retryRehearsal
 const demoOrigin = profile.webUrl,
   demoApi = profile.apiUrl
 const apiAddress = new URL(demoApi),
@@ -333,7 +333,7 @@ if (action === 'stop') {
     let apiEntry = join(runtimeRoot, 'api/dist/server.js')
     if (vaultEnabled) {
       const p = vaultDemoPaths(projectRoot, runId)
-      await assertRecoveryDirectory('D:/')
+      await assertRecoveryDirectory(runRoot)
       await mkdir(p.vault)
       await assertRecoveryDirectory(p.vault)
       await mkdir(p.templates)
@@ -358,6 +358,7 @@ if (action === 'stop') {
       })
       env.WORKFLOW_VAULT_DEMO_ID = runId
       if (retryRehearsal) env.WORKFLOW_VAULT_MODE = 'retry'
+      if (profile.kind === 'workspace-vault') env.WORKFLOW_VAULT_MODE = 'workspace'
       apiEntry = p.entry
     }
     phase = 'start-servers'

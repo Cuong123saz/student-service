@@ -17,6 +17,7 @@ import {
 import { oldBytes, newBytes, recoveryValues, recoveryStudent } from './recovery-fixture.mjs'
 assert.equal(demoAction(process.argv.slice(2), process.env), 'start')
 const profile = demoProfile(process.argv.slice(2))
+const vaultProfile = ['vault', 'workspace-vault'].includes(profile.kind)
 const demoOrigin = profile.webUrl
 const projectRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const active = JSON.parse(await readFile(resolve(projectRoot, 'run', profile.activeFile), 'utf8'))
@@ -208,7 +209,7 @@ async function exportDocument(page, roundNumber, format, label) {
       assert.ok(content.includes(value), value)
     assert.ok(!content.includes('{{fieldValue}}'))
   } else assert.equal(bytes.subarray(0, 5).toString('ascii'), '%PDF-')
-  if (profile.kind === 'vault') {
+  if (vaultProfile) {
     const review = new URL(page.url()).pathname.includes('/review-submissions/'),
       portal = new URL(page.url()).pathname.startsWith('/admin/') ? 'admin' : 'user'
     const result = await get(
@@ -310,7 +311,7 @@ try {
   if (profile.kind !== 'workflow') {
     await exportDocument(owner.page, 1, 'docx', 'export-round-1')
     await exportDocument(owner.page, 1, 'pdf', 'export-round-1')
-    if (['bundles', 'vault'].includes(profile.kind))
+    if (['bundles', 'vault', 'workspace-vault'].includes(profile.kind))
       await exportBundle(owner.page, 1, 'bundle-round-1', oldBytes)
     report.checks.exportAvailableImmediatelyAfterSubmit = true
   }
@@ -332,7 +333,7 @@ try {
   if (profile.kind !== 'workflow') {
     await get(other.context, '/submissions/' + id + '/rounds/1/documents/docx', 404)
     await get(foreign.context, '/review-submissions/' + id + '/rounds/1/documents/docx', 404)
-    if (['bundles', 'vault'].includes(profile.kind)) {
+    if (['bundles', 'vault', 'workspace-vault'].includes(profile.kind)) {
       await get(other.context, '/submissions/' + id + '/rounds/1/bundle', 404)
       await get(foreign.context, '/review-submissions/' + id + '/rounds/1/bundle', 404)
     }
@@ -443,7 +444,7 @@ try {
     const historical = await exportDocument(owner.page, 1, 'docx', 'export-history-round-1')
     assert.deepEqual(historical, await readFile(join(runRoot, 'export-round-1.docx')))
     await exportDocument(reviewer.page, 2, 'docx', 'export-reviewer-round-2')
-    if (profile.kind === 'vault') {
+    if (vaultProfile) {
       await exportDocument(owner.page, 1, 'pdf', 'export-history-round-1')
       const panel = owner.page
         .getByRole('region', { name: 'Phiếu hồ sơ lần gửi 2', exact: true })
@@ -454,7 +455,7 @@ try {
       await responsive(owner.page, 'stored-document-status')
       report.checks.realBackendStoredStatusVisible = true
     }
-    if (['bundles', 'vault'].includes(profile.kind)) {
+    if (['bundles', 'vault', 'workspace-vault'].includes(profile.kind)) {
       await exportBundle(owner.page, 2, 'bundle-round-2', newBytes)
       const historicalBundle = await exportBundle(owner.page, 1, 'bundle-history-round-1', oldBytes)
       const originalBundle = unzipSync(await readFile(join(runRoot, 'bundle-round-1.zip')))
@@ -498,7 +499,7 @@ try {
   await admin.page.getByText('Đã duyệt nội dung', { exact: true }).first().waitFor()
   if (profile.kind !== 'workflow') {
     await exportDocument(admin.page, 2, 'pdf', 'export-admin-round-2')
-    if (['bundles', 'vault'].includes(profile.kind))
+    if (['bundles', 'vault', 'workspace-vault'].includes(profile.kind))
       await exportBundle(admin.page, 2, 'bundle-admin-round-2', newBytes)
     report.checks.adminDocumentExport = true
   }

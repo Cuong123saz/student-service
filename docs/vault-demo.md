@@ -1,5 +1,7 @@
 # Demo lưu và tải lại Word PDF
 
+> Bản thực hành mới ngày13/10 nằm trong project tại [demo workspace](workspace-vault-demo.md), http://127.0.0.6:3021/login. Bản12d8 dưới đây đã dừng database khi Docker tắt; kho được giữ, không reset.
+
 Cập nhật 12/10/2026. Chỉ dùng dữ liệu giả. Bản demo mới chạy ở http://127.0.0.4:3017/login, API3016, tách origin/cookie/cổng và cơ sở dữ liệu khỏi các demo3011/3013/3015 và development5433. Phiếu là bản kê khai chưa ký, không phải giấy xác nhận được phát hành.
 
 ## Vận hành

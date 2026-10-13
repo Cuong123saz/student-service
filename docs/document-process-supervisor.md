@@ -41,3 +41,9 @@ Lượt probe đạt3/3, startup847/899/926ms, tổng7092/7051/7046ms; version d
 22 bài chuyên biệt (17 supervisor có LibreOffice thật +5 provenance) đạt. Sau đổi tên chỉ số thành watchdogExpired, ba bài timeout/report chạy lại đạt, gồm callback ném lỗi không gây cách ly sai và output riêng tư không nằm trong report. Typecheck/build/lint đạt. Không thay schema hoặc route HTTP; không dùng số kiểm thử này để thay306 integration của mốc trước hoặc nghiệm thu giao diện mở lượt.
 
 Bốn bài thu hồi/cách ly chạy lại sau đặt khóa UNCERTAIN trước observer đều đạt, gồm tắt host lúc LibreOffice thật đang chạy. Demo hiện tại vẫn trả HTTP200. Bằng chứng bổ sung: run/document-process-diagnostics-quarantine-tests.log; bộ chẩn đoán không sửa dữ liệu hồ sơ hoặc bật retry ở development.
+
+## Điều chỉnh VERSION theo số đo ngày13/10
+
+Ngân sách hiện tại trên Windows: VERSION15 giây, PDF90 giây; Linux VERSION vẫn5 giây. Thay riêng10→15 sau khi đo được first VERSION timeout tại preflight12,334 giây tổng thu process, và probe10 giây ghi nhận native EXITED ở10,129 giây nhưng Node watchdog đã hết hạn; cả hai empty=true. Không đổi giới hạn output4KiB, native job termination, quarantine hoặc lease. Ba probe với15 giây đạt khoảng6,3–6,5 giây; đây là lần khởi động process, không phải phép đo cold boot máy.
+
+Bài provenance mới dùng executable giả của riêng fixture, trả phiên bản sau11 giây: đọc thành công, outcome EXITED/empty=true/watchdogExpired=false. Cùng5 test trước thành6 đạt; fake executable được dọn theo guard thư mục tạm. Readiness và toàn luồng backend thật của [demo workspace](workspace-vault-demo.md) đạt. Đây là bằng chứng sửa một đường timeout VERSION đã quan sát, không chứng minh nguyên nhân cuối của lỗi PDF đầu ngày12/10 hoặc bảo đảm mọi lần chuyển sẽ thành công.

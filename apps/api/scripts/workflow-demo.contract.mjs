@@ -22,6 +22,12 @@ const profiles = {
     apiUrl: documentDemoApi,
     activeFile: 'workflow-document-demo-active.json',
   },
+  'workspace-vault': {
+    kind: 'workspace-vault',
+    webUrl: 'http://127.0.0.6:3021',
+    apiUrl: 'http://127.0.0.6:3020',
+    activeFile: 'workflow-workspace-vault-demo-active.json',
+  },
   retry: {
     kind: 'retry',
     webUrl: 'http://127.0.0.5:3019',
@@ -43,15 +49,17 @@ const profiles = {
 }
 export function demoProfile(args) {
   return profiles[
-    args[1] === '--retry'
-      ? 'retry'
-      : args[1] === '--vault'
-        ? 'vault'
-        : args[1] === '--documents'
-          ? 'documents'
-          : args[1] === '--bundles'
-            ? 'bundles'
-            : 'workflow'
+    args[1] === '--workspace-vault'
+      ? 'workspace-vault'
+      : args[1] === '--retry'
+        ? 'retry'
+        : args[1] === '--vault'
+          ? 'vault'
+          : args[1] === '--documents'
+            ? 'documents'
+            : args[1] === '--bundles'
+              ? 'bundles'
+              : 'workflow'
   ]
 }
 export const demoPassword = 'DemoSinhVien#2026!'
@@ -59,7 +67,9 @@ const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 export function demoAction(args, env) {
   assertDrillInvocation(args.slice(0, 1), env)
   const rest = args.slice(
-    ['--documents', '--bundles', '--vault', '--retry'].includes(args[1]) ? 2 : 1,
+    ['--documents', '--bundles', '--vault', '--retry', '--workspace-vault'].includes(args[1])
+      ? 2
+      : 1,
   )
   if (!rest.length) return 'start'
   if (rest.length === 1 && rest[0] === 'stop') return 'stop'

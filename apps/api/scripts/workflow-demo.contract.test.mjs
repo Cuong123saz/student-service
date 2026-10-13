@@ -235,3 +235,26 @@ test('only a successful one-shot checker exit is normal; server death remains a 
   ])
     assert.equal(demoChildExitFailed(label, code), true)
 })
+
+test('workspace demo has separate fixed origins/state and cannot stop the historical vault demo', () => {
+  const profile = demoProfile(['--fake-data-only', '--workspace-vault'])
+  assert.equal(profile.kind, 'workspace-vault')
+  assert.equal(demoAction(['--fake-data-only', '--workspace-vault'], {}), 'start')
+  assert.throws(() => demoAction(['--fake-data-only', '--workspace-vault', '--vault'], {}))
+  const project = resolve('fixture-project'),
+    runId = randomUUID(),
+    root = demoRunRoot(project, runId)
+  const state = {
+    version: 1,
+    fakeDataOnly: true,
+    profile: profile.kind,
+    runId,
+    webUrl: profile.webUrl,
+    apiUrl: profile.apiUrl,
+  }
+  assert.equal(
+    assertDemoState(state, project, resolve(root, 'state.json'), 'workspace-vault'),
+    root,
+  )
+  assert.throws(() => assertDemoState(state, project, resolve(root, 'state.json'), 'vault'))
+})

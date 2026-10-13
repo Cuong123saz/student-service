@@ -115,7 +115,7 @@ export class LocalDocumentProvenance implements DocumentProvenance {
               await readWindowsDocumentProcessOutput(
                 this.options.converterCommand,
                 ['--version'],
-                10000,
+                15000,
                 this.processObserver,
               )
             ).toString('utf8'),

@@ -74,3 +74,31 @@ test('fault-capable retry child requires its exact separate mode and loopback or
     assert.throws(() => assertVaultDemoEnvironment(root, { ...env, ...changes }, p.entry, true))
   assert.throws(() => assertVaultDemoEnvironment(root, env, p.entry, false))
 })
+
+test('workspace vault stays under its owned run; production and mismatched origins still fail closed', () => {
+  const root = resolve('fixture-project'),
+    id = randomUUID(),
+    p = vaultDemoPaths(root, id)
+  assert.equal(p.vault, resolve(root, 'run/workflow-demo', id, 'vault'))
+  const env = {
+    WORKFLOW_VAULT_DEMO_ID: id,
+    WORKFLOW_VAULT_MODE: 'workspace',
+    APP_ENV: 'test',
+    DOTENV_CONFIG_PATH: p.fakeEnv,
+    SUBMISSION_STORAGE_ROOT: p.evidence,
+    API_HOST: '127.0.0.6',
+    API_PORT: '3020',
+    CORS_ORIGIN: 'http://127.0.0.6:3021',
+    WEB_BASE_URL: 'http://127.0.0.6:3021',
+    DATABASE_URL: 'postgres://postgres:fake@127.0.0.1:55555/student_service_workflow_demo',
+    LIBREOFFICE_PATH: resolve('tools/soffice.com'),
+  }
+  assert.deepEqual(assertVaultDemoEnvironment(root, env, p.entry, true), p)
+  for (const changes of [
+    { APP_ENV: 'production' },
+    { WORKFLOW_VAULT_MODE: undefined },
+    { API_HOST: '127.0.0.4' },
+    { API_PORT: '3016' },
+  ])
+    assert.throws(() => assertVaultDemoEnvironment(root, { ...env, ...changes }, p.entry, true))
+})

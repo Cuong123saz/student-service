@@ -1,6 +1,6 @@
 # Tiến độ triển khai và điểm tiếp tục
 
-Cập nhật 12/10/2026. Đây là tiến độ mã nguồn/kiểm chứng local, không thay nghiệm thu của chủ dự án hoặc quy chế thực tế của Học viện. Sprint 2+3 giữ trạng thái CLOSED đã ghi nhận; Sprint 4 chưa tự đóng.
+Cập nhật 13/10/2026. Đây là tiến độ mã nguồn/kiểm chứng local, không thay nghiệm thu của chủ dự án hoặc quy chế thực tế của Học viện. Sprint 2+3 giữ trạng thái CLOSED đã ghi nhận; Sprint 4 chưa tự đóng.
 
 ## Đã làm và kiểm chứng cục bộ
 
@@ -29,6 +29,10 @@ Diễn tập UI retry trên backend thật đã PASS ở run `81e154a8-d846-47f7
 Theo yêu cầu chủ dự án đã [dọn17 thư mục thử ngoài project](external-artifact-cleanup.md); archive/khóa cũ đã xóa, không còn khả năng phục hồi từ các gói đó. Kho demo12d8 được giữ; sau Docker dừng, DB demo đang exited, login200 không chứng minh nghiệp vụ hoạt động. Chưa reset/start database tmpfs cũ.
 
 Bản sao trước nâng development `8b033f97-de01-4080-8c6e-74debd9a6925` đã phục hồi trong hai cluster riêng,27 bảng/4 sequence/229 cột/225 hàm cùng index/constraint/trigger khớp, probe đổi cột/hàm phát hiện được. Nguồn vẫn dừng và tar trước/sau cùng SHA;5 guard đạt. Giữ bản sao mới trong project/run, không Git hoặc giả nhãn synthetic cho dữ liệu sẵn có. Xem [giữ development trước nâng](offline-development-preservation.md). Chưa thay startup hoặc migrate nguồn.
+
+[Demo workspace mới](workspace-vault-demo.md) `01233f70-2ae4-4da1-a705-b490d298cfb3` tại http://127.0.0.6:3021/login đã đạt19 nhóm/24 responsive/0 lỗiJS,4 document+4 stage/attempts1, Word/PDF/ZIP và4 trang đã xem; DEMO3 trống. Kho mới trong project/run theo ADR0012, không tái tạo thư mục ngoài project. Windows VERSION tăng10→15s sau đo timeout thật; fake version11s và3 probe thật đạt.14 demo guard/8 upgrade guard/6 provenance/typecheck/lint/build đạt.
+
+Thử nâng development trên bản sao bị chặn đúng trước migrate:23 record hiện hành và1 record cũ không có trong journal; source và lịch sử không sửa. Bản sao phục hồi vẫn được kiểm chứng. Cần đối chiếu schema canonical/legacy trước cho phép nâng, không báo upgrade đã thành công.
 
 ## Việc kế tiếp theo thứ tự
 

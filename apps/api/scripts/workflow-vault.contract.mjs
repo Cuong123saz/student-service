@@ -8,7 +8,7 @@ export function vaultDemoPaths(projectRoot, runId) {
   )
   const runRoot = resolve(projectRoot, 'run/workflow-demo', runId),
     api = join(runRoot, 'runtime/api'),
-    vault = resolve('D:/student-service-vault-demo-' + runId)
+    vault = join(runRoot, 'vault')
   return {
     projectRoot: resolve(projectRoot),
     runRoot,
@@ -32,12 +32,18 @@ export function assertVaultDemoEnvironment(projectRoot, env, entry, hasIpc) {
     env.DOTENV_CONFIG_PATH === p.fakeEnv && env.SUBMISSION_STORAGE_ROOT === p.evidence,
     'INVALID_VAULT_DEMO_STORAGE',
   )
-  const retry = env.WORKFLOW_VAULT_MODE === 'retry'
-  assert.ok(!env.WORKFLOW_VAULT_MODE || retry, 'INVALID_VAULT_DEMO_MODE')
+  const retry = env.WORKFLOW_VAULT_MODE === 'retry',
+    workspace = env.WORKFLOW_VAULT_MODE === 'workspace'
+  assert.ok(!env.WORKFLOW_VAULT_MODE || retry || workspace, 'INVALID_VAULT_DEMO_MODE')
   assert.ok(
-    env.API_HOST === (retry ? '127.0.0.5' : '127.0.0.4') &&
-      env.API_PORT === (retry ? '3018' : '3016') &&
-      env.CORS_ORIGIN === (retry ? 'http://127.0.0.5:3019' : 'http://127.0.0.4:3017') &&
+    env.API_HOST === (workspace ? '127.0.0.6' : retry ? '127.0.0.5' : '127.0.0.4') &&
+      env.API_PORT === (workspace ? '3020' : retry ? '3018' : '3016') &&
+      env.CORS_ORIGIN ===
+        (workspace
+          ? 'http://127.0.0.6:3021'
+          : retry
+            ? 'http://127.0.0.5:3019'
+            : 'http://127.0.0.4:3017') &&
       env.WEB_BASE_URL === env.CORS_ORIGIN,
     'INVALID_VAULT_DEMO_ORIGIN',
   )

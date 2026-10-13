@@ -34,7 +34,7 @@ const registry = new DrizzleSubmissionDocumentRegistry(db)
 const vault = await LocalDocumentVault.create({
   outputRoot: p.output,
   stagingRoot: p.staging,
-  protectedRoots: [p.projectRoot, p.evidence, p.templates],
+  protectedRoots: [p.api, join(p.projectRoot, 'node_modules'), p.evidence, p.templates],
 })
 const processObserver = (phase) => ({
   finished: (report) =>

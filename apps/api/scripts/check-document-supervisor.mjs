@@ -13,7 +13,7 @@ let digest,
 for (let sample = 1; sample <= 3; sample++) {
   let report
   try {
-    const output = await readWindowsDocumentProcessOutput(command, ['--version'], 10000, {
+    const output = await readWindowsDocumentProcessOutput(command, ['--version'], 15000, {
       finished: (value) => {
         report = value
       },

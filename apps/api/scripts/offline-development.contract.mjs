@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 export const developmentVolume = 'student-service-api_student_service_data'
 export function assertOfflineDevelopmentInvocation(args, env) {
-  assert.deepEqual(args, ['--offline-development-only'], 'REQUIRES_OFFLINE_DEVELOPMENT_FLAG')
+  assert.ok(
+    args[0] === '--offline-development-only' &&
+      (args.length === 1 || (args.length === 2 && args[1] === '--verify-upgrade')),
+    'REQUIRES_OFFLINE_DEVELOPMENT_FLAG',
+  )
   assert.ok(
     !env.DATABASE_URL && !env.SUBMISSION_STORAGE_ROOT && env.APP_ENV !== 'production',
     'EXTERNAL_CONFIGURATION_REFUSED',
