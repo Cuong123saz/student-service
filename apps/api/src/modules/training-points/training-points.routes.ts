@@ -88,7 +88,21 @@ function strict(fields: string[], period = false) {
     }
     if (b?.answers) {
       keys(b.answers, ['A', 'B', 'C', 'D', 'E'])
-      for (const a of Object.values(b.answers)) keys(a, ['points', 'note'])
+      for (const a of Object.values(b.answers)) {
+        keys(a, ['points', 'note'])
+        if (a && typeof a === 'object') {
+          const value = a as { points?: unknown; note?: unknown }
+          if (
+            (value.points !== null && typeof value.points !== 'number') ||
+            typeof value.note !== 'string'
+          )
+            throw new SubmissionError(
+              400,
+              'INVALID_TRAINING_INPUT',
+              'Điểm phải là số hoặc để trống; giải trình phải là văn bản.',
+            )
+        }
+      }
     }
   }
 }
@@ -254,7 +268,12 @@ export async function trainingStudentRoutes(
               Type.String({ pattern: '^[A-E]$' }),
               Type.Object(
                 {
-                  points: Type.Union([Type.Integer({ minimum: 0, maximum: 100 }), Type.Null()]),
+                  // A nullable scalar type preserves null: anyOf + AJV coercion changes null into 0.
+                  points: Type.Unsafe<number | null>({
+                    type: ['integer', 'null'],
+                    minimum: 0,
+                    maximum: 100,
+                  }),
                   note: Type.String({ maxLength: 2000 }),
                 },
                 { additionalProperties: false },

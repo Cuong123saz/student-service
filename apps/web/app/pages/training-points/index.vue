@@ -42,7 +42,7 @@ onBeforeUnmount(() => {
 onMounted(load)
 </script>
 <template>
-  <section class="training-workspace">
+  <section class="training-workspace training-workspace--student">
     <header>
       <NuxtLink to="/portal">← Cổng của tôi</NuxtLink>
       <p class="page-eyebrow">Theo học kỳ</p>

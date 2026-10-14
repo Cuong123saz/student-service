@@ -85,6 +85,7 @@ try {
   async function responsive(page, label) {
     for (const width of [375, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 1000 })
+      await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }))
       await page.waitForTimeout(120)
       const size = await page.evaluate(() => ({
         client: document.documentElement.clientWidth,

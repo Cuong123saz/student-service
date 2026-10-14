@@ -164,7 +164,7 @@ onBeforeUnmount(() => {
 onMounted(load)
 </script>
 <template>
-  <section class="training-workspace">
+  <section class="training-workspace training-workspace--student">
     <header>
       <NuxtLink to="/training-points">← Các đợt đánh giá</NuxtLink>
       <p class="page-eyebrow">Kê khai A–E</p>
@@ -207,64 +207,59 @@ onMounted(load)
           Có thể để trống điểm khi lưu nháp. Khi nộp, cần đủ A–E; điểm lớn hơn 0 phải có giải trình.
           Lưu thay đổi trước khi thêm hoặc gỡ tệp.
         </p>
-        <fieldset
-          v-for="c in row.period.criteria"
-          :key="c.code"
-          class="tp-group"
-          :disabled="busy || !editable || reviewing"
-        >
-          <legend>Nhóm {{ c.code }} — {{ c.label }}</legend>
-          <div class="tp-grid">
-            <div class="tp-field">
-              <label :for="'tp-points-' + c.code"
-                >Điểm tự kê khai {{ c.code }} / {{ c.maxPoints }}</label
+        <template v-for="c in row.period.criteria" :key="c.code">
+          <fieldset class="tp-group" :disabled="busy || !editable || reviewing">
+            <legend>Nhóm {{ c.code }} — {{ c.label }}</legend>
+            <div class="tp-grid">
+              <div class="tp-field">
+                <label :for="'tp-points-' + c.code"
+                  >Điểm tự kê khai {{ c.code }} / {{ c.maxPoints }}</label
+                ><input
+                  :id="'tp-points-' + c.code"
+                  :value="answers[c.code]?.points ?? ''"
+                  type="number"
+                  min="0"
+                  :max="c.maxPoints"
+                  step="1"
+                  :aria-invalid="!!issue(c.code)"
+                  :aria-describedby="issue(c.code) ? 'tp-issue-' + c.code : undefined"
+                  @input="points(c.code, $event)"
+                />
+              </div>
+              <div class="tp-field">
+                <label :for="'tp-note-' + c.code">Giải trình {{ c.code }}</label
+                ><textarea
+                  :id="'tp-note-' + c.code"
+                  v-model="answers[c.code]!.note"
+                  maxlength="2000"
+                  rows="3"
+                  :aria-invalid="!!issue(c.code)"
+                  @input="reviewing = false"
+                />
+              </div>
+            </div>
+            <p v-if="issue(c.code)" :id="'tp-issue-' + c.code" class="tp-error">
+              {{ issue(c.code) }}
+            </p>
+            <p class="tp-muted">
+              {{
+                c.evidenceRequired
+                  ? 'Cần minh chứng nếu kê khai điểm lớn hơn 0.'
+                  : 'Minh chứng không bắt buộc.'
+              }}
+              PDF, PNG hoặc JPEG; tối đa 5 MiB/tệp, 3 tệp/nhóm, 10 tệp và 20 MiB/bản kê khai.
+            </p>
+            <div v-if="editable" class="tp-field">
+              <label :for="'tp-file-' + c.code">Thêm minh chứng {{ c.code }}</label
               ><input
-                :id="'tp-points-' + c.code"
-                :value="answers[c.code]?.points ?? ''"
-                type="number"
-                min="0"
-                :max="c.maxPoints"
-                step="1"
-                :aria-invalid="!!issue(c.code)"
-                :aria-describedby="issue(c.code) ? 'tp-issue-' + c.code : undefined"
-                @input="points(c.code, $event)"
-              />
+                :id="'tp-file-' + c.code"
+                type="file"
+                accept="application/pdf,image/png,image/jpeg"
+                :disabled="dirty"
+                @change="upload(c.code, $event)"
+              /><small v-if="dirty" class="tp-muted">Lưu bản nháp để thêm minh chứng.</small>
             </div>
-            <div class="tp-field">
-              <label :for="'tp-note-' + c.code">Giải trình {{ c.code }}</label
-              ><textarea
-                :id="'tp-note-' + c.code"
-                v-model="answers[c.code]!.note"
-                maxlength="2000"
-                rows="3"
-                :aria-invalid="!!issue(c.code)"
-                @input="reviewing = false"
-              />
-            </div>
-          </div>
-          <p v-if="issue(c.code)" :id="'tp-issue-' + c.code" class="tp-error">
-            {{ issue(c.code) }}
-          </p>
-          <p class="tp-muted">
-            {{
-              c.evidenceRequired
-                ? 'Cần minh chứng nếu kê khai điểm lớn hơn 0.'
-                : 'Minh chứng không bắt buộc.'
-            }}
-            PDF, PNG hoặc JPEG; tối đa 5 MiB/tệp, 3 tệp/nhóm, 10 tệp và 20 MiB/bản kê khai.
-          </p>
-          <div v-if="editable" class="tp-field">
-            <label :for="'tp-file-' + c.code">Thêm minh chứng {{ c.code }}</label
-            ><input
-              :id="'tp-file-' + c.code"
-              type="file"
-              accept="application/pdf,image/png,image/jpeg"
-              :disabled="dirty"
-              @change="upload(c.code, $event)"
-            /><small v-if="dirty" class="tp-muted">Lưu bản nháp để thêm minh chứng.</small>
-          </div>
-        </fieldset>
-        <div v-for="c in row.period.criteria" :key="'files-' + c.code">
+          </fieldset>
           <ul
             v-if="row.files.some((f) => f.criterion === c.code)"
             class="tp-files"
@@ -294,7 +289,7 @@ onMounted(load)
               </div>
             </li>
           </ul>
-        </div>
+        </template>
         <div v-if="editable && !reviewing" class="tp-actions">
           <BaseButton type="submit" :disabled="!dirty" :loading="busy">Lưu bản nháp</BaseButton
           ><BaseButton type="button" :disabled="busy || dirty" id="tp-review-button" @click="review"

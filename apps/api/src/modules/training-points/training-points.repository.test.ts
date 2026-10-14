@@ -687,6 +687,50 @@ test('training points uses isolated synthetic PostgreSQL with lifecycle, current
             ).statusCode,
             400,
           )
+          const nullableFixture = await fixture(),
+            nullablePath = '/api/v1/user/training-declarations/' + nullableFixture.row.id
+          const nullable = await app.inject({
+            method: 'PUT',
+            url: nullablePath,
+            headers: { cookie: cookie(), origin: env.corsOrigin },
+            payload: {
+              expectedRevision: nullableFixture.row.revision,
+              answers: Object.fromEntries(
+                ['A', 'B', 'C', 'D', 'E'].map((c) => [
+                  c,
+                  { points: c === 'A' ? 0 : null, note: '' },
+                ]),
+              ),
+            },
+          })
+          assert.equal(nullable.statusCode, 200, nullable.body)
+          const nullableBody = nullable.json<{ revision: number; answers: Answers }>()
+          assert.equal(nullableBody.answers.A!.points, 0)
+          assert.equal(nullableBody.answers.B!.points, null)
+          assert.equal((await repo.detail(student, nullableFixture.row.id)).answers.B!.points, null)
+          const incomplete = await app.inject({
+            method: 'POST',
+            url: nullablePath + '/submit',
+            headers: { cookie: cookie(), origin: env.corsOrigin },
+            payload: { expectedRevision: nullableBody.revision, requestId: randomUUID() },
+          })
+          assert.equal(incomplete.statusCode, 400)
+          for (const wrong of ['0', true, '', {}]) {
+            const badType = await app.inject({
+              method: 'PUT',
+              url: nullablePath,
+              headers: { cookie: cookie(), origin: env.corsOrigin },
+              payload: {
+                expectedRevision: nullableBody.revision,
+                answers: { A: { points: wrong, note: '' } },
+              },
+            })
+            assert.equal(badType.statusCode, 400)
+          }
+          assert.equal(
+            (await repo.detail(student, nullableFixture.row.id)).revision,
+            nullableBody.revision,
+          )
           const malformed = await app.inject({
             method: 'POST',
             url: '/api/v1/admin/training-periods',
