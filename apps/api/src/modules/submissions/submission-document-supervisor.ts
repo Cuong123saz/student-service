@@ -139,6 +139,11 @@ async function windowsProcess(
                   ? Buffer.from(message.outputBase64, 'base64')
                   : Buffer.alloc(0),
             }
+            // The converter job is already reaped. Bound PowerShell teardown separately;
+            // a slow owner exit must not retroactively time out completed conversion.
+            clearTimeout(timer)
+            if (reapTimer) clearTimeout(reapTimer)
+            reapTimer = setTimeout(kill, 10000)
           } else kill()
         } catch {
           kill()

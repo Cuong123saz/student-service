@@ -124,7 +124,9 @@ test(
         },
       },
     )
-    const result = await provenance.converter()
+    const result = await provenance.converter().finally(() => {
+      t.diagnostic(JSON.stringify({ event: 'SLOW_VERSION_PROCESS_REPORT', ...report }))
+    })
     assert.equal(result.version, 'LibreOffice 0.0.0 synthetic')
     assert.equal(report?.outcome, 'EXITED')
     assert.equal(report?.empty, true)

@@ -44,10 +44,12 @@ if (files.length === 0) {
   process.exit(1)
 }
 
+// Windows supervisor fixtures compile and launch owned processes. Serial files avoid
+// starving their bounded startup windows when node:test defaults to CPU-count parallelism.
 const args =
   mode === 'integration'
     ? ['--env-file=.env.test', '--test', '--test-concurrency=1', ...files]
-    : ['--test', ...files]
+    : ['--test', ...(process.platform === 'win32' ? ['--test-concurrency=1'] : []), ...files]
 
 // npm prepends node_modules/.bin to PATH for any script it runs, so
 // this resolves the local tsx whether invoked via `npm run test:unit`

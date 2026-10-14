@@ -47,3 +47,26 @@ Bốn bài thu hồi/cách ly chạy lại sau đặt khóa UNCERTAIN trước o
 Ngân sách hiện tại trên Windows: VERSION15 giây, PDF90 giây; Linux VERSION vẫn5 giây. Thay riêng10→15 sau khi đo được first VERSION timeout tại preflight12,334 giây tổng thu process, và probe10 giây ghi nhận native EXITED ở10,129 giây nhưng Node watchdog đã hết hạn; cả hai empty=true. Không đổi giới hạn output4KiB, native job termination, quarantine hoặc lease. Ba probe với15 giây đạt khoảng6,3–6,5 giây; đây là lần khởi động process, không phải phép đo cold boot máy.
 
 Bài provenance mới dùng executable giả của riêng fixture, trả phiên bản sau11 giây: đọc thành công, outcome EXITED/empty=true/watchdogExpired=false. Cùng5 test trước thành6 đạt; fake executable được dọn theo guard thư mục tạm. Readiness và toàn luồng backend thật của [demo workspace](workspace-vault-demo.md) đạt. Đây là bằng chứng sửa một đường timeout VERSION đã quan sát, không chứng minh nguyên nhân cuối của lỗi PDF đầu ngày12/10 hoặc bảo đảm mọi lần chuyển sẽ thành công.
+
+
+## Sửa báo timeout trong giai đoạn đóng supervisor ngày 14/10/2026
+
+Lượt hồi quy ký mô phỏng tái hiện version reader trả nativeReason EXITED, job empty, nhưng watchdog Node hết hạn trong lúc PowerShell đóng lại: elapsed15.713s/startup2.206s với converter giả ngủ11s. Probe LibreOffice thật có lượt14.719s và17.003s, native EXITED; không coi mọi timeout là converter bị treo.
+
+Sau thông điệp RESULT hợp lệ, dừng timer chuyển đổi và bắt đầu hạn thu hồi owner riêng10s. Vẫn chờ close trước trả thành công. Owner không đóng thì kill/quarantine như trước; RESULT thiếu/không hợp lệ hoặc job không rỗng không được chấp nhận. Sau khi sửa phân biệt hai giai đoạn, lượt khởi động mới vẫn có native TIMEOUT/empty ở15s: đây là vượt hạn thật, không phải lỗi đóng owner. Ba probe với hạn30s đo14.719s,17.003s và31.001s gồm đóng owner (lượt cuối native EXITED trước đóng, watchdog cũ vẫn báo timeout). Vì vậy ngân sách VERSION được hiệu chỉnh15→30s để bao phủ cold start đã đo; PDF giữ90s và owner cleanup10s. Hạn vẫn hữu hạn, không retry vô hạn hoặc bỏ kiểm tra thu hồi. Cần lượt rehearsal mới đạt trước khi kết luận môi trường sẵn sàng.
+
+
+Hồi quy unit mặc định chạy nhiều file đồng thời trên Windows đã làm fixture process bị thu hồi trước khi kịp tạo info file (OWNED_FIXTURE_NOT_STARTED). Unit launcher trên Windows chạy file tuần tự, như integration đã làm; không tăng hạn của fixture hoặc bỏ bài. Đây là kiểm soát tài nguyên của bộ kiểm thử, không đổi concurrency của API/converter khi phục vụ request.
+
+
+Chẩn đoán PDF14/10: readiness và probe độc lập đều WORD_ONLY do conversion vượt90s, job được thu hồi empty=true. Native probe giữ profile riêng trong project, chưa sinh PDF và chưa có stdout chuyển đổi. Đã đối chiếu [tham số LibreOffice](https://help.libreoffice.org/latest/en-US/text/shared/guide/start_parameters.html); không thêm nofirststartwizard vì tài liệu ghi cờ này bị bỏ qua. Giả thuyết tiếp theo là khởi tạo đồ họa của headless Windows; thử SAL_DISABLESKIA/SAL_DISABLEGL trong probe riêng theo [biến VCL chính thức](https://raw.githubusercontent.com/LibreOffice/core/master/vcl/README.vars.md), chưa kết luận nguyên nhân hoặc bật mặc định khi chưa có kết quả.
+
+
+Lượt unit tuần tự còn phát hiện rào chờ info file7s ngắn hơn hạn process10/30s của các ca khác. Tăng riêng thời gian quan sát info file lên20s; giữ nguyên hạn kill6s và điều kiện cây process phải hết. Không bỏ assertion hoặc coi fixture chưa khởi tạo là đạt.
+
+
+## Kết quả đối chiếu cuối ngày 14/10/2026
+
+Probe tắtSkia/OpenGL vẫn timeout, không bật những cờ này mặc định. Cảnh báo Python còn ở lượt chuyển thành công nên chưa xác định là nguyên nhân. Profile đã khởi tạo có lượt51.53s/EXITED/empty=true; bootstrap mới bằng Word đã điền dữ liệu giả đạt80.462s lần1. Manifest135 file gồm cache rỗng và tên literal%2F; không URL-decode tên file. Các lỗi validator trước đã được giữ trong log rồi sửa bằng test tương ứng.
+
+Theo [ADR0015](adr/0015-synthetic-converter-profile.md), riêng rehearsal mock-signature dùng seed đã khóa hash/binary và chép vào profile tạm của từng request. Readiness PDF đạt53.302s; workflow19 nhóm/24 responsive và mock7 nhóm/4 tệp/12 audit riêng đạt, không sửa nguồn. WordQA dùng renderer được cung cấp với seed đã kiểm hash, đường dẫn namespace Windows cho cache dài và thư mục tạm ngắn trong project; hai lần57.054s/36.364s EXITED/empty=true. Đã xem đủ4 trang Word/PDF. Đây là bằng chứng môi trường giả có cấu hình được chuẩn bị, không cam kết cold profile mặc định hoặc production.

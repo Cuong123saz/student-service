@@ -42,7 +42,7 @@ async function gone(pids: number[]) {
   assert.deepEqual(pids.filter(active), [], 'owned converter process must be gone')
 }
 async function infoFile(path: string) {
-  for (let i = 0; i < 140; i++) {
+  for (let i = 0; i < 400; i++) {
     try {
       return JSON.parse(await readFile(path, 'utf8')) as { root: number; child: number }
     } catch {
