@@ -4,6 +4,8 @@ Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, đượ
 
 > Baseline chức năng tại `ffa38f5`: P0.1–P0.5 của luồng import đã được triển khai và kiểm chứng trên môi trường local. Demo và sửa lỗi hồi quy được hoàn tất qua `777c3f9`; Sprint 3 được Phan Phương Cường tự xác nhận hoàn tất ngày 13/09/2026 trong phạm vi dự án cá nhân, không phải phê duyệt độc lập của bên thứ ba. Import API đạt local nhưng chưa production-ready/deployed.
 
+Hiện Sprint 7 đã đóng kỹ thuật local; Sprint 8 đang được kiểm chứng theo [kế hoạch nền tảng điểm rèn luyện](docs/sprint-8-plan.md). Roadmap hợp nhất xác định xét duyệt điểm rèn luyện ở Sprint 9 và xuất bảng/biên bản ở Sprint 10.
+
 ## Trạng thái dự án
 
 ### Sprint 1 — Danh mục dịch vụ
@@ -553,4 +555,10 @@ Agile không bắt buộc deploy production sau mỗi sprint. Baseline `ffa38f5`
 
 ### Kiểm chứng ký mô phỏng trên tài liệu đã lưu
 
-[Spike Word/PDF và mock signer](docs/mock-signature-spike.md) đã đạt trên dữ liệu giả: hai round, bốn tệp giữ nguyên byte, phát hiện đổi tệp/round/actor/receipt; audit mô phỏng lưu riêng. Receipt ghi rõ DEMO, kết quả NOT_VERIFIED. Lệnh `rehearse:mock-signature:workflow` chạy môi trường tách biệt và tự dọn; chưa bật ký trong ứng dụng hoặc hoàn tất toàn bộ Sprint 7.
+[Spike Word/PDF và mock signer](docs/mock-signature-spike.md) đã đạt trên dữ liệu giả: hai round, bốn tệp giữ nguyên byte, phát hiện đổi tệp/round/actor/receipt; audit mô phỏng lưu riêng. Receipt ghi rõ DEMO, kết quả NOT_VERIFIED. Lệnh `rehearse:mock-signature:workflow` chạy môi trường tách biệt và tự dọn; API chính vẫn tắt mô phỏng. [Sprint 7 đã CLOSED kỹ thuật local](docs/sprint-7-closure.md); chữ ký mô phỏng vẫn NOT_VERIFIED và không có hiệu lực pháp lý.
+
+### Sprint 8 — Nền tảng điểm rèn luyện
+
+Quản trị tạo/sửa/mở/đóng đợt theo lớp, năm học/học kỳ và phạm vi quyền; tiêu chí A–E có tổng 100 điểm và khóa sau khi mở. Sinh viên lưu bản nháp, tải/gỡ minh chứng, kiểm tra rồi xác nhận nộp. Bản đã nộp và lịch sử bất biến; điểm tự kê khai luôn ghi **chưa xét duyệt**. Bộ tiêu chí mặc định là giả định để thử nghiệm.
+
+[Hướng dẫn Sprint 8](docs/sprint-8-training-points.md) mô tả cách dùng và diễn tập riêng với dữ liệu giả. Phạm vi không gồm xét duyệt cố vấn/khoa hoặc xuất bảng điểm; Giấy xác nhận sinh viên vẫn trực tiếp tại CTSV. Trạng thái nghiệm thu được cập nhật sau kiểm thử và diễn tập trình duyệt.

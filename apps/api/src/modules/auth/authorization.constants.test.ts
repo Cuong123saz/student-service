@@ -32,17 +32,17 @@ test('audit.read mặc định chỉ cấp cho SYSTEM_ADMIN', () => {
   assert.deepEqual(rolesWithAuditRead, ['SYSTEM_ADMIN'])
 })
 
-test('catalog mặc định có đúng 35 role-permission grants', () => {
+test('catalog mặc định có đúng 36 role-permission grants', () => {
   const grantCount = Object.values(SYSTEM_ROLE_PERMISSIONS).reduce(
     (total, permissionCodes) => total + permissionCodes.length,
     0,
   )
 
-  assert.equal(grantCount, 35)
+  assert.equal(grantCount, 36)
 })
 
-test('submission.assign mặc định chỉ SYSTEM_ADMIN; catalog có đúng18 quyền', () => {
-  assert.equal(SYSTEM_PERMISSIONS.length, 18)
+test('submission.assign mặc định chỉ SYSTEM_ADMIN; catalog có đúng 19 quyền', () => {
+  assert.equal(SYSTEM_PERMISSIONS.length, 19)
   const holders = Object.entries(SYSTEM_ROLE_PERMISSIONS)
     .filter(([, codes]) => (codes as readonly string[]).includes('submission.assign'))
     .map(([role]) => role)
@@ -59,4 +59,11 @@ test('document.retry mặc định chỉ SYSTEM_ADMIN; ADMIN và người ký kh
 test('document.mock_sign không được tự cấp cho bất kỳ vai trò hệ thống nào', () => {
   for (const codes of Object.values(SYSTEM_ROLE_PERMISSIONS))
     assert.equal((codes as readonly string[]).includes('document.mock_sign'), false)
+})
+
+test('training period management defaults only to SYSTEM_ADMIN', () => {
+  const holders = Object.entries(SYSTEM_ROLE_PERMISSIONS)
+    .filter(([, codes]) => (codes as readonly string[]).includes('training_point.period.manage'))
+    .map(([role]) => role)
+  assert.deepEqual(holders, ['SYSTEM_ADMIN'])
 })

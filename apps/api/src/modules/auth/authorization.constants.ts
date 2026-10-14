@@ -2,6 +2,11 @@ import type { SystemRoleCode } from './auth.constants.js'
 
 export const SYSTEM_PERMISSIONS = [
   {
+    code: 'training_point.period.manage',
+    name: 'Quản lý đợt điểm rèn luyện',
+    description: 'Thiết lập và mở/đóng đợt trong phạm vi được giao',
+  },
+  {
     code: 'document.mock_sign',
     name: 'Ký mô phỏng dữ liệu giả',
     description: 'Chỉ dùng diễn tập giả, chưa phải thẩm quyền ký thật',

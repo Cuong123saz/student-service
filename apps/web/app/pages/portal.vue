@@ -32,8 +32,14 @@ const allItems: PortalItem[] = [
   },
   {
     label: 'Điểm rèn luyện',
-    description: 'Kê khai và tra cứu kết quả theo học kỳ.',
-    roles: ['STUDENT', 'ACADEMIC_ADVISOR', 'FACULTY_REVIEWER'],
+    description: 'Kê khai A–E, nộp minh chứng và xem lịch sử theo học kỳ.',
+    to: '/training-points',
+    roles: ['STUDENT'],
+  },
+  {
+    label: 'Xét duyệt điểm rèn luyện',
+    description: 'Quy trình cố vấn và khoa sẽ triển khai ở Sprint 9.',
+    roles: ['ACADEMIC_ADVISOR', 'FACULTY_REVIEWER'],
   },
   {
     label: 'Hoạt động ngoại khóa',

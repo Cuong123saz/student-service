@@ -15,6 +15,7 @@ const navigation = [
   { label: 'Mời người dùng', to: '/admin/users/invite' },
   { label: 'Tiếp nhận hồ sơ', to: '/admin/review-submissions' },
   { label: 'Biểu mẫu và nơi xử lý', to: '/admin/procedures' },
+  { label: 'Đợt điểm rèn luyện', to: '/admin/training-periods' },
   { label: 'Audit log', to: '/admin/audit-logs' },
 ]
 

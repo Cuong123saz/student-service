@@ -183,6 +183,13 @@
       "when": 1791972000000,
       "tag": "0025_mock_signing_workflow",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791987000000,
+      "tag": "0026_training_points_foundation",
+      "breakpoints": true
     }
   ]
 }

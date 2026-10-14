@@ -10,6 +10,12 @@ export const documentDemoApi = 'http://127.0.0.2:3012'
 export const bundleDemoOrigin = 'http://127.0.0.3:3015'
 export const bundleDemoApi = 'http://127.0.0.3:3014'
 const profiles = {
+  sprint8: {
+    kind: 'sprint8',
+    webUrl: 'http://127.0.0.13:3035',
+    apiUrl: 'http://127.0.0.13:3034',
+    activeFile: 'workflow-sprint8-demo-active.json',
+  },
   sprint7: {
     kind: 'sprint7',
     webUrl: 'http://127.0.0.12:3033',
@@ -103,6 +109,7 @@ export function demoAction(args, env) {
       '--sprint5',
       '--sprint6',
       '--sprint7',
+      '--sprint8',
       '--queue-counts',
       '--mock-signature',
     ].includes(args[1])
@@ -186,6 +193,7 @@ export function demoChildExitFailed(label, code) {
       'sprint5-browser',
       'sprint6-browser',
       'sprint7-browser',
+      'sprint8-browser',
       'mock-signature-browser',
       'queue-counts-browser',
     ].includes(label) && code === 0

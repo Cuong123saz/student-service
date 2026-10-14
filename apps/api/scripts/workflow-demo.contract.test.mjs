@@ -447,3 +447,16 @@ test('Sprint 7 acceptance cannot share origins, stop state or caller configurati
   assert.equal(demoChildExitFailed('sprint7-browser', 0), false)
   assert.equal(demoChildExitFailed('sprint7-browser', 1), true)
 })
+
+test('Sprint 8 has isolated state, cookies, ports and one-shot child completion', () => {
+  const p = demoProfile(['--fake-data-only', '--sprint8'])
+  assert.equal(p.kind, 'sprint8')
+  assert.equal(new URL(p.webUrl).hostname, '127.0.0.13')
+  assert.equal(new URL(p.apiUrl).port, '3034')
+  assert.equal(new URL(p.webUrl).port, '3035')
+  assert.equal(demoAction(['--fake-data-only', '--sprint8'], {}), 'start')
+  assert.equal(demoAction(['--fake-data-only', '--sprint8', 'stop'], {}), 'stop')
+  assert.throws(() => demoAction(['--fake-data-only', '--sprint8', '--sprint7'], {}))
+  assert.equal(demoChildExitFailed('sprint8-browser', 0), false)
+  assert.equal(demoChildExitFailed('sprint8-browser', 1), true)
+})

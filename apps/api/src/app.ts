@@ -1,3 +1,8 @@
+import { TrainingPointService } from './modules/training-points/training-points.service.js'
+import {
+  trainingAdminRoutes,
+  trainingStudentRoutes,
+} from './modules/training-points/training-points.routes.js'
 import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
@@ -106,6 +111,7 @@ import { submissionRoutes } from './modules/submissions/submission.routes.js'
 import { submissionReviewRoutes } from './modules/submissions/submission-review.routes.js'
 import { notificationRoutes } from './modules/notifications/notification.routes.js'
 export interface BuildAppOptions {
+  trainingService?: TrainingPointService
   submissionService?: SubmissionService
   procedureService?: ProcedureUseCase
   userInvitationService?: UserInvitationUseCase
@@ -358,6 +364,9 @@ export function buildApp(options: BuildAppOptions = {}) {
   })
   app.register(notificationRoutes, { prefix: USER_API_PREFIX, portal: 'user' })
   app.register(notificationRoutes, { prefix: ADMIN_API_PREFIX, portal: 'admin' })
+  const trainingService = options.trainingService ?? new TrainingPointService()
+  app.register(trainingAdminRoutes, { prefix: ADMIN_API_PREFIX, trainingService })
+  app.register(trainingStudentRoutes, { prefix: USER_API_PREFIX, trainingService })
   app.register(serviceRoutes)
 
   return app

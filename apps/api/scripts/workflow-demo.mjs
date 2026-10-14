@@ -39,6 +39,7 @@ const sprint4Rehearsal = profile.kind === 'sprint4'
 const sprint5Rehearsal = profile.kind === 'sprint5'
 const sprint6Rehearsal = profile.kind === 'sprint6'
 const sprint7Rehearsal = profile.kind === 'sprint7'
+const sprint8Rehearsal = profile.kind === 'sprint8'
 const queueCountsRehearsal = profile.kind === 'queue-counts'
 const signatureRehearsal = profile.kind === 'mock-signature'
 const vaultEnabled =
@@ -265,6 +266,15 @@ if (action === 'stop') {
       await sql`INSERT INTO role_permissions(role_id,permission_id)
       SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code='DRILL_REVIEW' AND p.code='document.mock_sign' ON CONFLICT DO NOTHING`
     const accounts = []
+    if (sprint8Rehearsal) {
+      const adminId = randomUUID()
+      await sql`INSERT INTO roles(code,name,is_system) VALUES('SYSTEM_ADMIN','Quản trị hệ thống giả định',true) ON CONFLICT DO NOTHING`
+      await sql`INSERT INTO users(id,username,full_name,password_hash,status,must_change_password,activated_at) VALUES(${adminId},'demo.quantri','Quản trị giả định',${hash},'ACTIVE',false,now())`
+      await sql`INSERT INTO user_roles(user_id,role_id) SELECT ${adminId},id FROM roles WHERE code='SYSTEM_ADMIN'`
+      await sql`INSERT INTO role_permissions(role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code='SYSTEM_ADMIN' AND p.code='training_point.period.manage' ON CONFLICT DO NOTHING`
+      await sql`INSERT INTO user_role_scopes(user_id,role_id,scope_id) SELECT ${adminId},r.id,s.id FROM roles r CROSS JOIN authorization_scopes s WHERE r.code='SYSTEM_ADMIN' AND s.scope_type='GLOBAL'`
+      accounts.push({ username: 'demo.quantri', label: 'Quản trị đợt rèn luyện giả định' })
+    }
     for (const [actor, username, label] of [
       [fixture.owner, 'demo.sinhvien', 'Sinh viên'],
       [fixture.other, 'demo.svkhac', 'Sinh viên khác'],
@@ -620,6 +630,22 @@ if (action === 'stop') {
         'queue-counts-browser',
       )
     }
+    if (sprint8Rehearsal)
+      launch(
+        join(apiRoot, 'scripts/check-sprint8-demo.mjs'),
+        apiRoot,
+        {
+          ...inherited,
+          WORKFLOW_SPRINT8_STATE_PATH: join(runRoot, 'state.json'),
+          ...(process.env.WORKFLOW_PLAYWRIGHT_MODULE
+            ? { WORKFLOW_PLAYWRIGHT_MODULE: process.env.WORKFLOW_PLAYWRIGHT_MODULE }
+            : {}),
+          ...(process.env.WORKFLOW_CHROMIUM_EXECUTABLE
+            ? { WORKFLOW_CHROMIUM_EXECUTABLE: process.env.WORKFLOW_CHROMIUM_EXECUTABLE }
+            : {}),
+        },
+        'sprint8-browser',
+      )
     if (sprint7Rehearsal)
       launch(
         join(apiRoot, 'scripts/check-sprint7-demo.mjs'),
