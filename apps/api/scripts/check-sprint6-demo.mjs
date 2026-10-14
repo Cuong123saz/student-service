@@ -5,13 +5,13 @@ import { promisify } from 'node:util'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import dotenv from 'dotenv'
 import postgres from 'postgres'
 import { readRecoveryPrivateFile } from './recovery-private-file.mjs'
 import {
   assertDemoState,
   assertDemoContainer,
   assertDemoDatabase,
+  demoDatabase,
 } from './workflow-demo.contract.mjs'
 import {
   collectDocumentRegistryAssets,
@@ -46,12 +46,19 @@ try {
   const info = JSON.parse(stdout)[0]
   assertDemoContainer(info, state.runId, info.Id)
   assert.equal(info.State.Running, true)
-  const env = dotenv.parse(await readRecoveryPrivateFile(join(root, 'fake.env'), 65536))
-  assertDemoDatabase(env.DATABASE_URL)
-  const url = new URL(env.DATABASE_URL)
-  assert.equal(info.NetworkSettings.Ports['5432/tcp'][0].HostIp, '127.0.0.1')
-  assert.equal(info.NetworkSettings.Ports['5432/tcp'][0].HostPort, url.port)
-  sql = postgres(env.DATABASE_URL, { max: 1, connect_timeout: 5, onnotice: () => {} })
+  // The empty dotenv marker disables inherited source configuration; it contains no URL.
+  // Read only the already-verified, owned synthetic container's random credential in memory.
+  const ports = info.NetworkSettings.Ports['5432/tcp']
+  assert.equal(ports.length, 1)
+  assert.equal(ports[0].HostIp, '127.0.0.1')
+  const password = info.Config.Env.filter((v) => v.startsWith('POSTGRES_PASSWORD='))
+  assert.equal(password.length, 1)
+  const secret = password[0].slice('POSTGRES_PASSWORD='.length)
+  assert.match(secret, /^[a-f0-9]{48}$/)
+  const url = new URL('postgres://postgres@127.0.0.1:' + ports[0].HostPort + '/' + demoDatabase)
+  url.password = secret
+  assertDemoDatabase(url.href)
+  sql = postgres(url.href, { max: 1, connect_timeout: 5, onnotice: () => {} })
   const inventory = await sql.begin('isolation level repeatable read read only', async (tx) => {
     const before = await readDocumentRegistrySnapshot(tx)
     const assets = await collectDocumentRegistryAssets({
