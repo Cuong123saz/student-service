@@ -4,7 +4,7 @@ Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, đượ
 
 > Baseline chức năng tại `ffa38f5`: P0.1–P0.5 của luồng import đã được triển khai và kiểm chứng trên môi trường local. Demo và sửa lỗi hồi quy được hoàn tất qua `777c3f9`; Sprint 3 được Phan Phương Cường tự xác nhận hoàn tất ngày 13/09/2026 trong phạm vi dự án cá nhân, không phải phê duyệt độc lập của bên thứ ba. Import API đạt local nhưng chưa production-ready/deployed.
 
-Hiện Sprint 7 đã đóng kỹ thuật local; Sprint 8 đang được kiểm chứng theo [kế hoạch nền tảng điểm rèn luyện](docs/sprint-8-plan.md). Roadmap hợp nhất xác định xét duyệt điểm rèn luyện ở Sprint 9 và xuất bảng/biên bản ở Sprint 10.
+Hiện Sprint 8 đã đóng kỹ thuật local ngày 15/10/2026: [hồ sơ đóng nền tảng điểm rèn luyện](docs/sprint-8-closure.md). Roadmap hợp nhất xác định xét duyệt điểm rèn luyện ở Sprint 9 và xuất bảng/biên bản ở Sprint 10.
 
 ## Trạng thái dự án
 
@@ -561,4 +561,4 @@ Agile không bắt buộc deploy production sau mỗi sprint. Baseline `ffa38f5`
 
 Quản trị tạo/sửa/mở/đóng đợt theo lớp, năm học/học kỳ và phạm vi quyền; tiêu chí A–E có tổng 100 điểm và khóa sau khi mở. Sinh viên lưu bản nháp, tải/gỡ minh chứng, kiểm tra rồi xác nhận nộp. Bản đã nộp và lịch sử bất biến; điểm tự kê khai luôn ghi **chưa xét duyệt**. Bộ tiêu chí mặc định là giả định để thử nghiệm.
 
-[Hướng dẫn Sprint 8](docs/sprint-8-training-points.md) mô tả cách dùng và diễn tập riêng với dữ liệu giả. Phạm vi không gồm xét duyệt cố vấn/khoa hoặc xuất bảng điểm; Giấy xác nhận sinh viên vẫn trực tiếp tại CTSV. Trạng thái nghiệm thu được cập nhật sau kiểm thử và diễn tập trình duyệt.
+[Hướng dẫn Sprint 8](docs/sprint-8-training-points.md) mô tả cách dùng và diễn tập riêng với dữ liệu giả. Phạm vi không gồm xét duyệt cố vấn/khoa hoặc xuất bảng điểm; Giấy xác nhận sinh viên vẫn trực tiếp tại CTSV. Sprint 8 **CLOSED kỹ thuật local ngày 15/10/2026**: [hồ sơ đóng](docs/sprint-8-closure.md) ghi 744 kiểm thử đạt/1 bỏ qua, 14 nhóm trình duyệt, 20 responsive và 10 ảnh đã rà. Chưa nghiệm thu cơ quan hoặc triển khai production.
