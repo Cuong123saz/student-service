@@ -1,6 +1,6 @@
 # Gửi hồ sơ và tiếp nhận xử lý
 
-Ngày cập nhật: 10/10/2026. Trạng thái: đã triển khai và kiểm chứng increment local của Sprint 5; chưa nghiệm thu/production và không tự đóng Sprint 4.
+Mốc kiểm chứng lịch sử: 10/10/2026. Increment gửi/tiếp nhận đã có local; theo kế hoạch hợp nhất, xét duyệt theo dõi ở Sprint 6. [Đóng Sprint 5](sprint-5-closure.md) chỉ xác nhận tự điền/nháp/upload/xem trước, không tự đóng Sprint 6 hoặc nghiệm thu production.
 
 ## Dùng thử
 
@@ -45,15 +45,15 @@ Thiết kế: [ADR 0004](adr/0004-submission-and-intake.md), được commit ri�
 
 Kiểm chứng ngày 10/10/2026 trên Node 22.23.2 và PostgreSQL local. Migration 0016 chạy từ đầu trên database test, sau đó áp dụng bổ sung vào development; giữ nguyên tài khoản, hồ sơ và cấu hình giấy xác nhận sinh viên. Không reset dữ liệu development hoặc thay thông tin đăng nhập.
 
-| Kiểm tra | Kết quả |
-| --- | --- |
-| API unit | 95/95 |
-| API integration toàn dự án | 223/223 |
-| Integration riêng module hồ sơ | 54/54, là tập con của 223 |
-| Web (gồm Nuxt acceptance) | 65/65, 13 tệp |
-| ADR gate tests | 22/22 |
-| Typecheck API, lint, format toàn repo, build API/Web | Đạt |
-| ADR Accepted trước migration | Đạt; kiểm tra lại sau commit implementation |
+| Kiểm tra                                             | Kết quả                                     |
+| ---------------------------------------------------- | ------------------------------------------- |
+| API unit                                             | 95/95                                       |
+| API integration toàn dự án                           | 223/223                                     |
+| Integration riêng module hồ sơ                       | 54/54, là tập con của 223                   |
+| Web (gồm Nuxt acceptance)                            | 65/65, 13 tệp                               |
+| ADR gate tests                                       | 22/22                                       |
+| Typecheck API, lint, format toàn repo, build API/Web | Đạt                                         |
+| ADR Accepted trước migration                         | Đạt; kiểm tra lại sau commit implementation |
 
 Các ca mới kiểm tra đủ trường và minh chứng; false/0; profile và quyền bị đổi trong thời gian đọc tệp; scope/permission cùng role; chỉ định cán bộ kể cả GLOBAL; chặn tự xử lý; tách phiên user/admin; Origin; lọc trạng thái trước giới hạn 50; tệp gốc/size/hash; đồng thời gửi-lưu-tải-publish và hai cán bộ cùng nhận; retry không tạo audit trùng; audit lỗi rollback; trigger chặn sửa nội dung, chuyển binding và minh chứng bằng SQL; lỗi không lộ câu trả lời hoặc storage key.
 
@@ -63,7 +63,7 @@ Demo trình duyệt dùng ba tài khoản và thủ tục giả định trên da
 
 Bằng chứng local được bỏ qua trong Git: run/intake-api-{unit,integration,targeted,typecheck,lint,build}.log, run/intake-web-{tests,build}.log, run/intake-adr-tests.log, run/intake-format.log, run/intake-browser-smoke.log, run/intake-dev-migration.log và run/intake-local-health.log. Ảnh run/intake-{student,reviewer,admin}-{1440,375}.png. Kịch bản demo run/intake-smoke.mjs chứa dữ liệu giả, chỉ chạy được với database test localhost:5434/student_service_test.
 
-Bản local mới chạy tại http://localhost:3001, API http://localhost:3000; kiểm tra API công khai 200, API hồ sơ chưa đăng nhập 401 và các trang mới tải được. Không dùng kết quả nghiệm thu Sprint 4 hoặc số liệu bản nháp lịch sử để thay bằng chứng của bước gửi/nhận.
+Ở mốc kiểm chứng 10/10, bản local đã chạy tại localhost:3001, API localhost:3000; đây không phải trạng thái máy chủ hiện tại; kiểm tra API công khai 200, API hồ sơ chưa đăng nhập 401 và các trang mới tải được. Không dùng kết quả nghiệm thu Sprint 4 hoặc số liệu bản nháp lịch sử để thay bằng chứng của bước gửi/nhận.
 
 ## Increment bổ sung và quyết định
 

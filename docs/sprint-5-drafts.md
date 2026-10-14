@@ -1,6 +1,6 @@
 # Sprint 5: Kê khai bản nháp và minh chứng
 
-Ngày: 09/10/2026. Trạng thái: increment local, Sprint 5 IN_PROGRESS. Không thay cho nghiệm thu Sprint 4, không phải triển khai production.
+Khởi tạo 09/10/2026; cập nhật 14/10/2026. Sprint 5 **CLOSED kỹ thuật local theo ủy quyền của chủ dự án**; [hồ sơ đóng và kiểm chứng cuối](sprint-5-closure.md). Chưa nghiệm thu vận hành hoặc triển khai production. Số liệu 09/10 bên dưới là lịch sử increment, không thay lượt cuối.
 
 ## Dùng thử
 
@@ -32,7 +32,7 @@ Tất cả dưới /api/v1/user; cookie phiên sinh viên, thao tác ghi thêm O
 
 | Method | Đường dẫn                                    | Kết quả                                                      |
 | ------ | -------------------------------------------- | ------------------------------------------------------------ |
-| GET    | /submissions                                 | Danh sách nháp của mình, tối đa 50                           |
+| GET    | /submissions                                 | Danh sách hồ sơ của mình, tối đa 50                          |
 | POST   | /submissions                                 | Tạo/lấy nháp, body serviceId + versionId                     |
 | GET    | /submissions/:id                             | Thông tin, cấu hình, minh chứng, mục còn thiếu               |
 | PUT    | /submissions/:id                             | Lưu body expectedRevision + values, chỉ trường STUDENT_INPUT |
@@ -48,7 +48,7 @@ SUBMISSION_STORAGE_ROOT là biến tùy chọn của API, nên là đường d�
 
 Adapter hiện dùng ổ đĩa local. Trước môi trường dùng chung cần kho bền vững, phân quyền vận hành, backup/retention và quét mã độc. Kiểm tra header tệp hiện tại không phải quét virus, kiểm tra đầy đủ cấu trúc PDF/ảnh hay xác minh chữ ký. Khi database lỗi có thể còn tệp chưa liên kết; cần đối chiếu an toàn trước khi dọn, không xóa tự động chỉ dựa vào một lần truy vấn lỗi.
 
-Chưa có nút gửi hồ sơ, hàng đợi xét, trả/bổ sung hồ sơ, sinh giấy chính thức, DOCX/PDF kết quả hoặc tích hợp nhà cung cấp chữ ký. Những phần này là increment tiếp theo. Giấy xác nhận sinh viên tiếp tục OFFLINE.
+Phạm vi ban đầu của tài liệu này dừng ở nháp/minh chứng. Gửi/tiếp nhận, bổ sung/quyết định và phiếu Word/PDF đã được phát triển ở các increment nối tiếp, theo dõi riêng trong roadmap Sprint 6. Việc đóng Sprint 5 chỉ xác nhận tự điền/lưu nháp/upload/xem trước; chưa phát hành văn bản hoặc xác minh chữ ký thật. Giấy xác nhận sinh viên tiếp tục OFFLINE.
 
 Thiết kế: [ADR 0003](adr/0003-student-drafts-and-evidence.md), [chính sách hồ sơ điện tử](adr/0002-electronic-document-validation.md).
 
@@ -71,13 +71,11 @@ Demo trình duyệt dùng tài khoản và thủ tục giả định trong datab
 
 Rà soát độc lập tập trung vào quyền sở hữu/role/status, Origin, revision, giới hạn tệp, byte/hash, đối chiếu commit và che dữ liệu nhạy cảm. Đã sửa lỗi trả lượt tải trước khi lưu xong; ca HTTP hồi quy thất bại trên mã cũ và đạt sau sửa. Lần chạy lại đạt 184/184 integration; kiểm tra kiểu dữ liệu, lint và build API được cập nhật ở các log có hậu tố reviewed. Các kiểm tra Web và trình duyệt ở trên giữ kết quả của bản giao diện không đổi.
 
-Bằng chứng local, được bỏ qua trong Git: run/sprint5-api-tests-final.log, run/sprint5-web-tests-final.log, run/sprint5-adr-tests-final.log, run/sprint5-api-quality-final.log, run/sprint5-format-final.log, run/sprint5-build-final.log, run/sprint5-browser-smoke.log, run/sprint5-api-integration-reviewed.log, run/sprint5-api-quality-reviewed.log, run/sprint5-api-build-reviewed.log; ảnh run/sprint5-student-1440.png và run/sprint5-student-375.png. Web đang chạy bản mới tại http://localhost:3001; API tại http://localhost:3000. Chưa tạo/áp dụng cấu hình nghiệp vụ mới trên development hoặc đổi thông tin đăng nhập.
-
+Bằng chứng local, được bỏ qua trong Git: run/sprint5-api-tests-final.log, run/sprint5-web-tests-final.log, run/sprint5-adr-tests-final.log, run/sprint5-api-quality-final.log, run/sprint5-format-final.log, run/sprint5-build-final.log, run/sprint5-browser-smoke.log, run/sprint5-api-integration-reviewed.log, run/sprint5-api-quality-reviewed.log, run/sprint5-api-build-reviewed.log; ảnh run/sprint5-student-1440.png và run/sprint5-student-375.png. Ở mốc kiểm chứng 09/10, Web/API đã chạy tại localhost:3001/3000; đây không phải trạng thái máy chủ hiện tại. Chưa tạo/áp dụng cấu hình nghiệp vụ mới trên development hoặc đổi thông tin đăng nhập.
 
 ## Increment gửi và tiếp nhận
 
 Bước [gửi hồ sơ và tiếp nhận xử lý](submission-intake.md) được triển khai tiếp theo yêu cầu chủ dự án. Các câu “chưa gửi/xét” và số liệu phía trên là phạm vi lịch sử của increment tương ứng. Bước mới chỉ gửi và nhận xử lý, chưa duyệt/ký/trả kết quả; giấy xác nhận sinh viên vẫn OFFLINE tại CTSV.
-
 
 ## Increment đối chiếu minh chứng
 

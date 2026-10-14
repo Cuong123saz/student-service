@@ -66,21 +66,25 @@ Migration chạm các bảng cấu hình phải có ADR Accepted và trạng th�
 
 Sinh viên có thể bắt đầu/tiếp tục nháp của thủ tục ONLINE/HYBRID, nhận dữ liệu hồ sơ từ máy chủ, lưu thiếu thông tin, tải/gỡ minh chứng riêng và xem lại nội dung. **Thủ tục của tôi** nằm trong cổng sinh viên. Giấy xác nhận sinh viên tiếp tục OFFLINE tại CTSV.
 
+Sprint 5 **CLOSED kỹ thuật local ngày 14/10/2026 theo ủy quyền của chủ dự án**: [hồ sơ đóng](docs/sprint-5-closure.md) ghi 498 bài kiểm thử đạt, 12 nhóm trình duyệt/16 responsive và 8 ảnh đã xem. Phạm vi gồm tự điền, lưu nháp, upload và xem trước; chưa nghiệm thu vận hành/production.
+
 [Hướng dẫn và kiểm chứng Sprint 5](docs/sprint-5-drafts.md) ghi rõ cách thử, API, kho tệp riêng và giới hạn. Phạm vi ban đầu dừng ở bản nháp; bước gửi/tiếp nhận được triển khai tiếp ở increment bên dưới. Tệp tải lên luôn có trạng thái chữ ký chưa xác minh.
 
-### Sprint 5 — Gửi hồ sơ và tiếp nhận xử lý
+Theo kế hoạch hợp nhất, phạm vi đóng Sprint 5 là tự điền hồ sơ, lưu nháp, upload và xem trước. Các increment dưới đây đã được phát triển nối tiếp; xét duyệt/Word/PDF thuộc Sprint 6, ký thuộc Sprint 7 và hardening/UAT là mốc riêng. Việc đã có mã nguồn không tự đóng các sprint đó.
+
+### Increment — Gửi hồ sơ và tiếp nhận xử lý
 
 Sinh viên gửi bản đã lưu sau khi xem lại và xác nhận; máy chủ kiểm tra đủ nội dung/minh chứng và chốt snapshot. Cán bộ xem hàng đợi đúng quyền/phạm vi, đọc tệp gốc và nhận xử lý. Trạng thái Bản nháp → Đã gửi → Đang xử lý; nội dung đã gửi được khóa. Đây là phạm vi increment gửi/tiếp nhận; bổ sung và quyết định nội dung được triển khai tiếp bên dưới. Chưa ký hoặc phát hành.
 
 [Hướng dẫn gửi và tiếp nhận](docs/submission-intake.md) mô tả cách dùng, quyền, API và kiểm chứng. Giấy xác nhận sinh viên tiếp tục xử lý trực tiếp tại CTSV.
 
-### Sprint 5 — Bổ sung và quyết định xử lý
+### Increment — Bổ sung và quyết định xử lý
 
 Cán bộ đã nhận hồ sơ được yêu cầu bổ sung, duyệt nội dung hoặc không chấp thuận theo quyền hiện tại. Sinh viên bổ sung rồi gửi lại cho cùng cán bộ; mỗi lần gửi và minh chứng gốc được giữ riêng để đối chiếu. Quyết định nội dung chưa phải ký hoặc cấp văn bản.
 
 [Hướng dẫn bổ sung và quyết định](docs/submission-resolution.md) mô tả quyền, cách sử dụng, lịch sử và kiểm chứng. Giấy xác nhận sinh viên vẫn thực hiện trực tiếp tại CTSV.
 
-### Sprint 5 — Phiếu thông tin hồ sơ Word và PDF
+### Increment — Phiếu thông tin hồ sơ Word và PDF
 
 Sau khi gửi hồ sơ ONLINE/HYBRID, sinh viên và cán bộ đúng quyền/phạm vi có thể tải phiếu Word/PDF tự điền toàn bộ trường từ snapshot của từng lần gửi, gồm danh sách minh chứng. Lịch sử lần gửi cũ giữ nguyên khi bổ sung. Phiếu chưa ký, chưa phải văn bản được cấp; PDF cần LibreOffice tại máy chạy API.
 
@@ -94,33 +98,33 @@ Sau khi gửi hồ sơ ONLINE/HYBRID, sinh viên và cán bộ đúng quyền/ph
 
 [Tiến độ và bước tiếp theo](docs/implementation-progress.md) tổng hợp phần đã kiểm chứng và thứ tự chuẩn bị lưu bản bất biến trước khi triển khai ký mô phỏng.
 
-### Sprint 5 — Bàn giao và thông báo trong ứng dụng
+### Increment — Bàn giao và thông báo trong ứng dụng
 
 Supervisor đủ quyền/phạm vi bàn giao hồ sơ đang xử lý hoặc chờ bổ sung cho cán bộ đủ điều kiện, giữ nguyên nội dung và lịch sử. Sinh viên/cán bộ có hộp thông báo cá nhân, kiểm tra quyền hiện tại trước khi hiển thị hoặc mở hồ sơ.
 
 [Hướng dẫn bàn giao và thông báo](docs/submission-handover-and-notifications.md) ghi phạm vi và kiểm chứng theo ADR0006: 485 kiểm thử đạt, demo trình duyệt bốn vai trò đạt, migration0018 đã nâng cấp local và giữ nguyên dữ liệu/cấu hình cũ. Quyết định nội dung chưa phải ký/cấp; giấy xác nhận sinh viên tiếp tục trực tiếp tại CTSV.
 
-### Sprint 5 — Phân trang và lọc hàng đợi
+### Increment — Phân trang và lọc hàng đợi
 
 Hàng đợi hai cổng tải 20 hồ sơ mỗi lần, tìm theo tên/mã sinh viên hoặc thủ tục, lọc Tôi đang xử lý/Chưa có người nhận. Quyền hiện tại được lọc trước phân trang; không còn cắt âm thầm ở 50 hồ sơ. [Hướng dẫn và kiểm chứng](docs/review-queue-pagination.md) ghi hợp đồng, dữ liệu kiểm thử và giới hạn vận hành.
 
-### Sprint 5 — Kiểm tra truy cập đồng thời
+### Increment — Kiểm tra truy cập đồng thời
 
 Đã bổ sung bài thử HTTP độc lập với 20 tài khoản cán bộ, 10000 hồ sơ giả và kiểm tra tranh chấp nhận hồ sơ/thông báo cá nhân. [Cách chạy và số đo](docs/concurrent-access-check.md) ghi hai lượt kiểm chứng, chốt bảo vệ DB test và giới hạn diễn giải hiệu năng.
 
-### Sprint 5 — Tối ưu tìm kiếm hàng đợi
+### Increment — Tối ưu tìm kiếm hàng đợi
 
 Đã thêm chỉ mục tìm kiếm và cập nhật trực tiếp để giảm quét toàn bảng sau khi ghi hồ sơ. [Số đo trước/sau và giới hạn](docs/review-search-performance.md) ghi truy vấn thật, tải đồng thời, kiểm chứng dữ liệu và chi phí đọc/ghi.
 
-### Sprint 5 — Đối chiếu kho minh chứng
+### Increment — Đối chiếu kho minh chứng
 
 Đã thêm công cụ chỉ đọc để phát hiện tệp thiếu/sai byte, metadata lịch sử không khớp và tệp chưa liên kết; không tự xóa hoặc sửa hồ sơ. [Cách chạy và phạm vi bảo đảm](docs/evidence-integrity-audit.md) ghi 22 kiểm thử mới, trạng thái kho local và bước chuẩn bị sao lưu cả database lẫn tệp.
 
-### Sprint 5 — Diễn tập phục hồi hồ sơ
+### Increment — Diễn tập phục hồi hồ sơ
 
 Đã diễn tập sao lưu database cùng kho minh chứng, xóa nguồn giả và phục hồi vào PostgreSQL mới; kiểm chứng lịch sử, tệp đã gỡ, quyền truy cập và khả năng ghi tiếp. [Kết quả, cách chạy và giới hạn](docs/recovery-rehearsal.md) ghi lượt thử bằng dữ liệu giả, không thay cho backup vận hành dữ liệu thật. Đã bổ sung [chép sang kho riêng, kiểm tra từng gói và đề xuất giữ bản cũ](docs/recovery-archive.md); diễn tập phục hồi từ chính bản đã chép. Công cụ chỉ dùng dữ liệu giả, chưa tự xóa hoặc bật lịch backup. Có thể chọn nơi lưu bằng `--archive-root`; đã chọn `D:\student-service-fake-backups` cho thử nghiệm cục bộ. Đã diễn tập [bản sao mã hóa với khóa riêng](docs/encrypted-recovery.md), giải mã và phục hồi sau khi xóa nguồn giả.
 
-### Sprint 5 — Demo toàn bộ quy trình bằng dữ liệu giả
+### Increment — Demo toàn bộ quy trình bằng dữ liệu giả
 
 Đã có môi trường riêng để thử kê khai, gửi hồ sơ, yêu cầu bổ sung, gửi lại và duyệt/từ chối bằng tài khoản giả. [Hướng dẫn demo](docs/workflow-demo.md) có địa chỉ, tài khoản, cách tự thực hành, khởi động/dừng và bằng chứng kiểm thử giao diện. Giấy xác nhận sinh viên tiếp tục trực tiếp tại CTSV; demo không cấp văn bản.
 

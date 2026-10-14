@@ -1,0 +1,53 @@
+{
+  "sprint": 5,
+  "status": "CLOSED",
+  "closedAt": "2026-10-14",
+  "closureScope": "LOCAL_TECHNICAL",
+  "basis": "USER_AUTHORIZED_AGENT_COMPLETION",
+  "completedBy": "Codex",
+  "authorization": "hoàn tất Sprint 5",
+  "manualOwnerAcceptance": "NOT_SEPARATELY_RECORDED",
+  "institutionalApproval": "NOT_CLAIMED",
+  "productionReadiness": "NOT_READY",
+  "scope": "STUDENT_SUBMISSION_PROFILE_DRAFT_UPLOAD_PREVIEW",
+  "testedImplementationCommit": "5dde68c1d63f0034eea531d97dbf454861d3d53e",
+  "automatedTests": {
+    "passed": 498,
+    "failed": 0,
+    "skipped": 0,
+    "apiUnitTargetedPassed": 6,
+    "apiIntegrationPassed": 306,
+    "webPassed": 122,
+    "adrPassed": 44,
+    "demoGuardsPassed": 20,
+    "testedAt": "2026-10-14",
+    "nuxtAcceptanceIncludedInWeb": true
+  },
+  "quality": {
+    "apiTypecheck": "PASS",
+    "apiLint": "PASS",
+    "format": "PASS",
+    "apiBuild": "PASS",
+    "webBuild": "PASS",
+    "postCommitAdrGate": "PASS"
+  },
+  "browserRehearsal": {
+    "runId": "86bab7b5-f536-4f35-99a2-50b76c9b4645",
+    "status": "PASS",
+    "checksPassed": 12,
+    "responsiveChecksPassed": 16,
+    "pageErrors": 0,
+    "screenshotsVisuallyInspected": 8,
+    "terminalState": "STOPPED",
+    "reportPath": "run/workflow-demo/86bab7b5-f536-4f35-99a2-50b76c9b4645/browser-report.json",
+    "reportSha256": "efc79ecd730a62dca28c4b565a27762aa496976fd5498eb212cb8d0f6f9ddf24",
+    "visualReviewPath": "run/workflow-demo/86bab7b5-f536-4f35-99a2-50b76c9b4645/visual-review.json",
+    "visualReviewSha256": "8db2f91926e4df00b96a249a5f471a470782820b2f8decaa434a87a50c961211"
+  },
+  "evidenceDocument": "docs/sprint-5-closure.md",
+  "outsideSprint5": [
+    "Review and Word/PDF acceptance (Sprint 6)",
+    "Digital signature MVP acceptance (Sprint 7)",
+    "Production hardening and institutional UAT"
+  ]
+}
