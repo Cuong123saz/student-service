@@ -11,6 +11,16 @@ const p = assertVaultDemoEnvironment(
   fileURLToPath(import.meta.url),
   Boolean(process.send && process.connected),
 )
+const startupStarted = performance.now()
+const startup = (phase) =>
+  console.log(
+    JSON.stringify({
+      event: 'VAULT_DEMO_STARTUP',
+      phase,
+      elapsedMs: Math.round(performance.now() - startupStarted),
+    }),
+  )
+startup('IMPORTS_START')
 const { buildApp } = await import('./dist/app.js')
 const { db, databaseClient } = await import('./dist/db/client.js')
 const { DrizzleSubmissionRepository } =
@@ -36,6 +46,7 @@ const vault = await LocalDocumentVault.create({
   stagingRoot: p.staging,
   protectedRoots: [p.api, join(p.projectRoot, 'node_modules'), p.evidence, p.templates],
 })
+startup('VAULT_READY')
 const processObserver = (phase) => ({
   finished: (report) =>
     console.log(JSON.stringify({ event: 'VAULT_DEMO_PROCESS', phase, ...report })),
@@ -58,6 +69,7 @@ const provenance = await LocalDocumentProvenance.create(
   },
   processObserver('VERSION'),
 )
+startup('PROVENANCE_READY')
 const observedProvenance = {
   renderer: () => provenance.renderer(),
   converter: async () => {
@@ -82,7 +94,7 @@ const observedProvenance = {
     }
   },
 }
-const prepareProfile = sealedProfileMode
+const sealedProfile = sealedProfileMode
   ? await (
       await import('./dist/modules/signatures/mock-converter-profile.js')
     ).loadMockConverterProfile(
@@ -90,6 +102,21 @@ const prepareProfile = sealedProfileMode
       join(p.api, 'converter-bootstrap/manifest.json'),
       join(process.env.LIBREOFFICE_PATH, '..', 'soffice.bin'),
     )
+  : undefined
+startup('PROFILE_LOADED')
+const prepareProfile = sealedProfile
+  ? async (target) => {
+      const started = performance.now()
+      console.log(JSON.stringify({ event: 'VAULT_DEMO_PROFILE_COPY', phase: 'START' }))
+      await sealedProfile(target)
+      console.log(
+        JSON.stringify({
+          event: 'VAULT_DEMO_PROFILE_COPY',
+          phase: 'READY',
+          elapsedMs: Math.round(performance.now() - started),
+        }),
+      )
+    }
   : undefined
 const converter = new LibreOfficePdfConverter(
   process.env.LIBREOFFICE_PATH,
@@ -104,8 +131,11 @@ const localRenderer = new LocalSubmissionDocumentRenderer(
 const { checkSubmissionDocumentRuntime } =
   await import('./dist/modules/submissions/submission-document-runtime.js')
 const versionBefore = await observedProvenance.converter()
+startup('VERSION_BEFORE_READY')
 const readiness = await checkSubmissionDocumentRuntime(localRenderer)
+startup('RUNTIME_PROBE_COMPLETE')
 const versionAfter = await observedProvenance.converter()
+startup('VERSION_AFTER_READY')
 if (readiness.status !== 'READY' || JSON.stringify(versionBefore) !== JSON.stringify(versionAfter))
   throw new Error('VAULT_DEMO_DOCUMENTS_NOT_READY')
 console.log(
