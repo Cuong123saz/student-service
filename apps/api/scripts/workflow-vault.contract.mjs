@@ -35,21 +35,34 @@ export function assertVaultDemoEnvironment(projectRoot, env, entry, hasIpc) {
   const retry = env.WORKFLOW_VAULT_MODE === 'retry',
     workspace = env.WORKFLOW_VAULT_MODE === 'workspace',
     signature = env.WORKFLOW_VAULT_MODE === 'signature',
-    sprint6 = env.WORKFLOW_VAULT_MODE === 'sprint6'
+    sprint6 = env.WORKFLOW_VAULT_MODE === 'sprint6',
+    sprint7 = env.WORKFLOW_VAULT_MODE === 'sprint7'
   assert.ok(
-    !env.WORKFLOW_VAULT_MODE || retry || workspace || signature || sprint6,
+    !env.WORKFLOW_VAULT_MODE || retry || workspace || signature || sprint6 || sprint7,
     'INVALID_VAULT_DEMO_MODE',
   )
-  const host = sprint6
-    ? '127.0.0.11'
-    : signature
-      ? '127.0.0.8'
-      : workspace
-        ? '127.0.0.6'
-        : retry
-          ? '127.0.0.5'
-          : '127.0.0.4'
-  const port = sprint6 ? '3030' : signature ? '3024' : workspace ? '3020' : retry ? '3018' : '3016'
+  const host = sprint7
+    ? '127.0.0.12'
+    : sprint6
+      ? '127.0.0.11'
+      : signature
+        ? '127.0.0.8'
+        : workspace
+          ? '127.0.0.6'
+          : retry
+            ? '127.0.0.5'
+            : '127.0.0.4'
+  const port = sprint7
+    ? '3032'
+    : sprint6
+      ? '3030'
+      : signature
+        ? '3024'
+        : workspace
+          ? '3020'
+          : retry
+            ? '3018'
+            : '3016'
   const origin = 'http://' + host + ':' + (Number(port) + 1)
   assert.ok(
     env.API_HOST === host &&

@@ -1,4 +1,9 @@
 import type {
+  MockSigningOperations,
+  MockSignInput,
+  MockVerifyInput,
+} from '../signatures/mock-signing.js'
+import type {
   SubmissionDocumentOperations,
   DocumentRetryInput,
 } from './submission-document-operations.js'
@@ -50,7 +55,52 @@ export class SubmissionService {
     private readonly storage: EvidenceStorage,
     private readonly documents: SubmissionDocumentRenderer = new LocalSubmissionDocumentRenderer(),
     private readonly documentOperations?: SubmissionDocumentOperations,
+    private readonly mockSigning?: MockSigningOperations,
   ) {}
+  async mockSignatureStatus(userId: string, id: string, roundNumber: number, review: boolean) {
+    const authorize = () =>
+      review ? this.repository.reviewGet(userId, id) : this.repository.get(userId, id)
+    const detail = await authorize()
+    if (!detail.rounds.some((r) => r.roundNumber === roundNumber))
+      throw new SubmissionError(404, 'NOT_FOUND', 'Không tìm thấy lần gửi hồ sơ.')
+    if (!this.mockSigning) return { enabled: false, documents: [] }
+    const result = await this.mockSigning.status(userId, id, roundNumber, review)
+    await authorize()
+    return result
+  }
+  async mockSignatureSign(
+    userId: string,
+    id: string,
+    round: number,
+    format: 'docx' | 'pdf',
+    input: MockSignInput,
+  ) {
+    await this.repository.reviewGet(userId, id)
+    if (!this.mockSigning)
+      throw new SubmissionError(
+        503,
+        'MOCK_SIGNATURE_DISABLED',
+        'Ký mô phỏng chưa bật trong môi trường này.',
+      )
+    return this.mockSigning.sign(userId, id, round, format === 'docx' ? 'DOCX' : 'PDF', input)
+  }
+  async mockSignatureVerify(
+    userId: string,
+    id: string,
+    round: number,
+    format: 'docx' | 'pdf',
+    input: MockVerifyInput,
+    review: boolean,
+  ) {
+    await (review ? this.repository.reviewGet(userId, id) : this.repository.get(userId, id))
+    if (!this.mockSigning)
+      throw new SubmissionError(
+        503,
+        'MOCK_SIGNATURE_DISABLED',
+        'Đối chiếu mô phỏng chưa bật trong môi trường này.',
+      )
+    return this.mockSigning.verify(userId, id, round, format === 'docx' ? 'DOCX' : 'PDF', input)
+  }
   async documentStatus(userId: string, id: string, roundNumber: number, review: boolean) {
     const authorize = () =>
       review ? this.repository.reviewGet(userId, id) : this.repository.get(userId, id)
@@ -60,7 +110,7 @@ export class SubmissionService {
     if (!this.documentOperations) return { enabled: false, documents: [] }
     const result = await this.documentOperations.status(userId, id, roundNumber, review)
     await authorize()
-    return result
+    return this.mockSigning ? { ...result, mockSigningEnabled: true } : result
   }
   async retryDocument(
     actor: SubmissionActor,

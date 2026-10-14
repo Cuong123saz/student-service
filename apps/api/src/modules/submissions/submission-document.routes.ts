@@ -1,3 +1,4 @@
+import { registerMockSigningRoutes } from '../signatures/mock-signing.routes.js'
 import { Type } from '@sinclair/typebox'
 import type { FastifyInstance } from 'fastify'
 import type { SubmissionService } from './submission.service.js'
@@ -17,6 +18,7 @@ export function registerSubmissionDocumentRoute(
   portal: 'user' | 'admin',
   review: boolean,
 ) {
+  registerMockSigningRoutes(app, service, portal, review)
   const base = (review ? '/review-submissions' : '/submissions') + '/:id/rounds/:roundNumber'
   const roundParams = Type.Object(
     {

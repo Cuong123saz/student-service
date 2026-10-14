@@ -10,8 +10,10 @@ test('mọi system role đều có permission mapping tường minh', () => {
   assert.deepEqual(Object.keys(SYSTEM_ROLE_PERMISSIONS).sort(), roleCodes)
 })
 
-test('SYSTEM_ADMIN có toàn bộ system permission', () => {
-  const allPermissionCodes = SYSTEM_PERMISSIONS.map((permission) => permission.code).sort()
+test('SYSTEM_ADMIN có toàn bộ quyền vận hành, mô phỏng cần cấp riêng', () => {
+  const allPermissionCodes = SYSTEM_PERMISSIONS.filter((p) => p.code !== 'document.mock_sign')
+    .map((permission) => permission.code)
+    .sort()
 
   assert.deepEqual([...SYSTEM_ROLE_PERMISSIONS.SYSTEM_ADMIN].sort(), allPermissionCodes)
 })
@@ -39,8 +41,8 @@ test('catalog mặc định có đúng 35 role-permission grants', () => {
   assert.equal(grantCount, 35)
 })
 
-test('submission.assign mặc định chỉ SYSTEM_ADMIN; catalog có đúng17 quyền', () => {
-  assert.equal(SYSTEM_PERMISSIONS.length, 17)
+test('submission.assign mặc định chỉ SYSTEM_ADMIN; catalog có đúng18 quyền', () => {
+  assert.equal(SYSTEM_PERMISSIONS.length, 18)
   const holders = Object.entries(SYSTEM_ROLE_PERMISSIONS)
     .filter(([, codes]) => (codes as readonly string[]).includes('submission.assign'))
     .map(([role]) => role)
@@ -52,4 +54,9 @@ test('document.retry mặc định chỉ SYSTEM_ADMIN; ADMIN và người ký kh
     .filter(([, codes]) => (codes as readonly string[]).includes('document.retry'))
     .map(([role]) => role)
   assert.deepEqual(holders, ['SYSTEM_ADMIN'])
+})
+
+test('document.mock_sign không được tự cấp cho bất kỳ vai trò hệ thống nào', () => {
+  for (const codes of Object.values(SYSTEM_ROLE_PERMISSIONS))
+    assert.equal((codes as readonly string[]).includes('document.mock_sign'), false)
 })

@@ -38,10 +38,12 @@ const retryRehearsal = profile.kind === 'retry'
 const sprint4Rehearsal = profile.kind === 'sprint4'
 const sprint5Rehearsal = profile.kind === 'sprint5'
 const sprint6Rehearsal = profile.kind === 'sprint6'
+const sprint7Rehearsal = profile.kind === 'sprint7'
 const queueCountsRehearsal = profile.kind === 'queue-counts'
 const signatureRehearsal = profile.kind === 'mock-signature'
 const vaultEnabled =
-  ['vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(profile.kind) || retryRehearsal
+  ['vault', 'workspace-vault', 'mock-signature', 'sprint6', 'sprint7'].includes(profile.kind) ||
+  retryRehearsal
 const demoOrigin = profile.webUrl,
   demoApi = profile.apiUrl
 const apiAddress = new URL(demoApi),
@@ -259,6 +261,9 @@ if (action === 'stop') {
       await sql`INSERT INTO role_permissions(role_id,permission_id)
         SELECT r.id,p.id FROM roles r CROSS JOIN permissions p
         WHERE r.code='DRILL_REVIEW' AND p.code='document.retry' ON CONFLICT DO NOTHING`
+    if (sprint7Rehearsal)
+      await sql`INSERT INTO role_permissions(role_id,permission_id)
+      SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code='DRILL_REVIEW' AND p.code='document.mock_sign' ON CONFLICT DO NOTHING`
     const accounts = []
     for (const [actor, username, label] of [
       [fixture.owner, 'demo.sinhvien', 'Sinh viên'],
@@ -420,7 +425,8 @@ if (action === 'stop') {
       if (profile.kind === 'workspace-vault') env.WORKFLOW_VAULT_MODE = 'workspace'
       if (signatureRehearsal) env.WORKFLOW_VAULT_MODE = 'signature'
       if (sprint6Rehearsal) env.WORKFLOW_VAULT_MODE = 'sprint6'
-      if (signatureRehearsal || sprint6Rehearsal) {
+      if (sprint7Rehearsal) env.WORKFLOW_VAULT_MODE = 'sprint7'
+      if (signatureRehearsal || sprint6Rehearsal || sprint7Rehearsal) {
         phase = 'prepare-synthetic-converter-profile'
         const { bootstrapMockConverterProfile } =
           await import('../dist/modules/signatures/mock-converter-profile.js')
@@ -614,6 +620,22 @@ if (action === 'stop') {
         'queue-counts-browser',
       )
     }
+    if (sprint7Rehearsal)
+      launch(
+        join(apiRoot, 'scripts/check-sprint7-demo.mjs'),
+        apiRoot,
+        {
+          ...inherited,
+          WORKFLOW_SPRINT7_STATE_PATH: join(runRoot, 'state.json'),
+          ...(process.env.WORKFLOW_PLAYWRIGHT_MODULE
+            ? { WORKFLOW_PLAYWRIGHT_MODULE: process.env.WORKFLOW_PLAYWRIGHT_MODULE }
+            : {}),
+          ...(process.env.WORKFLOW_CHROMIUM_EXECUTABLE
+            ? { WORKFLOW_CHROMIUM_EXECUTABLE: process.env.WORKFLOW_CHROMIUM_EXECUTABLE }
+            : {}),
+        },
+        'sprint7-browser',
+      )
     if (sprint6Rehearsal) {
       launch(
         join(apiRoot, 'scripts/check-sprint6-demo.mjs'),

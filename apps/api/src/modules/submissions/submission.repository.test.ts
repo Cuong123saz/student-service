@@ -67,7 +67,7 @@ async function cleanup() {
   await db.execute(sql.raw('DROP FUNCTION IF EXISTS s5t_fail_audit()'))
   await db.execute(
     sql.raw(
-      'TRUNCATE submission_document_retries, submission_document_jobs, submission_documents, submission_document_sets, personal_notifications, submission_events, submission_rounds, submission_files, submissions, procedure_versions',
+      'TRUNCATE mock_signature_checks, mock_signature_receipts, submission_document_retries, submission_document_jobs, submission_documents, submission_document_sets, personal_notifications, submission_events, submission_rounds, submission_files, submissions, procedure_versions',
     ),
   )
   await db.execute(sql.raw('TRUNCATE audit_logs'))

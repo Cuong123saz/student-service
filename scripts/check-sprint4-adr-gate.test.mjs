@@ -21,6 +21,8 @@ const protectedTables = [
   'submission_documents',
   'submission_document_jobs',
   'submission_document_retries',
+  'mock_signature_receipts',
+  'mock_signature_checks',
   'submission_events',
   'personal_notifications',
   'form_versions',
@@ -83,6 +85,7 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
     )
   }
   if (adr !== undefined) {
+    write('docs/adr/0018-mock-signing-workflow.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0011-controlled-document-retry.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0010-document-vault-and-recovery.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0009-immutable-generated-documents.md', '---\nstatus: ' + adr + '\n---\n')

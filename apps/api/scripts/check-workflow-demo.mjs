@@ -24,7 +24,9 @@ if (profile.kind === 'mock-signature')
   assert.ok(process.send && process.connected, 'REQUIRES_MOCK_SIGNATURE_PARENT')
 if (profile.kind === 'sprint6')
   assert.ok(process.send && process.connected, 'REQUIRES_SPRINT6_DEMO_PARENT')
-const vaultProfile = ['vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(
+if (profile.kind === 'sprint7')
+  assert.ok(process.send && process.connected, 'REQUIRES_SPRINT7_DEMO_PARENT')
+const vaultProfile = ['vault', 'workspace-vault', 'mock-signature', 'sprint6', 'sprint7'].includes(
   profile.kind,
 )
 const demoOrigin = profile.webUrl
@@ -323,7 +325,11 @@ try {
   if (profile.kind !== 'workflow') {
     await exportDocument(owner.page, 1, 'docx', 'export-round-1')
     await exportDocument(owner.page, 1, 'pdf', 'export-round-1')
-    if (['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(profile.kind))
+    if (
+      ['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6', 'sprint7'].includes(
+        profile.kind,
+      )
+    )
       await exportBundle(owner.page, 1, 'bundle-round-1', oldBytes)
     report.checks.exportAvailableImmediatelyAfterSubmit = true
   }
@@ -346,7 +352,9 @@ try {
     await get(other.context, '/submissions/' + id + '/rounds/1/documents/docx', 404)
     await get(foreign.context, '/review-submissions/' + id + '/rounds/1/documents/docx', 404)
     if (
-      ['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(profile.kind)
+      ['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6', 'sprint7'].includes(
+        profile.kind,
+      )
     ) {
       await get(other.context, '/submissions/' + id + '/rounds/1/bundle', 404)
       await get(foreign.context, '/review-submissions/' + id + '/rounds/1/bundle', 404)
@@ -470,7 +478,9 @@ try {
       report.checks.realBackendStoredStatusVisible = true
     }
     if (
-      ['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(profile.kind)
+      ['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6', 'sprint7'].includes(
+        profile.kind,
+      )
     ) {
       await exportBundle(owner.page, 2, 'bundle-round-2', newBytes)
       const historicalBundle = await exportBundle(owner.page, 1, 'bundle-history-round-1', oldBytes)
@@ -507,7 +517,7 @@ try {
   await owner.page.goto(demoOrigin + '/submissions/' + rejectedId)
   await owner.page.getByText('Không chấp thuận', { exact: true }).first().waitFor()
   assert.equal(await owner.page.getByRole('button', { name: 'Gửi hồ sơ', exact: true }).count(), 0)
-  if (profile.kind === 'sprint6') {
+  if (['sprint6', 'sprint7'].includes(profile.kind)) {
     await exportDocument(
       owner.page,
       1,
@@ -535,7 +545,11 @@ try {
   await admin.page.getByText('Đã duyệt nội dung', { exact: true }).first().waitFor()
   if (profile.kind !== 'workflow') {
     await exportDocument(admin.page, 2, 'pdf', 'export-admin-round-2')
-    if (['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(profile.kind))
+    if (
+      ['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6', 'sprint7'].includes(
+        profile.kind,
+      )
+    )
       await exportBundle(admin.page, 2, 'bundle-admin-round-2', newBytes)
     report.checks.adminDocumentExport = true
   }

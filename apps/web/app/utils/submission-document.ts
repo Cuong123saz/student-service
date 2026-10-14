@@ -30,6 +30,7 @@ export interface SubmissionDocumentState {
   remainingAuthorizations: number
 }
 export interface SubmissionDocumentStatus {
+  mockSigningEnabled?: boolean
   enabled: boolean
   documents: SubmissionDocumentState[]
 }

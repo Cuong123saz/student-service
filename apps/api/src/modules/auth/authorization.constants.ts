@@ -2,6 +2,11 @@ import type { SystemRoleCode } from './auth.constants.js'
 
 export const SYSTEM_PERMISSIONS = [
   {
+    code: 'document.mock_sign',
+    name: 'Ký mô phỏng dữ liệu giả',
+    description: 'Chỉ dùng diễn tập giả, chưa phải thẩm quyền ký thật',
+  },
+  {
     code: 'student.read',
     name: 'Xem sinh viên',
     description: 'Xem hồ sơ sinh viên trong phạm vi được giao',
@@ -90,7 +95,9 @@ export const SYSTEM_PERMISSIONS = [
 
 export type SystemPermissionCode = (typeof SYSTEM_PERMISSIONS)[number]['code']
 
-const allPermissionCodes = SYSTEM_PERMISSIONS.map((permission) => permission.code)
+const allPermissionCodes = SYSTEM_PERMISSIONS.filter(
+  (permission) => permission.code !== 'document.mock_sign',
+).map((permission) => permission.code)
 
 export const SYSTEM_ROLE_PERMISSIONS = {
   SYSTEM_ADMIN: allPermissionCodes,

@@ -85,7 +85,10 @@ async function load() {
     )
     const body = await response.json()
     if (current !== generation) return
-    if (!response.ok) throw new Error(body.message ?? 'Chưa kiểm tra được tình trạng tài liệu.')
+    if (!response.ok) {
+      if ([401, 403, 404].includes(response.status)) result.value = null
+      throw new Error(body.message ?? 'Chưa kiểm tra được tình trạng tài liệu.')
+    }
     result.value = body as SubmissionDocumentStatus
   } catch (error) {
     if (current === generation)
@@ -210,6 +213,13 @@ async function retry(item: SubmissionDocumentState) {
         </div>
       </li>
     </ul>
+    <SubmissionMockSignature
+      v-if="result?.mockSigningEnabled"
+      :submission-id="submissionId"
+      :round-number="roundNumber"
+      :review-portal="reviewPortal"
+      :disabled="disabled || loading || saving !== null"
+    />
     <p v-if="failure" role="alert">{{ failure }}</p>
     <p v-if="message" role="status">{{ message }}</p>
   </div>

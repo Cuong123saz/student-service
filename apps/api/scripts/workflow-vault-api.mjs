@@ -53,7 +53,9 @@ const processObserver = (phase) => ({
 })
 const { runWindowsDocumentProcess } =
   await import('./dist/modules/submissions/submission-document-supervisor.js')
-const sealedProfileMode = ['signature', 'sprint6'].includes(process.env.WORKFLOW_VAULT_MODE)
+const sealedProfileMode = ['signature', 'sprint6', 'sprint7'].includes(
+  process.env.WORKFLOW_VAULT_MODE,
+)
 const provenance = await LocalDocumentProvenance.create(
   {
     codeRoots: [join(p.api, 'dist'), join(p.projectRoot, 'node_modules/fflate')],
@@ -227,11 +229,19 @@ const documents = new StoredSubmissionDocumentRenderer(
   retryConverter,
   observedProvenance,
 )
+const mockSigning =
+  process.env.WORKFLOW_VAULT_MODE === 'sprint7'
+    ? new (await import('./dist/modules/signatures/mock-signing.js')).DrizzleMockSigning(vault, {
+        fakeDataOnly: true,
+        environment: 'test',
+      })
+    : undefined
 const service = new SubmissionService(
   new DrizzleSubmissionRepository(),
   new LocalEvidenceStorage(),
   documents,
   new DrizzleSubmissionDocumentOperations(),
+  mockSigning,
 )
 const app = buildApp({ submissionService: service })
 await app.listen({ host: process.env.API_HOST, port: Number(process.env.API_PORT) })
