@@ -73,7 +73,7 @@ try {
   const passwords = info.Config.Env.filter((v) => v.startsWith('POSTGRES_PASSWORD='))
   assert.equal(passwords.length, 1)
   const secret = passwords[0].slice('POSTGRES_PASSWORD='.length)
-  assert.match(secret, /^[a-f0-9]{48}$/)
+  assert.ok(/^[a-f0-9]{48}$/.test(secret), 'INVALID_OWNED_SYNTHETIC_CREDENTIAL')
   const url = new URL('postgres://postgres@127.0.0.1:' + ports[0].HostPort + '/' + demoDatabase)
   url.password = secret
   assertDemoDatabase(url.href)
