@@ -1,6 +1,6 @@
 # Sprint 6 — Xét hồ sơ và tài liệu
 
-Cập nhật 14/10/2026. Trạng thái **IN_PROGRESS**, theo yêu cầu tiếp tục dự án sau Sprint 5. Không coi increment này là đóng Sprint 6 hoặc nghiệm thu vận hành.
+Cập nhật 14/10/2026. **CLOSED kỹ thuật local theo ủy quyền “triển khai đến khi xong sprint 6”**. [Hồ sơ đóng](sprint-6-closure.md) và [trạng thái riêng](sprint-6-status.json) ghi kết quả toàn luồng; chưa nghiệm thu vận hành/production.
 
 ## Phạm vi kế hoạch
 
@@ -15,8 +15,8 @@ Cập nhật 14/10/2026. Trạng thái **IN_PROGRESS**, theo yêu cầu tiếp t
 
 Kiểm chứng: 95 module API, 124 Web và 22 guard đạt; browser 25 hồ sơ thật trên môi trường giả, 6 nhóm/16 responsive/0 lỗi JavaScript. 8 ảnh viewport đã xem; môi trường diễn tập dừng và container riêng được dọn. Source development và trạng thái đóng Sprint 4/5 không thay đổi.
 
-## Phần tiếp theo
+## Đóng sprint và backlog riêng
 
-1. Hoàn thiện ma trận kiểm chứng riêng Sprint 6 cho toàn luồng tiếp nhận → bổ sung → duyệt/từ chối → Word/PDF/gói tải, cả lịch sử và các portal. Các increment này đã có mã/bằng chứng lịch sử, cần đối chiếu phạm vi đóng riêng.
+1. Đã hoàn tất ma trận và diễn tập toàn luồng Sprint 6: 20 nhóm/24 responsive, ba cặp Word/PDF và ZIP, quyền/lịch sử, 684 bài tự động đạt/1 skip Windows. Bằng chứng và giới hạn trong hồ sơ đóng.
 2. Tiếp phần B2 của ADR 0010: cấu hình runtime/kho tài liệu bền vững có kiểm tra sẵn sàng và đường quay lại. Vault/registry hiện có ở demo riêng; API chính vẫn render theo yêu cầu. Không tự bật trên database development cũ có lịch sử legacy chưa được nâng.
 3. Trước dữ liệu thật: backup/restore trên thiết bị khác, retention, quét mã độc, đo tải phù hợp và nghiệm thu người dùng. Ký/phát hành thuộc Sprint 7, dùng thẩm quyền/chính sách được xác nhận riêng.

@@ -1,6 +1,6 @@
 # Tổng số hồ sơ trong hàng đợi xét
 
-Ngày 14/10/2026. Increment local của Sprint 6, theo [ADR 0016](adr/0016-scoped-review-queue-counts.md). Chưa đóng Sprint 6 hoặc triển khai production.
+Ngày 14/10/2026. Increment local của Sprint 6, theo [ADR 0016](adr/0016-scoped-review-queue-counts.md). Tại thời điểm giao increment chưa đóng sprint. Sau đó [Sprint 6 đã CLOSED kỹ thuật local](sprint-6-closure.md) theo kiểm chứng riêng; chưa triển khai production.
 
 ## Cách dùng
 

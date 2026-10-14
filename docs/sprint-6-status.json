@@ -1,0 +1,69 @@
+{
+  "sprint": 6,
+  "status": "CLOSED",
+  "closedAt": "2026-10-14",
+  "closureScope": "LOCAL_TECHNICAL",
+  "basis": "USER_AUTHORIZED_AGENT_COMPLETION",
+  "completedBy": "Codex",
+  "authorization": "triển khai đến khi xong sprint 6",
+  "manualOwnerAcceptance": "NOT_SEPARATELY_RECORDED",
+  "institutionalApproval": "NOT_CLAIMED",
+  "productionReadiness": "NOT_READY",
+  "scope": "REVIEW_SUPPLEMENT_RESOLUTION_DOCX_PDF_DOWNLOAD_BUNDLE",
+  "testedImplementationCommit": "971afe4b41d590b213e2c5b0c3b6a5436c51beff",
+  "automatedTests": {
+    "passed": 684,
+    "failed": 0,
+    "skipped": 1,
+    "apiUnitPassed": 181,
+    "apiIntegrationPassed": 307,
+    "webPassed": 124,
+    "adrPassed": 44,
+    "demoGuardsPassed": 28,
+    "nuxtAcceptanceIncludedInWeb": true,
+    "testedAt": "2026-10-14"
+  },
+  "quality": {
+    "apiTypecheck": "PASS",
+    "apiLint": "PASS",
+    "format": "PASS",
+    "apiBuild": "PASS",
+    "webBuild": "PASS",
+    "postCommitAdrGate": "PASS"
+  },
+  "browserRehearsal": {
+    "runId": "834c54f6-af76-480a-ad7a-5e147f9d659b",
+    "status": "PASS",
+    "checksPassed": 20,
+    "responsiveChecksPassed": 24,
+    "pageErrors": 0,
+    "terminalState": "STOPPED",
+    "reportPath": "run/workflow-demo/834c54f6-af76-480a-ad7a-5e147f9d659b/browser-report.json",
+    "reportSha256": "9b52b55f62b77762ababaf5b427491886fff971cd94d11f9c697ecfc4e2f1dff",
+    "documentInventorySha256": "de97c9e1fbdb2311928cb9ca3c5c6eeaa57f02b78bb25865874380cc889f7f18",
+    "visualReviewPath": "run/workflow-demo/834c54f6-af76-480a-ad7a-5e147f9d659b/qa/visual-review.json",
+    "visualReviewSha256": "e4f137efa67e7ffc533f03356755c841bca673218bac49ed3e63ffd6c0374a50",
+    "screenshotsVisuallyInspected": 12,
+    "documentPagesVisuallyInspected": 6,
+    "readableUiTilesInspected": 7,
+    "startupElapsedMs": 109954
+  },
+  "documents": {
+    "storedPairs": 3,
+    "storedFiles": 6,
+    "jobs": 6,
+    "attemptsPerJob": 1,
+    "signerActivated": false,
+    "templateSha256": "9074a0b961cf66b625d4339c4473a42c7bfc3d981816f821fa78552c7fae8ca2",
+    "pdfLayoutCheckSha256": "0683ecaa72c9130fb9344380c94454a77d203b3fe8ea07576c7bc68f6378db6e",
+    "wordPdfRasterPairsEqual": 3
+  },
+  "defaultApiDocumentMode": "ON_DEMAND_RENDERING",
+  "persistedVaultScope": "ISOLATED_SYNTHETIC_REHEARSAL",
+  "evidenceDocument": "docs/sprint-6-closure.md",
+  "outsideSprint6": [
+    "Digital signature and issuance (Sprint 7)",
+    "B2 activation on main runtime and legacy development upgrade",
+    "Other-device backup/restore, malware scanning, retention and production load/UAT"
+  ]
+}
