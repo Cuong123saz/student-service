@@ -104,7 +104,9 @@ export interface ReviewQueueQuery {
   q?: string
   cursor?: string
 }
+export type ReviewQueueCounts = Record<ReviewSubmissionSummary['status'], number>
 export interface ReviewQueuePage {
+  counts?: ReviewQueueCounts
   items: ReviewSubmissionSummary[]
   nextCursor: string | null
 }

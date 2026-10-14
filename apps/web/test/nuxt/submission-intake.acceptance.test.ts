@@ -875,3 +875,51 @@ describe('handover in intake', () => {
     host.unmount()
   })
 })
+
+describe('scoped queue totals', () => {
+  const counts = { SUBMITTED: 68, IN_REVIEW: 7, NEEDS_SUPPLEMENT: 2, APPROVED: 4, REJECTED: 0 }
+  it('shows server totals beyond one page and never guesses missing totals', async () => {
+    api.list.mockResolvedValueOnce({ items: [sample()], nextCursor: 'next', counts })
+    const wrapper = await mountSuspended(SubmissionIntake, { props: { portal: 'user' } })
+    await flushPromises()
+    expect(wrapper.get('#queue-count-SUBMITTED').text()).toContain('68')
+    expect(wrapper.get('#queue-count-IN_REVIEW').text()).toContain('7')
+    expect(wrapper.get('#queue-count-REJECTED').text()).toContain('0')
+    expect(wrapper.get('[aria-label="Chờ tiếp nhận"]').attributes('aria-describedby')).toBe(
+      'queue-count-SUBMITTED',
+    )
+    expect(wrapper.get('.queue-totals').text()).toContain('68 hồ sơ')
+    api.list.mockResolvedValueOnce({ items: [sample()], nextCursor: null })
+    await button(wrapper, 'Tải lại').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.queue-count').exists()).toBe(false)
+    expect(wrapper.find('.queue-totals').exists()).toBe(false)
+    wrapper.unmount()
+  })
+  it('clears totals while applying filters and ignores an old page arriving late', async () => {
+    api.list.mockResolvedValueOnce({ items: [sample()], nextCursor: 'next', counts })
+    const wrapper = await mountSuspended(SubmissionIntake, { props: { portal: 'admin' } })
+    await flushPromises()
+    let finish!: (value: ReviewQueuePage) => void
+    api.list.mockReturnValueOnce(
+      new Promise<ReviewQueuePage>((done) => {
+        finish = done
+      }),
+    )
+    await button(wrapper, 'Tải thêm 20 hồ sơ').trigger('click')
+    const filtered = { SUBMITTED: 0, IN_REVIEW: 1, NEEDS_SUPPLEMENT: 0, APPROVED: 0, REJECTED: 0 }
+    api.list.mockResolvedValueOnce({ items: [], nextCursor: null, counts: filtered })
+    await wrapper.get('[aria-label="Đang xử lý"]').trigger('click')
+    await flushPromises()
+    finish({ items: [sample()], nextCursor: null, counts })
+    await flushPromises()
+    expect(wrapper.get('#queue-count-SUBMITTED').text()).toContain('0')
+    expect(wrapper.get('.queue-totals').text()).toContain('1 hồ sơ')
+    api.list.mockRejectedValueOnce({ status: 403, message: 'Đã mất quyền', issues: [] })
+    await button(wrapper, 'Tải lại').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.queue-count').exists()).toBe(false)
+    expect(wrapper.find('.intake-list').exists()).toBe(false)
+    wrapper.unmount()
+  })
+})

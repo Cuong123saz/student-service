@@ -4,6 +4,7 @@ import type {
   ReviewSubmissionSummary,
   ResolutionAction,
   ReviewQueueQuery,
+  ReviewQueueCounts,
 } from '~/types/submission'
 import type { SessionUser } from '~/types/auth'
 import type { ProcedureApiError } from '~/types/procedure'
@@ -23,6 +24,7 @@ const searchText = ref('')
 const assignment = ref<NonNullable<ReviewQueueQuery['assignment']>>('ALL')
 const queueApplied = ref<ReviewQueueQuery>({ status: 'SUBMITTED', assignment: 'ALL', q: '' })
 const queueCursor = ref<string | null>(null)
+const queueCounts = ref<ReviewQueueCounts | null>(null)
 const queueRetryMore = ref(false)
 const queueMoreLoading = ref(false)
 let mounted = false
@@ -162,6 +164,7 @@ async function load(more = false) {
   if (!props.id && !more) {
     entries.value = []
     queueCursor.value = null
+    queueCounts.value = null
   }
   loading.value = true
   message.value = ''
@@ -185,6 +188,7 @@ async function load(more = false) {
           ]
         : current.items
       queueCursor.value = current.nextCursor
+      queueCounts.value = current.counts ?? null
     }
     failure.value = null
     reloadRequired.value = false
@@ -195,6 +199,7 @@ async function load(more = false) {
       if (!props.id && (status === 401 || status === 403)) {
         entries.value = []
         queueCursor.value = null
+        queueCounts.value = null
         queueRetryMore.value = false
       }
       fail(error)
@@ -269,6 +274,7 @@ watch(
     loadSequence++
     entries.value = []
     queueCursor.value = null
+    queueCounts.value = null
     detail.value = null
     failure.value = null
     message.value = ''
@@ -343,10 +349,20 @@ watch(
         type="button"
         :variant="selectedStatus === group.status ? 'primary' : 'secondary'"
         :aria-pressed="selectedStatus === group.status"
+        :aria-label="group.label"
+        :aria-describedby="queueCounts ? 'queue-count-' + group.status : undefined"
         @click="selectStatus(group.status)"
-        >{{ group.label }}</BaseButton
+        >{{ group.label }}
+        <span v-if="queueCounts" :id="'queue-count-' + group.status" class="queue-count">
+          {{ queueCounts[group.status].toLocaleString('vi-VN') }}
+          <span class="queue-count-unit">hồ sơ</span>
+        </span></BaseButton
       >
     </div>
+    <p v-if="!id && queueCounts" class="queue-totals" role="status">
+      Nhóm đang chọn có {{ queueCounts[selectedStatus].toLocaleString('vi-VN') }} hồ sơ theo bộ lọc
+      đã áp dụng. Số liệu tại lần tải thành công gần nhất; chọn Tải lại để cập nhật.
+    </p>
     <form
       v-if="!id"
       class="queue-search"
@@ -691,6 +707,29 @@ watch(
 </template>
 
 <style scoped>
+.queue-count {
+  display: inline-flex;
+  margin-left: 8px;
+  min-width: 24px;
+  justify-content: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.queue-count-unit {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.queue-totals {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.65;
+}
 .queue-search {
   display: flex;
   gap: 16px;

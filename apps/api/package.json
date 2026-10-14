@@ -56,7 +56,8 @@
     "rehearse:sprint4": "node scripts/workflow-demo.mjs --fake-data-only --sprint4",
     "rehearse:mock-signature": "node scripts/rehearse-mock-signature.mjs --fake-data-only",
     "rehearse:mock-signature:workflow": "node scripts/workflow-demo.mjs --fake-data-only --mock-signature",
-    "rehearse:sprint5": "node scripts/workflow-demo.mjs --fake-data-only --sprint5"
+    "rehearse:sprint5": "node scripts/workflow-demo.mjs --fake-data-only --sprint5",
+    "rehearse:queue-counts": "node scripts/workflow-demo.mjs --fake-data-only --queue-counts"
   },
   "type": "module",
   "dependencies": {

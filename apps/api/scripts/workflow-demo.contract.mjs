@@ -10,6 +10,12 @@ export const documentDemoApi = 'http://127.0.0.2:3012'
 export const bundleDemoOrigin = 'http://127.0.0.3:3015'
 export const bundleDemoApi = 'http://127.0.0.3:3014'
 const profiles = {
+  'queue-counts': {
+    kind: 'queue-counts',
+    webUrl: 'http://127.0.0.10:3029',
+    apiUrl: 'http://127.0.0.10:3028',
+    activeFile: 'workflow-queue-counts-demo-active.json',
+  },
   sprint5: {
     kind: 'sprint5',
     webUrl: 'http://127.0.0.9:3027',
@@ -66,25 +72,9 @@ const profiles = {
   },
 }
 export function demoProfile(args) {
-  return profiles[
-    args[1] === '--sprint5'
-      ? 'sprint5'
-      : args[1] === '--mock-signature'
-        ? 'mock-signature'
-        : args[1] === '--sprint4'
-          ? 'sprint4'
-          : args[1] === '--workspace-vault'
-            ? 'workspace-vault'
-            : args[1] === '--retry'
-              ? 'retry'
-              : args[1] === '--vault'
-                ? 'vault'
-                : args[1] === '--documents'
-                  ? 'documents'
-                  : args[1] === '--bundles'
-                    ? 'bundles'
-                    : 'workflow'
-  ]
+  return (
+    Object.values(profiles).find((profile) => args[1] === '--' + profile.kind) ?? profiles.workflow
+  )
 }
 export const demoPassword = 'DemoSinhVien#2026!'
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
@@ -99,6 +89,7 @@ export function demoAction(args, env) {
       '--workspace-vault',
       '--sprint4',
       '--sprint5',
+      '--queue-counts',
       '--mock-signature',
     ].includes(args[1])
       ? 2
@@ -175,8 +166,12 @@ export async function claimDemoBrowserRun(projectRoot, runId) {
 
 export function demoChildExitFailed(label, code) {
   return !(
-    ['retry-browser', 'sprint4-browser', 'sprint5-browser', 'mock-signature-browser'].includes(
-      label,
-    ) && code === 0
+    [
+      'retry-browser',
+      'sprint4-browser',
+      'sprint5-browser',
+      'mock-signature-browser',
+      'queue-counts-browser',
+    ].includes(label) && code === 0
   )
 }

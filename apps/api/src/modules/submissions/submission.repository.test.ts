@@ -1782,7 +1782,11 @@ for (const portal of ['user', 'admin'] as const) {
     )
     assert.deepEqual(
       (await f.app.inject({ url: base + '?status=IN_REVIEW', headers: { cookie } })).json(),
-      { items: [], nextCursor: null },
+      {
+        items: [],
+        nextCursor: null,
+        counts: { SUBMITTED: 1, IN_REVIEW: 0, NEEDS_SUPPLEMENT: 0, APPROVED: 0, REJECTED: 0 },
+      },
     )
     const detail = await f.app.inject({ url: base + '/' + sent.id, headers: { cookie } })
     assert.equal(detail.statusCode, 200, detail.body)
@@ -1848,7 +1852,11 @@ for (const portal of ['user', 'admin'] as const) {
     assert.equal(claimed.json<{ status: string }>().status, 'IN_REVIEW')
     assert.deepEqual(
       (await f.app.inject({ url: base + '?status=SUBMITTED', headers: { cookie } })).json(),
-      { items: [], nextCursor: null },
+      {
+        items: [],
+        nextCursor: null,
+        counts: { SUBMITTED: 0, IN_REVIEW: 1, NEEDS_SUPPLEMENT: 0, APPROVED: 0, REJECTED: 0 },
+      },
     )
     await db.delete(rolePermissions).where(eq(rolePermissions.roleId, reviewer.roleId))
     for (const url of [base, base + '/' + sent.id, filePath])
@@ -2654,7 +2662,11 @@ for (const portal of ['user', 'admin'] as const) {
       for (const state of ['APPROVED', 'REJECTED'])
         assert.deepEqual(
           (await f.app.inject({ url: base + '?status=' + state, headers: { cookie } })).json(),
-          { items: [], nextCursor: null },
+          {
+            items: [],
+            nextCursor: null,
+            counts: { SUBMITTED: 0, IN_REVIEW: 0, NEEDS_SUPPLEMENT: 1, APPROVED: 0, REJECTED: 0 },
+          },
         )
       const filePath = base + '/' + sent.id + '/rounds/1/files/' + sent.files[0]!.id
       assert.equal((await f.app.inject({ url: filePath })).statusCode, 401)
@@ -3295,6 +3307,13 @@ test('queue seeks more than50 rows with tied microsecond timestamps and never sk
       ...(cursor ? { cursor } : {}),
     })
     assert.ok(page.items.length <= 20)
+    assert.deepEqual(page.counts, {
+      SUBMITTED: 68,
+      IN_REVIEW: 0,
+      NEEDS_SUPPLEMENT: 0,
+      APPROVED: 0,
+      REJECTED: 0,
+    })
     seen.push(...page.items.map((row) => row.id))
     if (page.nextCursor)
       assert.match(
@@ -3336,6 +3355,7 @@ test('queue search and assignment filter before limit, literal wildcards cannot 
   const target = await f.service.reviewList(f.reviewer.userId, { q: 'q065' })
   assert.equal(target.items.length, 1)
   assert.equal(target.items[0]!.student.studentCode, 'Q065')
+  assert.equal(target.counts.SUBMITTED, 1)
   for (const q of ['50%_\\test', '%', '\\'])
     assert.equal((await f.service.reviewList(f.reviewer.userId, { q })).items.length, 1)
   for (const q of ["' OR 1=1 --", 'Nội dung riêng tư', 'Không tồn tại'])
@@ -3355,6 +3375,12 @@ test('queue search and assignment filter before limit, literal wildcards cannot 
     [f.sent.id],
   )
   assert.equal(mine.nextCursor, null)
+  assert.equal(mine.counts.IN_REVIEW, 1)
+  assert.equal(mine.counts.SUBMITTED, 0)
+  assert.equal(
+    (await f.service.reviewList(f.reviewer.userId, { assignment: 'UNASSIGNED' })).counts.SUBMITTED,
+    67,
+  )
   assert.equal(
     (
       await f.service.reviewList(f.reviewer.userId, {
@@ -3369,7 +3395,9 @@ test('queue search and assignment filter before limit, literal wildcards cannot 
     .insert(organizationalUnits)
     .values({ id: outsiderUnit, code: 'S5T_' + randomUUID(), name: 'Khác' })
   const outsider = await addReviewer(outsiderUnit)
-  assert.deepEqual((await f.service.reviewList(outsider.userId, { q: 'Q065' })).items, [])
+  const outside = await f.service.reviewList(outsider.userId, { q: 'Q065' })
+  assert.deepEqual(outside.items, [])
+  assert.ok(Object.values(outside.counts).every((n) => n === 0))
   assert.deepEqual(
     Object.keys(target.items[0]!).sort(),
     [
@@ -3404,6 +3432,8 @@ for (const portal of ['user', 'admin'] as const)
     })
     assert.equal(first.statusCode, 200, first.body)
     const page = first.json<ReviewQueuePage>()
+    assert.equal(page.counts.SUBMITTED, 24)
+    assert.equal(typeof page.counts.SUBMITTED, 'number')
     assert.equal(page.items.length, 20)
     assert.ok(page.nextCursor)
     const second = await app.inject({
@@ -3413,6 +3443,7 @@ for (const portal of ['user', 'admin'] as const)
     })
     assert.equal(second.statusCode, 200, second.body)
     assert.equal(second.json<ReviewQueuePage>().items.length, 4)
+    assert.deepEqual(second.json<ReviewQueuePage>().counts, page.counts)
     for (const query of [
       'status=DRAFT',
       'assignment=OTHER',
@@ -4038,4 +4069,86 @@ test('20 MiB bundle keeps four maximum-size PDFs intact, rejects overflow and re
     assert.equal(conversions, 3)
   }
   assert.equal(conversions, realConverter ? 3 : 1)
+})
+
+test('queue totals cover all statuses, exclude drafts/self/designated foreign cases and use current scope', async () => {
+  const first = await fixture()
+  const reviewer = await addReviewer(first.unitId, 'GLOBAL')
+  await db
+    .insert(permissions)
+    .values({ code: 'submission.reject', name: 'Trả hồ sơ' })
+    .onConflictDoNothing()
+  const [reject] = await db
+    .select()
+    .from(permissions)
+    .where(eq(permissions.code, 'submission.reject'))
+  await db.insert(rolePermissions).values({ roleId: reviewer.roleId, permissionId: reject!.id })
+  const all = [first]
+  for (const wanted of [
+    'SUBMITTED',
+    'IN_REVIEW',
+    'NEEDS_SUPPLEMENT',
+    'APPROVED',
+    'REJECTED',
+  ] as const) {
+    const f = wanted === 'SUBMITTED' ? first : await fixture()
+    if (f !== first) all.push(f)
+    const ready = await complete(f)
+    const detail = await f.service.submit(f.actor, ready.id, ready.revision)
+    if (wanted !== 'SUBMITTED') {
+      const claimed = await f.service.claim(reviewer, detail.id, detail.revision)
+      if (wanted !== 'IN_REVIEW')
+        await f.service.resolve(
+          reviewer,
+          claimed.id,
+          claimed.revision,
+          wanted === 'NEEDS_SUPPLEMENT'
+            ? 'REQUEST_SUPPLEMENT'
+            : wanted === 'APPROVED'
+              ? 'APPROVE'
+              : 'REJECT',
+          'Lý do giả định',
+        )
+    }
+  }
+  const draftOnly = await fixture()
+  await draftOnly.create()
+  const designated = await fixture('ONLINE', true)
+  const ready = await complete(designated)
+  await designated.service.submit(designated.actor, ready.id, ready.revision)
+  const [original] = await db
+    .select()
+    .from(submissions)
+    .where(eq(submissions.studentUserId, first.actor.userId))
+  await db
+    .insert(submissions)
+    .values({ ...original!, id: randomUUID(), studentUserId: reviewer.userId })
+  const expected = { SUBMITTED: 1, IN_REVIEW: 1, NEEDS_SUPPLEMENT: 1, APPROVED: 1, REJECTED: 1 }
+  const page = await first.service.reviewList(reviewer.userId, { status: 'APPROVED' })
+  assert.deepEqual(page.counts, expected)
+  assert.equal(page.items.length, 1)
+  assert.equal(page.items[0]!.status, 'APPROVED')
+  assert.deepEqual(
+    (await first.service.reviewList(reviewer.userId, { q: 'Nội dung riêng tư' })).counts,
+    { SUBMITTED: 0, IN_REVIEW: 0, NEEDS_SUPPLEMENT: 0, APPROVED: 0, REJECTED: 0 },
+  )
+  const scoped = await addReviewer(first.unitId)
+  // The other reviewer can see the global reviewer's case; only one's own case is excluded.
+  assert.deepEqual((await first.service.reviewList(scoped.userId)).counts, {
+    SUBMITTED: 2,
+    IN_REVIEW: 0,
+    NEEDS_SUPPLEMENT: 0,
+    APPROVED: 0,
+    REJECTED: 0,
+  })
+  await db
+    .update(organizationalUnits)
+    .set({ status: 'INACTIVE' })
+    .where(eq(organizationalUnits.id, all[2]!.unitId))
+  assert.deepEqual((await first.service.reviewList(reviewer.userId)).counts, {
+    ...expected,
+    NEEDS_SUPPLEMENT: 0,
+  })
+  await db.update(users).set({ status: 'INACTIVE' }).where(eq(users.id, reviewer.userId))
+  await assert.rejects(() => first.service.reviewList(reviewer.userId), errorCode(403))
 })

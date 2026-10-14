@@ -37,6 +37,7 @@ const profile = demoProfile(process.argv.slice(2))
 const retryRehearsal = profile.kind === 'retry'
 const sprint4Rehearsal = profile.kind === 'sprint4'
 const sprint5Rehearsal = profile.kind === 'sprint5'
+const queueCountsRehearsal = profile.kind === 'queue-counts'
 const signatureRehearsal = profile.kind === 'mock-signature'
 const vaultEnabled =
   ['vault', 'workspace-vault', 'mock-signature'].includes(profile.kind) || retryRehearsal
@@ -309,6 +310,20 @@ if (action === 'stop') {
         VALUES(${service.id},${first.owner_unit_id},1,'PUBLISHED',${sql.json(selected)},${fixture.reviewer.id},${fixture.reviewer.id},now()) RETURNING id`
       services.push({ id: service.id, versionId: version.id, purpose: 'draft-acceptance' })
     }
+    if (queueCountsRehearsal) {
+      await sql`UPDATE organizational_units SET name='Phòng CTSV — giả định' WHERE id=${first.owner_unit_id}`
+      for (let index = 1; index <= 25; index++) {
+        const selected = { ...config, attachments: [] }
+        const name = 'SPRINT 6 - Lô giả ' + String(index).padStart(2, '0')
+        const [service] =
+          await sql`INSERT INTO services(code,name,description,processing_days,status)
+          VALUES(${'QUEUE_COUNTS_' + index},${name},'Chỉ dùng dữ liệu giả để kiểm chứng hàng đợi.',3,'ACTIVE') RETURNING id`
+        const [version] =
+          await sql`INSERT INTO procedure_versions(service_id,owner_unit_id,version_number,status,config,created_by,updated_by,published_at)
+          VALUES(${service.id},${first.owner_unit_id},1,'PUBLISHED',${sql.json(selected)},${fixture.reviewer.id},${fixture.reviewer.id},now()) RETURNING id`
+        services.push({ id: service.id, versionId: version.id, purpose: 'queue-counts' })
+      }
+    }
     if (sprint4Rehearsal) {
       await sql`UPDATE organizational_units SET name='Phòng Công tác Sinh viên (CTSV) — giả định' WHERE id=${first.owner_unit_id}`
       await sql`INSERT INTO roles(code,name,is_system) VALUES('SPRINT4_CONFIG','Cấu hình trong đơn vị — giả định',false)`
@@ -578,6 +593,23 @@ if (action === 'stop') {
             : {}),
         },
         'sprint5-browser',
+      )
+    }
+    if (queueCountsRehearsal) {
+      launch(
+        join(apiRoot, 'scripts/check-queue-counts-demo.mjs'),
+        apiRoot,
+        {
+          ...inherited,
+          WORKFLOW_COUNTS_STATE_PATH: join(runRoot, 'state.json'),
+          ...(process.env.WORKFLOW_PLAYWRIGHT_MODULE
+            ? { WORKFLOW_PLAYWRIGHT_MODULE: process.env.WORKFLOW_PLAYWRIGHT_MODULE }
+            : {}),
+          ...(process.env.WORKFLOW_CHROMIUM_EXECUTABLE
+            ? { WORKFLOW_CHROMIUM_EXECUTABLE: process.env.WORKFLOW_CHROMIUM_EXECUTABLE }
+            : {}),
+        },
+        'queue-counts-browser',
       )
     }
     if (signatureRehearsal) {
