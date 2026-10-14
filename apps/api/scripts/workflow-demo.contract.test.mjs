@@ -286,3 +286,38 @@ test('Sprint 4 rehearsal has fixed isolated origins/state and refuses mixed prof
   assert.equal(demoChildExitFailed('sprint4-browser', 1), true)
   assert.equal(demoChildExitFailed('sprint4-browser', null), true)
 })
+
+test('mock signature rehearsal has a separate origin, state and successful one-shot exit', () => {
+  const p = demoProfile(['--fake-data-only', '--mock-signature'])
+  assert.equal(p.kind, 'mock-signature')
+  assert.equal(demoAction(['--fake-data-only', '--mock-signature'], {}), 'start')
+  assert.throws(() => demoAction(['--fake-data-only', '--mock-signature', '--vault'], {}))
+  const project = resolve('fixture-project'),
+    runId = randomUUID(),
+    root = demoRunRoot(project, runId)
+  const state = {
+    version: 1,
+    fakeDataOnly: true,
+    runId,
+    profile: p.kind,
+    webUrl: p.webUrl,
+    apiUrl: p.apiUrl,
+  }
+  assert.equal(assertDemoState(state, project, join(root, 'state.json'), 'mock-signature'), root)
+  for (const flag of ['--vault', '--workspace-vault', '--retry', '--sprint4']) {
+    const old = demoProfile(['--fake-data-only', flag])
+    assert.notEqual(old.activeFile, p.activeFile)
+    assert.notEqual(new URL(old.webUrl).hostname, new URL(p.webUrl).hostname)
+    assert.throws(() =>
+      assertDemoState(
+        { ...state, profile: old.kind },
+        project,
+        join(root, 'state.json'),
+        'mock-signature',
+      ),
+    )
+  }
+  assert.equal(demoChildExitFailed('mock-signature-browser', 0), false)
+  assert.equal(demoChildExitFailed('mock-signature-browser', 1), true)
+  assert.equal(demoChildExitFailed('api', 0), true)
+})

@@ -10,6 +10,12 @@ export const documentDemoApi = 'http://127.0.0.2:3012'
 export const bundleDemoOrigin = 'http://127.0.0.3:3015'
 export const bundleDemoApi = 'http://127.0.0.3:3014'
 const profiles = {
+  'mock-signature': {
+    kind: 'mock-signature',
+    webUrl: 'http://127.0.0.8:3025',
+    apiUrl: 'http://127.0.0.8:3024',
+    activeFile: 'workflow-mock-signature-demo-active.json',
+  },
   sprint4: {
     kind: 'sprint4',
     webUrl: 'http://127.0.0.7:3023',
@@ -55,19 +61,21 @@ const profiles = {
 }
 export function demoProfile(args) {
   return profiles[
-    args[1] === '--sprint4'
-      ? 'sprint4'
-      : args[1] === '--workspace-vault'
-        ? 'workspace-vault'
-        : args[1] === '--retry'
-          ? 'retry'
-          : args[1] === '--vault'
-            ? 'vault'
-            : args[1] === '--documents'
-              ? 'documents'
-              : args[1] === '--bundles'
-                ? 'bundles'
-                : 'workflow'
+    args[1] === '--mock-signature'
+      ? 'mock-signature'
+      : args[1] === '--sprint4'
+        ? 'sprint4'
+        : args[1] === '--workspace-vault'
+          ? 'workspace-vault'
+          : args[1] === '--retry'
+            ? 'retry'
+            : args[1] === '--vault'
+              ? 'vault'
+              : args[1] === '--documents'
+                ? 'documents'
+                : args[1] === '--bundles'
+                  ? 'bundles'
+                  : 'workflow'
   ]
 }
 export const demoPassword = 'DemoSinhVien#2026!'
@@ -75,9 +83,15 @@ const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 export function demoAction(args, env) {
   assertDrillInvocation(args.slice(0, 1), env)
   const rest = args.slice(
-    ['--documents', '--bundles', '--vault', '--retry', '--workspace-vault', '--sprint4'].includes(
-      args[1],
-    )
+    [
+      '--documents',
+      '--bundles',
+      '--vault',
+      '--retry',
+      '--workspace-vault',
+      '--sprint4',
+      '--mock-signature',
+    ].includes(args[1])
       ? 2
       : 1,
   )
@@ -151,5 +165,7 @@ export async function claimDemoBrowserRun(projectRoot, runId) {
 }
 
 export function demoChildExitFailed(label, code) {
-  return !(['retry-browser', 'sprint4-browser'].includes(label) && code === 0)
+  return !(
+    ['retry-browser', 'sprint4-browser', 'mock-signature-browser'].includes(label) && code === 0
+  )
 }

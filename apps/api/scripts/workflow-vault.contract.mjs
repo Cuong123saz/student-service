@@ -33,18 +33,17 @@ export function assertVaultDemoEnvironment(projectRoot, env, entry, hasIpc) {
     'INVALID_VAULT_DEMO_STORAGE',
   )
   const retry = env.WORKFLOW_VAULT_MODE === 'retry',
-    workspace = env.WORKFLOW_VAULT_MODE === 'workspace'
-  assert.ok(!env.WORKFLOW_VAULT_MODE || retry || workspace, 'INVALID_VAULT_DEMO_MODE')
+    workspace = env.WORKFLOW_VAULT_MODE === 'workspace',
+    signature = env.WORKFLOW_VAULT_MODE === 'signature'
+  assert.ok(!env.WORKFLOW_VAULT_MODE || retry || workspace || signature, 'INVALID_VAULT_DEMO_MODE')
+  const host = signature ? '127.0.0.8' : workspace ? '127.0.0.6' : retry ? '127.0.0.5' : '127.0.0.4'
+  const port = signature ? '3024' : workspace ? '3020' : retry ? '3018' : '3016'
+  const origin = 'http://' + host + ':' + (Number(port) + 1)
   assert.ok(
-    env.API_HOST === (workspace ? '127.0.0.6' : retry ? '127.0.0.5' : '127.0.0.4') &&
-      env.API_PORT === (workspace ? '3020' : retry ? '3018' : '3016') &&
-      env.CORS_ORIGIN ===
-        (workspace
-          ? 'http://127.0.0.6:3021'
-          : retry
-            ? 'http://127.0.0.5:3019'
-            : 'http://127.0.0.4:3017') &&
-      env.WEB_BASE_URL === env.CORS_ORIGIN,
+    env.API_HOST === host &&
+      env.API_PORT === port &&
+      env.CORS_ORIGIN === origin &&
+      env.WEB_BASE_URL === origin,
     'INVALID_VAULT_DEMO_ORIGIN',
   )
   const u = new URL(env.DATABASE_URL)

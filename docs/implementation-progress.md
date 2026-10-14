@@ -1,10 +1,12 @@
 # Tiến độ triển khai và điểm tiếp tục
 
-Cập nhật 14/10/2026. Đây là tiến độ mã nguồn/kiểm chứng local, không thay quy chế hoặc nghiệm thu vận hành của Học viện. Sprint2+3 giữ CLOSED đã ghi nhận; Sprint4 **CLOSED kỹ thuật local theo ủy quyền của chủ dự án**, chưa có biên bản tự thao tác nghiệm thu riêng. Xem [hồ sơ đóng](sprint-4-closure.md).
+Cập nhật 14/10/2026. Đây là tiến độ mã nguồn/kiểm chứng local, không thay quy chế hoặc nghiệm thu vận hành của Học viện. Sprint 2+3 giữ CLOSED đã ghi nhận; Sprint 4 **CLOSED kỹ thuật local theo ủy quyền của chủ dự án**, chưa có biên bản tự thao tác nghiệm thu riêng. Xem [hồ sơ đóng](sprint-4-closure.md).
 
 ## Đã làm và kiểm chứng cục bộ
 
-Sprint4 kiểm chứng cuối ngày13/10:647 bài đạt/1 skip symlink Windows; typecheck/lint/format/API-Web build đạt. Trình duyệt thật run32ecf09e-c140-42ca-a71f-2f1b5d63bd33 đạt10 nhóm/16 responsive/0 lỗiJS,8 ảnh đã xem. Môi trường thử đã dọn; development vẫn dừng. Word/PDF và mock signer theo dõi ngoài phạm vi đóng Sprint4.
+[Kiểm chứng Word/PDF và mock signer](mock-signature-spike.md) ngày14/10 đã PASS: workflow9da75d18-5e7a-4f84-9599-3c914f68b0b4 đạt19 nhóm/24 responsive/0 lỗiJS; mockf6194ce5-539c-43a9-8ca1-2cbd0a51a932 đạt7 nhóm/4 tệp/12 audit riêng, nguồn không đổi. Word/PDF hai round,4 trang đã xem; dấu tiếng Việt,0/false và15/true đúng. Hồi quy API cuối181 đạt/1 skip Windows/0 lỗi, gồm11 adapter và10 profile; CLI2 guard và17 demo guard đạt. Đây là spike trên dữ liệu giả; kết quả NOT_VERIFIED, chưa có nút ký/quyền ký/registry phát hành theo Sprint 7. Profile converter135 file pin hash, mỗi request bản sao riêng; default server/development/demo cũ chưa bật hook. Các database cũ đang exited sau Docker dừng; không báo demo cũ đang hoạt động chỉ từ trang login.
+
+Sprint 4 kiểm chứng cuối ngày13/10:647 bài đạt/1 skip symlink Windows; typecheck/lint/format/API-Web build đạt. Trình duyệt thật run32ecf09e-c140-42ca-a71f-2f1b5d63bd33 đạt10 nhóm/16 responsive/0 lỗiJS,8 ảnh đã xem. Môi trường thử đã dọn; development vẫn dừng. Word/PDF và mock signer theo dõi ngoài phạm vi đóng Sprint 4.
 
 - Nền tảng tài khoản, hồ sơ sinh viên, khoa/lớp/cố vấn, RBAC theo phạm vi và quản trị/import/export.
 - Cấu hình thủ tục có phiên bản: biểu mẫu đủ sáu kiểu trường, yêu cầu minh chứng, đơn vị/cán bộ/hàng đợi. Giấy xác nhận sinh viên OFFLINE tại CTSV.

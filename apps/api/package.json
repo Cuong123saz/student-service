@@ -53,7 +53,9 @@
     "demo:workspace-vault": "node scripts/workflow-demo.mjs --fake-data-only --workspace-vault",
     "demo:workspace-vault:check": "node scripts/check-workflow-demo.mjs --fake-data-only --workspace-vault",
     "development:audit-upgrade": "node scripts/audit-development-upgrade.mjs --offline-development-only",
-    "rehearse:sprint4": "node scripts/workflow-demo.mjs --fake-data-only --sprint4"
+    "rehearse:sprint4": "node scripts/workflow-demo.mjs --fake-data-only --sprint4",
+    "rehearse:mock-signature": "node scripts/rehearse-mock-signature.mjs --fake-data-only",
+    "rehearse:mock-signature:workflow": "node scripts/workflow-demo.mjs --fake-data-only --mock-signature"
   },
   "type": "module",
   "dependencies": {

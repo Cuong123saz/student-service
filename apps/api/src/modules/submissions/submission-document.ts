@@ -186,6 +186,7 @@ export class LibreOfficePdfConverter implements PdfConverter {
     private readonly command = process.env.LIBREOFFICE_PATH?.trim() ||
       (process.platform === 'win32' ? 'soffice.com' : 'soffice'),
     private readonly processRunner: typeof runDocumentConversion = runDocumentConversion,
+    private readonly prepareProfile?: (directory: string) => Promise<void>,
   ) {}
   async convert(docx: Buffer): Promise<Buffer> {
     if (this.quarantined)
@@ -206,6 +207,7 @@ export class LibreOfficePdfConverter implements PdfConverter {
       directory = await mkdtemp(join(tmpdir(), 'student-service-document-'))
       const input = join(directory, 'input.docx')
       await writeFile(input, docx, { flag: 'wx', mode: 0o600 })
+      await this.prepareProfile?.(join(directory, 'profile'))
       await this.processRunner(this.command, [
         '-env:UserInstallation=' + pathToFileURL(join(directory, 'profile')).href,
         '--headless',

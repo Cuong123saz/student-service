@@ -42,6 +42,7 @@ const processObserver = (phase) => ({
 })
 const { runWindowsDocumentProcess } =
   await import('./dist/modules/submissions/submission-document-supervisor.js')
+const signatureMode = process.env.WORKFLOW_VAULT_MODE === 'signature'
 const provenance = await LocalDocumentProvenance.create(
   {
     codeRoots: [join(p.api, 'dist'), join(p.projectRoot, 'node_modules/fflate')],
@@ -50,6 +51,7 @@ const provenance = await LocalDocumentProvenance.create(
       join(p.api, 'package-lock.json'),
       p.entry,
       join(p.api, 'workflow-vault.contract.mjs'),
+      ...(signatureMode ? [join(p.api, 'converter-bootstrap/manifest.json')] : []),
     ],
     converterCommand: process.env.LIBREOFFICE_PATH,
     converterBinary: join(process.env.LIBREOFFICE_PATH, '..', 'soffice.bin'),
@@ -80,10 +82,20 @@ const observedProvenance = {
     }
   },
 }
+const prepareProfile = signatureMode
+  ? await (
+      await import('./dist/modules/signatures/mock-converter-profile.js')
+    ).loadMockConverterProfile(
+      join(p.api, 'converter-bootstrap/profile'),
+      join(p.api, 'converter-bootstrap/manifest.json'),
+      join(process.env.LIBREOFFICE_PATH, '..', 'soffice.bin'),
+    )
+  : undefined
 const converter = new LibreOfficePdfConverter(
   process.env.LIBREOFFICE_PATH,
   (command, args, timeoutMs) =>
     runWindowsDocumentProcess(command, args, timeoutMs ?? 90000, processObserver('PDF')),
+  prepareProfile,
 )
 const localRenderer = new LocalSubmissionDocumentRenderer(
   converter,

@@ -6,9 +6,9 @@ Ngày đóng: 14/10/2026. Trạng thái **CLOSED trong phạm vi kỹ thuật lo
 
 [Kế hoạch Sprint 4](sprint-4-plan.md) và bản kế hoạch Word của chủ dự án cùng xác định Sprint 4 là Procedure configuration: biểu mẫu động, attachment config, nơi xử lý/workflow và phiên bản. Giấy xác nhận sinh viên tiếp tục OFFLINE tại Phòng CTSV; giữ ADR0001/0002.
 
-Kê khai thuộc Sprint5; xét hồ sơ và Word/PDF thuộc Sprint6; ký mô phỏng/verify/audit theo workflow thuộc Sprint7; hardening/UAT thuộc Sprint13. Yêu cầu kiểm chứng Word/PDF và mock signer trong mục tiêu tiếp tục được theo dõi riêng trong [tiến độ](implementation-progress.md); không dùng chúng thay bằng chứng cấu hình.
+Kê khai thuộc Sprint 5; xét hồ sơ và Word/PDF thuộc Sprint 6; ký mô phỏng/verify/audit theo workflow thuộc Sprint 7; hardening/UAT thuộc Sprint 13. Yêu cầu bổ sung kiểm chứng Word/PDF và mock signer đã đạt trong [spike riêng](mock-signature-spike.md); không cộng vào số liệu hoặc dùng thay bằng chứng cấu hình Sprint 4.
 
-Mã triển khai đã kiểm thử: `e847ee04e83bb43f72de9c718b05f266ddc7b62f`, nhánh `feat/procedure-configuration`. Hồ sơ đóng nằm trong commit tài liệu sau commit này. [Trạng thái JSON](sprint-4-status.json) ghi riêng Sprint4; `sprint-status.json` giữ nguyên bằng chứng lịch sử Sprint2+3.
+Mã triển khai đã kiểm thử: `e847ee04e83bb43f72de9c718b05f266ddc7b62f`, nhánh `feat/procedure-configuration`. Hồ sơ đóng nằm trong commit tài liệu sau commit này. [Trạng thái JSON](sprint-4-status.json) ghi riêng Sprint 4; `sprint-status.json` giữ nguyên bằng chứng lịch sử Sprint 2+3.
 
 ## Đối chiếu tiêu chí
 
@@ -59,6 +59,6 @@ Có thể chỉ định WORKFLOW_PLAYWRIGHT_MODULE/WORKFLOW_CHROMIUM_EXECUTABLE 
 
 ## Môi trường và giới hạn
 
-Lượt Sprint4 STOPPED, container đã xóa. Test5434 đã trả về dừng; development5433 vẫn exited, không migrate/reset. Kiểm tra chỉ đọc demo `.6:3021/login` và API `.6:3020/services` trả200; không chạy lại checker hoặc thay dữ liệu demo. Xem `run/sprint4-environment-20261013.json`.
+Lượt Sprint 4 STOPPED, container đã xóa. Test5434 đã trả về dừng; development5433 vẫn exited, không migrate/reset. Kiểm tra chỉ đọc demo `.6:3021/login` và API `.6:3020/services` trả200; không chạy lại checker hoặc thay dữ liệu demo. Xem `run/sprint4-environment-20261013.json`.
 
-Đóng Sprint4 khẳng định phạm vi cấu hình đạt ở local. Chưa triển khai production, xác nhận hiệu lực chữ ký/thẩm quyền ký/mẫu chính thức hoặc nghiệm thu dữ liệu thật. Không dùng hash hoặc duyệt nội dung làm chữ ký số hợp lệ.
+Đóng Sprint 4 khẳng định phạm vi cấu hình đạt ở local. Chưa triển khai production, xác nhận hiệu lực chữ ký/thẩm quyền ký/mẫu chính thức hoặc nghiệm thu dữ liệu thật. Không dùng hash hoặc duyệt nội dung làm chữ ký số hợp lệ.

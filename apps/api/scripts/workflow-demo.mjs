@@ -13,7 +13,12 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { vaultDemoPaths } from './workflow-vault.contract.mjs'
 import { assertRecoveryDirectory, fileDigest } from './recovery-bundle.mjs'
-import { recoveryConfig, seedRecoveryFixture } from './recovery-fixture.mjs'
+import {
+  recoveryConfig,
+  recoveryValues,
+  recoveryStudent,
+  seedRecoveryFixture,
+} from './recovery-fixture.mjs'
 import {
   assertDemoContainer,
   assertDemoDatabase,
@@ -31,7 +36,9 @@ const projectRoot = fileURLToPath(new URL('../../../', import.meta.url)),
 const profile = demoProfile(process.argv.slice(2))
 const retryRehearsal = profile.kind === 'retry'
 const sprint4Rehearsal = profile.kind === 'sprint4'
-const vaultEnabled = ['vault', 'workspace-vault'].includes(profile.kind) || retryRehearsal
+const signatureRehearsal = profile.kind === 'mock-signature'
+const vaultEnabled =
+  ['vault', 'workspace-vault', 'mock-signature'].includes(profile.kind) || retryRehearsal
 const demoOrigin = profile.webUrl,
   demoApi = profile.apiUrl
 const apiAddress = new URL(demoApi),
@@ -382,6 +389,76 @@ if (action === 'stop') {
       env.WORKFLOW_VAULT_DEMO_ID = runId
       if (retryRehearsal) env.WORKFLOW_VAULT_MODE = 'retry'
       if (profile.kind === 'workspace-vault') env.WORKFLOW_VAULT_MODE = 'workspace'
+      if (signatureRehearsal) env.WORKFLOW_VAULT_MODE = 'signature'
+      if (signatureRehearsal) {
+        phase = 'prepare-synthetic-converter-profile'
+        const { bootstrapMockConverterProfile } =
+          await import('../dist/modules/signatures/mock-converter-profile.js')
+        const { readWindowsDocumentProcessOutput } =
+          await import('../dist/modules/submissions/submission-document-supervisor.js')
+        const { LocalSubmissionDocumentRenderer } =
+          await import('../dist/modules/submissions/submission-document.js')
+        const { newDeclarationTemplateBinding } =
+          await import('../dist/modules/submissions/submission-document-template.js')
+        const bootstrapWord = await new LocalSubmissionDocumentRenderer(
+          undefined,
+          join(p.templates, 'submission-summary-v1.docx'),
+        ).render(
+          {
+            id: runId,
+            serviceName: 'Chuẩn bị converter bằng dữ liệu giả',
+            procedure: {
+              ...config,
+              versionId: fixture.versionId,
+              versionNumber: 1,
+              processingUnitName: 'Đơn vị giả',
+            },
+            round: {
+              roundNumber: 1,
+              submittedAt: '2026-10-14T01:00:00Z',
+              source: 'LIVE',
+              files: [],
+              declarationTemplate: newDeclarationTemplateBinding(),
+              studentSnapshot: recoveryStudent,
+              values: recoveryValues(1),
+            },
+          },
+          'docx',
+        )
+        // Keep native startup paths short; only the sealed seed is copied into the runtime.
+        const bootstrapRoot = join(runRoot, 'cp')
+        const result = await bootstrapMockConverterProfile(
+          bootstrapRoot,
+          bootstrapWord,
+          join(process.env.LIBREOFFICE_PATH, '..', 'soffice.bin'),
+          async (args) => {
+            let observation
+            try {
+              await readWindowsDocumentProcessOutput(process.env.LIBREOFFICE_PATH, args, 90000, {
+                finished: (report) => {
+                  observation = report
+                  console.log('MOCK_PROFILE_BOOTSTRAP_PROCESS ' + JSON.stringify(report))
+                },
+              })
+            } catch (error) {
+              if (!(error.message === 'DOCUMENT_CONVERSION_TIMEOUT' && observation?.empty === true))
+                throw error
+            }
+            assert.ok(observation, 'BOOTSTRAP_OBSERVATION_REQUIRED')
+            return observation
+          },
+          { fakeDataOnly: true },
+        )
+        await cp(bootstrapRoot, join(p.api, 'converter-bootstrap'), {
+          recursive: true,
+          force: false,
+          errorOnExist: true,
+        })
+        console.log(
+          'MOCK_CONVERTER_PROFILE_READY ' +
+            JSON.stringify({ attempts: result.attempts, files: result.files, bytes: result.bytes }),
+        )
+      }
       apiEntry = p.entry
     }
     phase = 'start-servers'
@@ -473,6 +550,23 @@ if (action === 'stop') {
         'sprint4-browser',
       )
     }
+    if (signatureRehearsal) {
+      launch(
+        join(apiRoot, 'scripts/check-mock-signature-demo.mjs'),
+        apiRoot,
+        {
+          ...inherited,
+          WORKFLOW_SIGNATURE_STATE_PATH: join(runRoot, 'state.json'),
+          ...(process.env.WORKFLOW_PLAYWRIGHT_MODULE
+            ? { WORKFLOW_PLAYWRIGHT_MODULE: process.env.WORKFLOW_PLAYWRIGHT_MODULE }
+            : {}),
+          ...(process.env.WORKFLOW_CHROMIUM_EXECUTABLE
+            ? { WORKFLOW_CHROMIUM_EXECUTABLE: process.env.WORKFLOW_CHROMIUM_EXECUTABLE }
+            : {}),
+        },
+        'mock-signature-browser',
+      )
+    }
     while (!stopping) {
       try {
         const stop = await readJson(join(runRoot, 'stop.request.json'))
@@ -487,7 +581,11 @@ if (action === 'stop') {
       'WORKFLOW_DEMO_FAILED ' +
         phase +
         ' ' +
-        (/^[A-Z0-9_]+$/.test(error.code || '') ? error.code : 'OPERATION_FAILED'),
+        (/^[A-Z0-9_]+$/.test(error.code || '')
+          ? error.code
+          : /^[A-Z0-9_]+$/.test(error.message || '')
+            ? error.message
+            : 'OPERATION_FAILED'),
     )
     process.exitCode = 1
     await saveState('FAILED')

@@ -49,8 +49,8 @@ Demo trình duyệt Web → API → PostgreSQL và trạng thái cuối được
 
 ## Increment tiếp theo
 
-[Kê khai bản nháp và minh chứng Sprint 5](sprint-5-drafts.md) đã được triển khai tiếp theo theo yêu cầu chủ dự án. Các câu “chưa upload” và số liệu ở trên mô tả phạm vi Sprint 4 tại thời điểm nghiệm thu, không phải trạng thái chức năng toàn dự án hiện tại. Sprint4 đã đóng kỹ thuật theo ủy quyền; nghiệm thu vận hành được ghi riêng khi có bằng chứng.
+[Kê khai bản nháp và minh chứng Sprint 5](sprint-5-drafts.md) đã được triển khai tiếp theo theo yêu cầu chủ dự án. Các câu “chưa upload” và số liệu ở trên mô tả phạm vi Sprint 4 tại thời điểm nghiệm thu, không phải trạng thái chức năng toàn dự án hiện tại. Sprint 4 đã đóng kỹ thuật theo ủy quyền; nghiệm thu vận hành được ghi riêng khi có bằng chứng.
 
 ## Điều kiện đóng sprint
 
-Cấu hình, giao diện, quyền/scope, phiên bản và audit đạt hồi quy cùng diễn tập thật trên dữ liệu giả. Ngày14/10 ghi nhận hoàn tất kỹ thuật theo yêu cầu tự hoàn thành của chủ dự án; chưa có biên bản chủ dự án tự thao tác nghiệm thu riêng. Chưa triển khai production. Nộp hồ sơ/upload/review/Word/PDF/ký thuộc các sprint sau; xem [tiến độ](implementation-progress.md). Không dùng kết quả Sprint3 thay bằng chứng Sprint4.
+Cấu hình, giao diện, quyền/scope, phiên bản và audit đạt hồi quy cùng diễn tập thật trên dữ liệu giả. Ngày 14/10 ghi nhận hoàn tất kỹ thuật theo yêu cầu tự hoàn thành của chủ dự án; chưa có biên bản chủ dự án tự thao tác nghiệm thu riêng. Chưa triển khai production. Nộp hồ sơ/upload/review/Word/PDF/ký thuộc các sprint sau; xem [tiến độ](implementation-progress.md). Không dùng kết quả Sprint3 thay bằng chứng Sprint 4.

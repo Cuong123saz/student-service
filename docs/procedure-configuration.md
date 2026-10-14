@@ -1,5 +1,7 @@
 # Cấu hình biểu mẫu và nơi xử lý
 
+Trạng thái cập nhật ngày14/10/2026: Sprint 4 đã đóng kỹ thuật local theo ủy quyền; xem [hồ sơ đóng](sprint-4-closure.md). Các mốc kiểm thử phía dưới giữ theo ngày thực hiện.
+
 ## Cách dùng
 
 Mở trang quản trị /admin/procedures, mục **Biểu mẫu và nơi xử lý**.
