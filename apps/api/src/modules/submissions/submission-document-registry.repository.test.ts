@@ -1292,6 +1292,22 @@ test('0023 registry preserves old rows and enforces lease, publication and prove
               env: { ...process.env, DATABASE_URL: url.toString() },
             },
           )
+          // Preload the competitor before the owner claims its five-second lease.
+          // Windows/tsx startup is outside the competition being tested.
+          const competing =
+            phase === 'STAGED'
+              ? fork(
+                  fileURLToPath(
+                    new URL('../../../scripts/document-registry-crash-worker.mjs', import.meta.url),
+                  ),
+                  [],
+                  {
+                    execArgv: ['--import', 'tsx'],
+                    stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+                    env: { ...process.env, DATABASE_URL: url.toString() },
+                  },
+                )
+              : undefined
           let stderr = ''
           child.stderr?.on('data', (data: Buffer) => {
             stderr += data.toString().slice(0, 2000)
@@ -1299,7 +1315,32 @@ test('0023 registry preserves old rows and enforces lease, publication and prove
           const closed = new Promise<void>((done) => {
             child.once('exit', () => done())
           })
+          const competingClosed = competing
+            ? new Promise<void>((done) => competing.once('exit', () => done()))
+            : Promise.resolve()
+          function ready(worker: ReturnType<typeof fork>) {
+            return new Promise<void>((done, reject) => {
+              const timer = setTimeout(
+                () => reject(new Error('Owned fault worker not ready')),
+                20000,
+              )
+              worker.once('message', (message) => {
+                clearTimeout(timer)
+                if ((message as { phase?: string }).phase === 'READY') done()
+                else reject(new Error('Invalid owned fault worker readiness'))
+              })
+              worker.once('error', (error) => {
+                clearTimeout(timer)
+                reject(error)
+              })
+              worker.once('exit', () => {
+                clearTimeout(timer)
+                reject(new Error('Owned fault worker exited before readiness'))
+              })
+            })
+          }
           try {
+            await Promise.all([ready(child), ...(competing ? [ready(competing)] : [])])
             const message = await new Promise<{ phase: string; attemptId: string }>(
               (done, reject) => {
                 const timer = setTimeout(
@@ -1334,21 +1375,7 @@ test('0023 registry preserves old rows and enforces lease, publication and prove
             )
             assert.equal(message.phase, phase)
 
-            if (phase === 'STAGED') {
-              const competing = fork(
-                fileURLToPath(
-                  new URL('../../../scripts/document-registry-crash-worker.mjs', import.meta.url),
-                ),
-                [],
-                {
-                  execArgv: ['--import', 'tsx'],
-                  stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-                  env: { ...process.env, DATABASE_URL: url.toString() },
-                },
-              )
-              const competingClosed = new Promise<void>((done) => {
-                competing.once('exit', () => done())
-              })
+            if (competing) {
               try {
                 const competingResult = await new Promise<{ phase: string; code: string }>(
                   (done, reject) => {
@@ -1450,8 +1477,10 @@ test('0023 registry preserves old rows and enforces lease, publication and prove
               )
             }
           } finally {
+            if (competing && competing.exitCode === null && competing.signalCode === null)
+              competing.kill('SIGKILL')
             if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
-            await closed
+            await Promise.all([closed, competingClosed])
           }
         },
       )

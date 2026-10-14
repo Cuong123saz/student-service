@@ -3,6 +3,7 @@ import type { DraftValues, StudentDraft } from '~/types/submission'
 import type { ProcedureApiError, ProcedureField, ProcedureIssue } from '~/types/procedure'
 import {
   formatSubmissionAnswer,
+  formatSubmissionBytes,
   formatSubmissionTime,
   submissionIssueAnchor,
   submissionStatusLabels,
@@ -492,8 +493,8 @@ onBeforeRouteLeave(
           Biểu mẫu này không yêu cầu tệp minh chứng.
         </p>
         <p v-else class="draft-help">
-          Tổng tệp tối đa {{ (draft.procedure.maxTotalAttachmentBytes / 1048576).toFixed(1) }} MiB.
-          Tệp được lưu riêng cho hồ sơ của bạn.
+          Tổng tệp tối đa {{ formatSubmissionBytes(draft.procedure.maxTotalAttachmentBytes) }}. Tệp
+          được lưu riêng cho hồ sơ của bạn.
         </p>
         <p v-if="dirty && draft.procedure.attachments.length" class="draft-warning">
           Lưu thông tin trước khi tải hoặc gỡ minh chứng.
@@ -515,7 +516,7 @@ onBeforeRouteLeave(
                 .join(', ')
             }}
             · Tối đa {{ attachment.maxFiles }} tệp ·
-            {{ (attachment.maxBytes / 1048576).toFixed(1) }} MiB/tệp
+            {{ formatSubmissionBytes(attachment.maxBytes) }}/tệp
           </p>
           <p
             v-if="issueFor('attachments.' + attachment.key)"
@@ -552,7 +553,7 @@ onBeforeRouteLeave(
               :key="file.id"
             >
               <a :href="api.downloadUrl(draft.id, file.id)">{{ file.name }}</a>
-              <small>{{ (file.size / 1024).toFixed(1) }} KiB · Chữ ký chưa được xác minh</small>
+              <small>{{ formatSubmissionBytes(file.size) }} · Chữ ký chưa được xác minh</small>
               <BaseButton
                 v-if="!submitted"
                 type="button"

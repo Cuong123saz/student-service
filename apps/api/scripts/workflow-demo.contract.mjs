@@ -10,6 +10,12 @@ export const documentDemoApi = 'http://127.0.0.2:3012'
 export const bundleDemoOrigin = 'http://127.0.0.3:3015'
 export const bundleDemoApi = 'http://127.0.0.3:3014'
 const profiles = {
+  sprint5: {
+    kind: 'sprint5',
+    webUrl: 'http://127.0.0.9:3027',
+    apiUrl: 'http://127.0.0.9:3026',
+    activeFile: 'workflow-sprint5-demo-active.json',
+  },
   'mock-signature': {
     kind: 'mock-signature',
     webUrl: 'http://127.0.0.8:3025',
@@ -61,21 +67,23 @@ const profiles = {
 }
 export function demoProfile(args) {
   return profiles[
-    args[1] === '--mock-signature'
-      ? 'mock-signature'
-      : args[1] === '--sprint4'
-        ? 'sprint4'
-        : args[1] === '--workspace-vault'
-          ? 'workspace-vault'
-          : args[1] === '--retry'
-            ? 'retry'
-            : args[1] === '--vault'
-              ? 'vault'
-              : args[1] === '--documents'
-                ? 'documents'
-                : args[1] === '--bundles'
-                  ? 'bundles'
-                  : 'workflow'
+    args[1] === '--sprint5'
+      ? 'sprint5'
+      : args[1] === '--mock-signature'
+        ? 'mock-signature'
+        : args[1] === '--sprint4'
+          ? 'sprint4'
+          : args[1] === '--workspace-vault'
+            ? 'workspace-vault'
+            : args[1] === '--retry'
+              ? 'retry'
+              : args[1] === '--vault'
+                ? 'vault'
+                : args[1] === '--documents'
+                  ? 'documents'
+                  : args[1] === '--bundles'
+                    ? 'bundles'
+                    : 'workflow'
   ]
 }
 export const demoPassword = 'DemoSinhVien#2026!'
@@ -90,6 +98,7 @@ export function demoAction(args, env) {
       '--retry',
       '--workspace-vault',
       '--sprint4',
+      '--sprint5',
       '--mock-signature',
     ].includes(args[1])
       ? 2
@@ -166,6 +175,8 @@ export async function claimDemoBrowserRun(projectRoot, runId) {
 
 export function demoChildExitFailed(label, code) {
   return !(
-    ['retry-browser', 'sprint4-browser', 'mock-signature-browser'].includes(label) && code === 0
+    ['retry-browser', 'sprint4-browser', 'sprint5-browser', 'mock-signature-browser'].includes(
+      label,
+    ) && code === 0
   )
 }

@@ -39,3 +39,10 @@ export function submissionIssueAnchor(path: string) {
   const key = path.split('.').at(-1)
   return path.startsWith('attachments.') ? '#attachment-' + key : '#field-' + key
 }
+
+// Keep configured limits exact, including small or non-round byte limits.
+export function formatSubmissionBytes(bytes: number) {
+  if (bytes >= 1048576 && bytes % 1048576 === 0) return `${bytes / 1048576} MiB`
+  if (bytes >= 1024 && bytes % 1024 === 0) return `${bytes / 1024} KiB`
+  return `${bytes.toLocaleString('vi-VN')} byte`
+}

@@ -96,9 +96,14 @@ beforeEach(() => {
 describe('student draft editor', () => {
   it('locks profile, identifies unsubmitted draft and saves partial input without profile keys', async () => {
     const initial = sample()
+    initial.procedure.maxTotalAttachmentBytes = 8192
+    initial.procedure.attachments[0]!.maxBytes = 4096
     api.save.mockResolvedValue({ ...initial, revision: 2 })
     const wrapper = await mountSuspended(StudentDraftEditor, { props: { initialDraft: initial } })
     expect(wrapper.get('#field-name').attributes('readonly')).toBeDefined()
+    expect(wrapper.text()).toContain('Tổng tệp tối đa 8 KiB')
+    expect(wrapper.text()).toContain('4 KiB/tệp')
+    expect(wrapper.text()).not.toContain('0.0 MiB')
     expect(wrapper.text()).toContain('Bản nháp · Chưa gửi')
     expect(wrapper.findAll('button').some((b) => b.text() === 'Nộp hồ sơ')).toBe(false)
     await wrapper.get('form').trigger('submit')

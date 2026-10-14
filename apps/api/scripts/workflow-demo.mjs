@@ -36,6 +36,7 @@ const projectRoot = fileURLToPath(new URL('../../../', import.meta.url)),
 const profile = demoProfile(process.argv.slice(2))
 const retryRehearsal = profile.kind === 'retry'
 const sprint4Rehearsal = profile.kind === 'sprint4'
+const sprint5Rehearsal = profile.kind === 'sprint5'
 const signatureRehearsal = profile.kind === 'mock-signature'
 const vaultEnabled =
   ['vault', 'workspace-vault', 'mock-signature'].includes(profile.kind) || retryRehearsal
@@ -296,6 +297,18 @@ if (action === 'stop') {
         await sql`INSERT INTO procedure_versions(service_id,owner_unit_id,version_number,status,config,created_by,updated_by,published_at) VALUES(${service.id},${first.owner_unit_id},1,'PUBLISHED',${sql.json(selected)},${fixture.reviewer.id},${fixture.reviewer.id},now()) RETURNING id`
       services.push({ id: service.id, versionId: version.id, purpose })
     }
+    if (sprint5Rehearsal) {
+      await sql`UPDATE organizational_units SET name='Phòng Công tác Sinh viên (CTSV) — giả định' WHERE id=${first.owner_unit_id}`
+      const selected = structuredClone(config)
+      selected.attachments[0].mimeTypes = ['application/pdf', 'image/png', 'image/jpeg']
+      selected.attachments[0].maxFiles = 2
+      const [service] = await sql`INSERT INTO services(code,name,description,processing_days,status)
+        VALUES('SPRINT5_DRAFT_DEMO','SPRINT 5 - Kê khai hồ sơ giả định','Dữ liệu giả để kiểm chứng kê khai, không cấp văn bản.',3,'ACTIVE') RETURNING id`
+      const [version] =
+        await sql`INSERT INTO procedure_versions(service_id,owner_unit_id,version_number,status,config,created_by,updated_by,published_at)
+        VALUES(${service.id},${first.owner_unit_id},1,'PUBLISHED',${sql.json(selected)},${fixture.reviewer.id},${fixture.reviewer.id},now()) RETURNING id`
+      services.push({ id: service.id, versionId: version.id, purpose: 'draft-acceptance' })
+    }
     if (sprint4Rehearsal) {
       await sql`UPDATE organizational_units SET name='Phòng Công tác Sinh viên (CTSV) — giả định' WHERE id=${first.owner_unit_id}`
       await sql`INSERT INTO roles(code,name,is_system) VALUES('SPRINT4_CONFIG','Cấu hình trong đơn vị — giả định',false)`
@@ -548,6 +561,23 @@ if (action === 'stop') {
             : {}),
         },
         'sprint4-browser',
+      )
+    }
+    if (sprint5Rehearsal) {
+      launch(
+        join(apiRoot, 'scripts/check-sprint5-demo.mjs'),
+        apiRoot,
+        {
+          ...inherited,
+          WORKFLOW_SPRINT5_STATE_PATH: join(runRoot, 'state.json'),
+          ...(process.env.WORKFLOW_PLAYWRIGHT_MODULE
+            ? { WORKFLOW_PLAYWRIGHT_MODULE: process.env.WORKFLOW_PLAYWRIGHT_MODULE }
+            : {}),
+          ...(process.env.WORKFLOW_CHROMIUM_EXECUTABLE
+            ? { WORKFLOW_CHROMIUM_EXECUTABLE: process.env.WORKFLOW_CHROMIUM_EXECUTABLE }
+            : {}),
+        },
+        'sprint5-browser',
       )
     }
     if (signatureRehearsal) {

@@ -321,3 +321,37 @@ test('mock signature rehearsal has a separate origin, state and successful one-s
   assert.equal(demoChildExitFailed('mock-signature-browser', 1), true)
   assert.equal(demoChildExitFailed('api', 0), true)
 })
+
+test('Sprint 5 acceptance owns isolated state, origin, port and one-shot lifecycle', () => {
+  const profile = demoProfile(['--fake-data-only', '--sprint5'])
+  assert.equal(profile.kind, 'sprint5')
+  assert.equal(profile.webUrl, 'http://127.0.0.9:3027')
+  assert.equal(profile.apiUrl, 'http://127.0.0.9:3026')
+  assert.equal(demoAction(['--fake-data-only', '--sprint5'], {}), 'start')
+  assert.equal(demoAction(['--fake-data-only', '--sprint5', 'stop'], {}), 'stop')
+  for (const extra of ['--sprint4', '--vault', '--mock-signature', 'reset'])
+    assert.throws(() => demoAction(['--fake-data-only', '--sprint5', extra], {}))
+  for (const env of [{ DATABASE_URL: 'existing' }, { SUBMISSION_STORAGE_ROOT: 'existing' }])
+    assert.throws(() => demoAction(['--fake-data-only', '--sprint5'], env))
+  const project = resolve('fixture-project'),
+    runId = randomUUID(),
+    root = demoRunRoot(project, runId)
+  const state = {
+    version: 1,
+    fakeDataOnly: true,
+    runId,
+    profile: 'sprint5',
+    webUrl: profile.webUrl,
+    apiUrl: profile.apiUrl,
+  }
+  assert.equal(assertDemoState(state, project, join(root, 'state.json'), 'sprint5'), root)
+  for (const flag of [undefined, '--sprint4', '--mock-signature', '--workspace-vault']) {
+    const old = demoProfile(['--fake-data-only', flag])
+    assert.notEqual(old.activeFile, profile.activeFile)
+    assert.notEqual(new URL(old.webUrl).hostname, new URL(profile.webUrl).hostname)
+    assert.throws(() => assertDemoState(state, project, join(root, 'state.json'), old.kind))
+  }
+  assert.equal(demoChildExitFailed('sprint5-browser', 0), false)
+  assert.equal(demoChildExitFailed('sprint5-browser', 1), true)
+  assert.equal(demoChildExitFailed('sprint5-browser', null), true)
+})

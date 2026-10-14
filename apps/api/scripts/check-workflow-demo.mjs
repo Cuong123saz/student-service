@@ -18,6 +18,7 @@ import { oldBytes, newBytes, recoveryValues, recoveryStudent } from './recovery-
 assert.equal(demoAction(process.argv.slice(2), process.env), 'start')
 const profile = demoProfile(process.argv.slice(2))
 assert.notEqual(profile.kind, 'sprint4', 'USE_PRIVATE_SPRINT4_CHECKER')
+assert.notEqual(profile.kind, 'sprint5', 'USE_PRIVATE_SPRINT5_CHECKER')
 if (profile.kind === 'mock-signature')
   assert.ok(process.send && process.connected, 'REQUIRES_MOCK_SIGNATURE_PARENT')
 const vaultProfile = ['vault', 'workspace-vault', 'mock-signature'].includes(profile.kind)

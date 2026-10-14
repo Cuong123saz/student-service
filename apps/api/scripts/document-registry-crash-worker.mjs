@@ -66,3 +66,6 @@ process.once('message', async (options) => {
     process.disconnect()
   }
 })
+
+// The parent waits for both processes to load before starting the short test lease.
+process.send({ phase: 'READY' })
