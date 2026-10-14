@@ -1,0 +1,43 @@
+{
+  "sprint": 4,
+  "status": "CLOSED",
+  "closedAt": "2026-10-14",
+  "closureScope": "LOCAL_TECHNICAL",
+  "basis": "USER_AUTHORIZED_AGENT_COMPLETION",
+  "completedBy": "Codex",
+  "authorization": "tự haonf thành tới khi xong sprint 4",
+  "manualOwnerAcceptance": "NOT_SEPARATELY_RECORDED",
+  "institutionalApproval": "NOT_CLAIMED",
+  "productionReadiness": "NOT_READY",
+  "scope": "PROCEDURE_CONFIGURATION",
+  "testedImplementationCommit": "e847ee04e83bb43f72de9c718b05f266ddc7b62f",
+  "automatedTests": {
+    "passed": 647,
+    "failed": 0,
+    "skipped": 1,
+    "apiUnitPassed": 160,
+    "apiIntegrationPassed": 306,
+    "webPassed": 122,
+    "adrPassed": 44,
+    "demoGuardsPassed": 15,
+    "testedAt": "2026-10-13"
+  },
+  "browserRehearsal": {
+    "runId": "32ecf09e-c140-42ca-a71f-2f1b5d63bd33",
+    "status": "PASS",
+    "checksPassed": 10,
+    "responsiveChecksPassed": 16,
+    "pageErrors": 0,
+    "screenshotsVisuallyInspected": 8,
+    "terminalState": "STOPPED",
+    "reportPath": "run/workflow-demo/32ecf09e-c140-42ca-a71f-2f1b5d63bd33/browser-report.json",
+    "reportSha256": "063636b63a188a6cbb965ddcb3106708ef590e363c40f863b9ef12e2a1f18903"
+  },
+  "evidenceDocument": "docs/sprint-4-closure.md",
+  "outsideSprint4": [
+    "Student submission",
+    "Review and Word/PDF",
+    "Digital signature MVP",
+    "Production hardening and UAT"
+  ]
+}

@@ -1,6 +1,6 @@
 # Sprint 4 — Cấu hình biểu mẫu và nơi xử lý
 
-Ngày cập nhật: 09/10/2026. Trạng thái: IN_PROGRESS, đã triển khai và kiểm chứng local; chờ chủ dự án nghiệm thu. Không tự ghi nhận Sprint 4 CLOSED khi chủ dự án chưa nghiệm thu.
+Ngày cập nhật: 14/10/2026. Trạng thái: **CLOSED trong phạm vi kỹ thuật local theo ủy quyền của chủ dự án**. Yêu cầu “tự haonf thành tới khi xong sprint 4” là căn cứ ghi nhận hoàn tất; không ghi chữ ký nghiệm thu hoặc phê duyệt của Học viện. Xem [hồ sơ đóng](sprint-4-closure.md) và [trạng thái JSON](sprint-4-status.json).
 
 ## Quyết định nghiệp vụ
 
@@ -30,7 +30,9 @@ Giấy xác nhận sinh viên tiếp tục OFFLINE tại CTSV. Chức năng phá
 
 ONLINE/HYBRID phải có cán bộ ACTIVE có quyền submission.review trong phạm vi đơn vị, hoặc GLOBAL. Đây là kiểm tra tính hợp lệ của cấu hình; chưa có hàng đợi xét duyệt hoặc nộp hồ sơ online. OFFLINE có thể không chọn cán bộ cụ thể.
 
-## Kiểm chứng
+## Kiểm chứng lịch sử ngày 09/10/2026
+
+Các số liệu sau là mốc triển khai đầu. Kết quả cuối ngày13/10 nằm trong [hồ sơ đóng](sprint-4-closure.md).
 
 Chạy bằng Node 22.23.2 và PostgreSQL 17:
 
@@ -47,8 +49,8 @@ Demo trình duyệt Web → API → PostgreSQL và trạng thái cuối được
 
 ## Increment tiếp theo
 
-[Kê khai bản nháp và minh chứng Sprint 5](sprint-5-drafts.md) đã được triển khai tiếp theo theo yêu cầu chủ dự án. Các câu “chưa upload” và số liệu ở trên mô tả phạm vi Sprint 4 tại thời điểm nghiệm thu, không phải trạng thái chức năng toàn dự án hiện tại. Sprint 4 vẫn chờ nghiệm thu riêng.
+[Kê khai bản nháp và minh chứng Sprint 5](sprint-5-drafts.md) đã được triển khai tiếp theo theo yêu cầu chủ dự án. Các câu “chưa upload” và số liệu ở trên mô tả phạm vi Sprint 4 tại thời điểm nghiệm thu, không phải trạng thái chức năng toàn dự án hiện tại. Sprint4 đã đóng kỹ thuật theo ủy quyền; nghiệm thu vận hành được ghi riêng khi có bằng chứng.
 
 ## Điều kiện đóng sprint
 
-Đã có cấu hình và giao diện hoạt động local. Chưa triển khai production, chưa mở nộp hồ sơ/upload/review/ký. Không dùng số liệu nghiệm thu Sprint 3 để thay kết quả kiểm thử hiện tại. Chủ dự án xem increment rồi mới xác nhận đóng Sprint 4.
+Cấu hình, giao diện, quyền/scope, phiên bản và audit đạt hồi quy cùng diễn tập thật trên dữ liệu giả. Ngày14/10 ghi nhận hoàn tất kỹ thuật theo yêu cầu tự hoàn thành của chủ dự án; chưa có biên bản chủ dự án tự thao tác nghiệm thu riêng. Chưa triển khai production. Nộp hồ sơ/upload/review/Word/PDF/ký thuộc các sprint sau; xem [tiến độ](implementation-progress.md). Không dùng kết quả Sprint3 thay bằng chứng Sprint4.

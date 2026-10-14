@@ -58,7 +58,7 @@ Kịch bản demo và biểu mẫu nghiệm thu được ghi tại [`docs/sprint
 
 Mở mục **Biểu mẫu và nơi xử lý** trong quản trị. [Hướng dẫn cấu hình](docs/procedure-configuration.md) mô tả các bước và quyền cần có. Kê khai nháp, upload minh chứng và gửi/tiếp nhận online đã có ở các increment Sprint 5 bên dưới; bổ sung và quyết định nội dung đã có ở increment bên dưới; ký/cấp văn bản thuộc bước sau.
 
-[ADR cấu hình thủ tục](docs/adr/0001-submission-workflow.md) đã Accepted trước migration; [kế hoạch và kết quả Sprint 4](docs/sprint-4-plan.md) ghi rõ phạm vi kiểm chứng local. Sprint 4 vẫn IN_PROGRESS, chưa có xác nhận đóng sprint.
+[ADR cấu hình thủ tục](docs/adr/0001-submission-workflow.md) đã Accepted trước migration; [kế hoạch và kết quả Sprint 4](docs/sprint-4-plan.md) ghi rõ phạm vi kiểm chứng local. Sprint4 **CLOSED về kỹ thuật local ngày14/10/2026 theo ủy quyền của chủ dự án**; [hồ sơ đóng](docs/sprint-4-closure.md) ghi647 kiểm thử đạt/1 bỏ qua và diễn tập trình duyệt thật. Chưa nghiệm thu vận hành hoặc triển khai production.
 
 Migration chạm các bảng cấu hình phải có ADR Accepted và trạng thái đóng Sprint 2+3 trong base commit. Chạy npm run test:sprint4-adr để kiểm tra cổng này.
 

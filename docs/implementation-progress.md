@@ -1,8 +1,10 @@
 # Tiến độ triển khai và điểm tiếp tục
 
-Cập nhật 13/10/2026. Đây là tiến độ mã nguồn/kiểm chứng local, không thay nghiệm thu của chủ dự án hoặc quy chế thực tế của Học viện. Sprint 2+3 giữ trạng thái CLOSED đã ghi nhận; Sprint 4 chưa tự đóng.
+Cập nhật 14/10/2026. Đây là tiến độ mã nguồn/kiểm chứng local, không thay quy chế hoặc nghiệm thu vận hành của Học viện. Sprint2+3 giữ CLOSED đã ghi nhận; Sprint4 **CLOSED kỹ thuật local theo ủy quyền của chủ dự án**, chưa có biên bản tự thao tác nghiệm thu riêng. Xem [hồ sơ đóng](sprint-4-closure.md).
 
 ## Đã làm và kiểm chứng cục bộ
+
+Sprint4 kiểm chứng cuối ngày13/10:647 bài đạt/1 skip symlink Windows; typecheck/lint/format/API-Web build đạt. Trình duyệt thật run32ecf09e-c140-42ca-a71f-2f1b5d63bd33 đạt10 nhóm/16 responsive/0 lỗiJS,8 ảnh đã xem. Môi trường thử đã dọn; development vẫn dừng. Word/PDF và mock signer theo dõi ngoài phạm vi đóng Sprint4.
 
 - Nền tảng tài khoản, hồ sơ sinh viên, khoa/lớp/cố vấn, RBAC theo phạm vi và quản trị/import/export.
 - Cấu hình thủ tục có phiên bản: biểu mẫu đủ sáu kiểu trường, yêu cầu minh chứng, đơn vị/cán bộ/hàng đợi. Giấy xác nhận sinh viên OFFLINE tại CTSV.
