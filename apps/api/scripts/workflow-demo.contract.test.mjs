@@ -387,3 +387,33 @@ test('queue totals rehearsal cannot share origins, stop state or caller configur
   assert.equal(demoChildExitFailed('queue-counts-browser', 0), false)
   assert.equal(demoChildExitFailed('queue-counts-browser', 1), true)
 })
+
+test('Sprint 6 acceptance cannot share origins, stop state or caller configuration', () => {
+  const p = demoProfile(['--fake-data-only', '--sprint6'])
+  assert.equal(p.kind, 'sprint6')
+  assert.equal(p.webUrl, 'http://127.0.0.11:3031')
+  assert.equal(p.apiUrl, 'http://127.0.0.11:3030')
+  assert.equal(demoAction(['--fake-data-only', '--sprint6'], {}), 'start')
+  assert.throws(() => demoAction(['--fake-data-only', '--sprint6', '--sprint5'], {}))
+  assert.throws(() => demoAction(['--fake-data-only', '--sprint6'], { DATABASE_URL: 'existing' }))
+  const project = resolve('fixture-project'),
+    id = randomUUID(),
+    root = demoRunRoot(project, id)
+  const state = {
+    version: 1,
+    fakeDataOnly: true,
+    runId: id,
+    profile: p.kind,
+    webUrl: p.webUrl,
+    apiUrl: p.apiUrl,
+  }
+  assert.equal(assertDemoState(state, project, join(root, 'state.json'), p.kind), root)
+  for (const flag of ['--sprint5', '--sprint4', '--mock-signature', '--workspace-vault']) {
+    const old = demoProfile(['--fake-data-only', flag])
+    assert.notEqual(old.activeFile, p.activeFile)
+    assert.notEqual(new URL(old.webUrl).hostname, new URL(p.webUrl).hostname)
+    assert.throws(() => assertDemoState(state, project, join(root, 'state.json'), old.kind))
+  }
+  assert.equal(demoChildExitFailed('sprint6-browser', 0), false)
+  assert.equal(demoChildExitFailed('sprint6-browser', 1), true)
+})

@@ -20,9 +20,11 @@ const profile = demoProfile(process.argv.slice(2))
 assert.notEqual(profile.kind, 'sprint4', 'USE_PRIVATE_SPRINT4_CHECKER')
 assert.notEqual(profile.kind, 'sprint5', 'USE_PRIVATE_SPRINT5_CHECKER')
 assert.notEqual(profile.kind, 'queue-counts', 'USE_PRIVATE_QUEUE_COUNTS_CHECKER')
-if (profile.kind === 'mock-signature')
-  assert.ok(process.send && process.connected, 'REQUIRES_MOCK_SIGNATURE_PARENT')
-const vaultProfile = ['vault', 'workspace-vault', 'mock-signature'].includes(profile.kind)
+if (['mock-signature', 'sprint6'].includes(profile.kind))
+  assert.ok(process.send && process.connected, 'REQUIRES_PRIVATE_DOCUMENT_REHEARSAL_PARENT')
+const vaultProfile = ['vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(
+  profile.kind,
+)
 const demoOrigin = profile.webUrl
 const projectRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const active = JSON.parse(await readFile(resolve(projectRoot, 'run', profile.activeFile), 'utf8'))
@@ -183,7 +185,13 @@ async function download(page, locator, bytes, label) {
   await file.saveAs(path)
   assert.deepEqual(await readFile(path), bytes)
 }
-async function exportDocument(page, roundNumber, format, label) {
+async function exportDocument(
+  page,
+  roundNumber,
+  format,
+  label,
+  baseline = `export-round-${roundNumber}`,
+) {
   const panel = page
     .getByRole('region', { name: 'Phiếu hồ sơ lần gửi ' + roundNumber, exact: true })
     .first()
@@ -234,10 +242,7 @@ async function exportDocument(page, roundNumber, format, label) {
     assert.equal(document.attempts, 1)
     assert.equal(document.errorCode, null)
     assert.equal(document.retryAllowed, false)
-    assert.deepEqual(
-      bytes,
-      await readFile(join(runRoot, 'export-round-' + roundNumber + '.' + format)),
-    )
+    assert.deepEqual(bytes, await readFile(join(runRoot, baseline + '.' + format)))
     report.checks.storedDocumentsReadyWithoutNewAttempts = true
   }
   return bytes
@@ -316,7 +321,7 @@ try {
   if (profile.kind !== 'workflow') {
     await exportDocument(owner.page, 1, 'docx', 'export-round-1')
     await exportDocument(owner.page, 1, 'pdf', 'export-round-1')
-    if (['bundles', 'vault', 'workspace-vault', 'mock-signature'].includes(profile.kind))
+    if (['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(profile.kind))
       await exportBundle(owner.page, 1, 'bundle-round-1', oldBytes)
     report.checks.exportAvailableImmediatelyAfterSubmit = true
   }
@@ -338,7 +343,9 @@ try {
   if (profile.kind !== 'workflow') {
     await get(other.context, '/submissions/' + id + '/rounds/1/documents/docx', 404)
     await get(foreign.context, '/review-submissions/' + id + '/rounds/1/documents/docx', 404)
-    if (['bundles', 'vault', 'workspace-vault', 'mock-signature'].includes(profile.kind)) {
+    if (
+      ['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(profile.kind)
+    ) {
       await get(other.context, '/submissions/' + id + '/rounds/1/bundle', 404)
       await get(foreign.context, '/review-submissions/' + id + '/rounds/1/bundle', 404)
     }
@@ -460,7 +467,9 @@ try {
       await responsive(owner.page, 'stored-document-status')
       report.checks.realBackendStoredStatusVisible = true
     }
-    if (['bundles', 'vault', 'workspace-vault', 'mock-signature'].includes(profile.kind)) {
+    if (
+      ['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(profile.kind)
+    ) {
       await exportBundle(owner.page, 2, 'bundle-round-2', newBytes)
       const historicalBundle = await exportBundle(owner.page, 1, 'bundle-history-round-1', oldBytes)
       const originalBundle = unzipSync(await readFile(join(runRoot, 'bundle-round-1.zip')))
@@ -496,6 +505,26 @@ try {
   await owner.page.goto(demoOrigin + '/submissions/' + rejectedId)
   await owner.page.getByText('Không chấp thuận', { exact: true }).first().waitFor()
   assert.equal(await owner.page.getByRole('button', { name: 'Gửi hồ sơ', exact: true }).count(), 0)
+  if (profile.kind === 'sprint6') {
+    await exportDocument(
+      owner.page,
+      1,
+      'docx',
+      'export-rejected-round-1',
+      'export-rejected-round-1',
+    )
+    await exportDocument(owner.page, 1, 'pdf', 'export-rejected-round-1', 'export-rejected-round-1')
+    const bundle = await exportBundle(owner.page, 1, 'bundle-rejected-round-1', oldBytes)
+    assert.deepEqual(
+      Buffer.from(bundle.parts['phieu-ho-so.docx']),
+      await readFile(join(runRoot, 'export-rejected-round-1.docx')),
+    )
+    assert.deepEqual(
+      Buffer.from(bundle.parts['phieu-ho-so.pdf']),
+      await readFile(join(runRoot, 'export-rejected-round-1.pdf')),
+    )
+    report.checks.rejectedFrozenDocumentsAndBundle = true
+  }
   report.checks.rejectAndLock = true
   report.cases.push({ id: rejectedId, serviceId: rejectService.id, status: 'REJECTED', rounds: 1 })
   phase = 'admin-and-offline'
@@ -504,7 +533,7 @@ try {
   await admin.page.getByText('Đã duyệt nội dung', { exact: true }).first().waitFor()
   if (profile.kind !== 'workflow') {
     await exportDocument(admin.page, 2, 'pdf', 'export-admin-round-2')
-    if (['bundles', 'vault', 'workspace-vault', 'mock-signature'].includes(profile.kind))
+    if (['bundles', 'vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(profile.kind))
       await exportBundle(admin.page, 2, 'bundle-admin-round-2', newBytes)
     report.checks.adminDocumentExport = true
   }

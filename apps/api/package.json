@@ -32,7 +32,7 @@
     "test:fixtures": "node --import tsx --test scripts/recovery-fixture.test.mjs",
     "demo:workflow": "node scripts/workflow-demo.mjs --fake-data-only",
     "demo:workflow:check": "node scripts/check-workflow-demo.mjs --fake-data-only",
-    "test:workflow-demo": "node --test scripts/workflow-demo.contract.test.mjs scripts/workflow-vault.contract.test.mjs scripts/sprint5-rehearsal.cli.test.mjs",
+    "test:workflow-demo": "node --test scripts/workflow-demo.contract.test.mjs scripts/workflow-vault.contract.test.mjs scripts/sprint5-rehearsal.cli.test.mjs scripts/sprint6-rehearsal.cli.test.mjs",
     "demo:documents": "node scripts/workflow-demo.mjs --fake-data-only --documents",
     "demo:documents:check": "node scripts/check-workflow-demo.mjs --fake-data-only --documents",
     "bundle:verify": "node scripts/verify-submission-bundle.mjs",
@@ -57,7 +57,8 @@
     "rehearse:mock-signature": "node scripts/rehearse-mock-signature.mjs --fake-data-only",
     "rehearse:mock-signature:workflow": "node scripts/workflow-demo.mjs --fake-data-only --mock-signature",
     "rehearse:sprint5": "node scripts/workflow-demo.mjs --fake-data-only --sprint5",
-    "rehearse:queue-counts": "node scripts/workflow-demo.mjs --fake-data-only --queue-counts"
+    "rehearse:queue-counts": "node scripts/workflow-demo.mjs --fake-data-only --queue-counts",
+    "rehearse:sprint6": "node scripts/workflow-demo.mjs --fake-data-only --sprint6"
   },
   "type": "module",
   "dependencies": {

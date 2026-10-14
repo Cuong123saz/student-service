@@ -37,10 +37,11 @@ const profile = demoProfile(process.argv.slice(2))
 const retryRehearsal = profile.kind === 'retry'
 const sprint4Rehearsal = profile.kind === 'sprint4'
 const sprint5Rehearsal = profile.kind === 'sprint5'
+const sprint6Rehearsal = profile.kind === 'sprint6'
 const queueCountsRehearsal = profile.kind === 'queue-counts'
 const signatureRehearsal = profile.kind === 'mock-signature'
 const vaultEnabled =
-  ['vault', 'workspace-vault', 'mock-signature'].includes(profile.kind) || retryRehearsal
+  ['vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(profile.kind) || retryRehearsal
 const demoOrigin = profile.webUrl,
   demoApi = profile.apiUrl
 const apiAddress = new URL(demoApi),
@@ -418,7 +419,8 @@ if (action === 'stop') {
       if (retryRehearsal) env.WORKFLOW_VAULT_MODE = 'retry'
       if (profile.kind === 'workspace-vault') env.WORKFLOW_VAULT_MODE = 'workspace'
       if (signatureRehearsal) env.WORKFLOW_VAULT_MODE = 'signature'
-      if (signatureRehearsal) {
+      if (sprint6Rehearsal) env.WORKFLOW_VAULT_MODE = 'sprint6'
+      if (signatureRehearsal || sprint6Rehearsal) {
         phase = 'prepare-synthetic-converter-profile'
         const { bootstrapMockConverterProfile } =
           await import('../dist/modules/signatures/mock-converter-profile.js')
@@ -610,6 +612,23 @@ if (action === 'stop') {
             : {}),
         },
         'queue-counts-browser',
+      )
+    }
+    if (sprint6Rehearsal) {
+      launch(
+        join(apiRoot, 'scripts/check-sprint6-demo.mjs'),
+        apiRoot,
+        {
+          ...inherited,
+          WORKFLOW_SPRINT6_STATE_PATH: join(runRoot, 'state.json'),
+          ...(process.env.WORKFLOW_PLAYWRIGHT_MODULE
+            ? { WORKFLOW_PLAYWRIGHT_MODULE: process.env.WORKFLOW_PLAYWRIGHT_MODULE }
+            : {}),
+          ...(process.env.WORKFLOW_CHROMIUM_EXECUTABLE
+            ? { WORKFLOW_CHROMIUM_EXECUTABLE: process.env.WORKFLOW_CHROMIUM_EXECUTABLE }
+            : {}),
+        },
+        'sprint6-browser',
       )
     }
     if (signatureRehearsal) {

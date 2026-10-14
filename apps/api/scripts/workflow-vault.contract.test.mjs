@@ -131,3 +131,33 @@ test('signature vault is fixed to its own mode and origin, not a practice profil
   ])
     assert.throws(() => assertVaultDemoEnvironment(root, { ...env, ...changes }, p.entry, true))
 })
+
+test('Sprint 6 vault cannot use signature, practice or source database configuration', () => {
+  const root = resolve('fixture-project'),
+    id = randomUUID(),
+    p = vaultDemoPaths(root, id)
+  const env = {
+    WORKFLOW_VAULT_DEMO_ID: id,
+    WORKFLOW_VAULT_MODE: 'sprint6',
+    APP_ENV: 'test',
+    DOTENV_CONFIG_PATH: p.fakeEnv,
+    SUBMISSION_STORAGE_ROOT: p.evidence,
+    API_HOST: '127.0.0.11',
+    API_PORT: '3030',
+    CORS_ORIGIN: 'http://127.0.0.11:3031',
+    WEB_BASE_URL: 'http://127.0.0.11:3031',
+    DATABASE_URL: 'postgres://postgres:fake@127.0.0.1:55555/student_service_workflow_demo',
+    LIBREOFFICE_PATH: resolve('tools/soffice.com'),
+  }
+  assert.deepEqual(assertVaultDemoEnvironment(root, env, p.entry, true), p)
+  for (const changes of [
+    { WORKFLOW_VAULT_MODE: 'signature' },
+    { WORKFLOW_VAULT_MODE: 'workspace' },
+    { WORKFLOW_VAULT_MODE: 'retry' },
+    { API_HOST: '127.0.0.6' },
+    { API_PORT: '3020' },
+    { CORS_ORIGIN: 'http://127.0.0.6:3021' },
+    { DATABASE_URL: 'postgres://postgres:fake@127.0.0.1:5433/student_service_workflow_demo' },
+  ])
+    assert.throws(() => assertVaultDemoEnvironment(root, { ...env, ...changes }, p.entry, true))
+})

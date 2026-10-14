@@ -42,7 +42,7 @@ const processObserver = (phase) => ({
 })
 const { runWindowsDocumentProcess } =
   await import('./dist/modules/submissions/submission-document-supervisor.js')
-const signatureMode = process.env.WORKFLOW_VAULT_MODE === 'signature'
+const sealedProfileMode = ['signature', 'sprint6'].includes(process.env.WORKFLOW_VAULT_MODE)
 const provenance = await LocalDocumentProvenance.create(
   {
     codeRoots: [join(p.api, 'dist'), join(p.projectRoot, 'node_modules/fflate')],
@@ -51,7 +51,7 @@ const provenance = await LocalDocumentProvenance.create(
       join(p.api, 'package-lock.json'),
       p.entry,
       join(p.api, 'workflow-vault.contract.mjs'),
-      ...(signatureMode ? [join(p.api, 'converter-bootstrap/manifest.json')] : []),
+      ...(sealedProfileMode ? [join(p.api, 'converter-bootstrap/manifest.json')] : []),
     ],
     converterCommand: process.env.LIBREOFFICE_PATH,
     converterBinary: join(process.env.LIBREOFFICE_PATH, '..', 'soffice.bin'),
@@ -82,7 +82,7 @@ const observedProvenance = {
     }
   },
 }
-const prepareProfile = signatureMode
+const prepareProfile = sealedProfileMode
   ? await (
       await import('./dist/modules/signatures/mock-converter-profile.js')
     ).loadMockConverterProfile(
