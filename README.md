@@ -106,6 +106,8 @@ Supervisor đủ quyền/phạm vi bàn giao hồ sơ đang xử lý hoặc ch�
 
 ### Increment — Phân trang và lọc hàng đợi
 
+Đã bổ sung [tổng số theo năm trạng thái](docs/review-queue-counts.md) ở cổng cán bộ/quản trị, theo đúng phạm vi và bộ lọc; một nhóm 21 hồ sơ vẫn hiện tổng 21 khi trang đầu có 20. [Sprint 6](docs/sprint-6-plan.md) đang IN_PROGRESS.
+
 Hàng đợi hai cổng tải 20 hồ sơ mỗi lần, tìm theo tên/mã sinh viên hoặc thủ tục, lọc Tôi đang xử lý/Chưa có người nhận. Quyền hiện tại được lọc trước phân trang; không còn cắt âm thầm ở 50 hồ sơ. [Hướng dẫn và kiểm chứng](docs/review-queue-pagination.md) ghi hợp đồng, dữ liệu kiểm thử và giới hạn vận hành.
 
 ### Increment — Kiểm tra truy cập đồng thời

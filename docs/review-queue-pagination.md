@@ -1,5 +1,7 @@
 # Phân trang và lọc hàng đợi
 
+Cập nhật 14/10/2026: hàng đợi đã có [tổng theo năm trạng thái](review-queue-counts.md), dùng cùng quyền/tìm kiếm/phân công; không lấy số trang làm tổng. Phần mô tả lịch sử bên dưới giữ semantics phân trang.
+
 Cập nhật 10/10/2026. Theo [ADR 0007](adr/0007-review-queue-pagination.md), commit thiết kế56418e0 trước migration0019. Increment local; chưa production/nghiệm thu hoặc đóng Sprint4/5. Giấy xác nhận sinh viên vẫn OFFLINE tại CTSV.
 
 ## Sử dụng
