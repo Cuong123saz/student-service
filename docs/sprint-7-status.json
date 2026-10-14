@@ -1,0 +1,81 @@
+{
+  "sprint": 7,
+  "status": "CLOSED",
+  "closedAt": "2026-10-14",
+  "closureScope": "LOCAL_TECHNICAL",
+  "basis": "USER_AUTHORIZED_AGENT_COMPLETION",
+  "completedBy": "Codex",
+  "authorization": "tiếp tục sang sprint 7 nếu đạt yêu cầu; tiếp tục",
+  "manualOwnerAcceptance": "NOT_SEPARATELY_RECORDED",
+  "institutionalApproval": "NOT_CLAIMED",
+  "productionReadiness": "NOT_READY",
+  "scope": "SCOPED_MOCK_SIGNING_VERIFICATION_AUDIT",
+  "testedImplementationCommit": "eb36be5c849e40f8b4f641abb1bb7e7d6a88c92b",
+  "automatedTests": {
+    "passed": 711,
+    "failed": 0,
+    "skipped": 1,
+    "apiUnitPassed": 182,
+    "apiIntegrationPassed": 320,
+    "webPassed": 131,
+    "adrPassed": 46,
+    "demoGuardsPassed": 32,
+    "nuxtAcceptanceIncludedInWeb": true,
+    "testedAt": "2026-10-14"
+  },
+  "quality": {
+    "apiTypecheck": "PASS",
+    "apiLint": "PASS",
+    "format": "PASS",
+    "apiBuild": "PASS",
+    "webBuild": "PASS",
+    "postCommitAdrGate": "PASS"
+  },
+  "browserRehearsal": {
+    "runId": "34c323ba-265a-484c-98d0-cacce900540a",
+    "status": "PASS",
+    "baseChecksPassed": 20,
+    "mockChecksPassed": 10,
+    "responsiveChecksPassed": 40,
+    "pageErrors": 0,
+    "terminalState": "STOPPED",
+    "ownedContainerRemoved": true,
+    "baseReportSha256": "e6b65e17433756261f47927f9861cf8c02fc2757b4cde46ac053049fc6b0c011",
+    "mockReportSha256": "8cae0fa417b7c5e736b9450d62cd9499dcbae70bcf00a0c7c76fae863bb9a148",
+    "documentInventorySha256": "fda3d21e00c6fa2e99c85b8c2bb1acbec44e06fe72a3cad03c0bfe923c0d7363",
+    "visualReviewSha256": "4d99d8c78938db89487565e4f7aa0fc75e9e96820dbccdd2e2547880233ef1d9",
+    "pdfLayoutCheckSha256": "2e6bdb341df3f03310cf5f0bc4ba9eb1c53556482df84cb881911b5ca9c76770",
+    "newPanelScreenshotsDirectlyReviewed": 8,
+    "baselineScreenshotsOverviewReviewed": 12,
+    "readableBaselineCropsReviewed": 7,
+    "documentPageImagesReviewed": 6
+  },
+  "mockSigning": {
+    "receipts": 2,
+    "verificationRecords": 6,
+    "auditRecords": 8,
+    "technicalSignatureStatus": "NOT_VERIFIED",
+    "legalEffect": false,
+    "defaultRoleAutoGrants": false,
+    "defaultApiEnabled": false
+  },
+  "documents": {
+    "storedPairs": 3,
+    "storedFiles": 6,
+    "jobs": 6,
+    "attemptsPerJob": 1,
+    "wordPdfRasterPairsEqual": 3,
+    "originalsUnchanged": true,
+    "templateSha256": "9074a0b961cf66b625d4339c4473a42c7bfc3d981816f821fa78552c7fae8ca2"
+  },
+  "defaultApiDocumentMode": "ON_DEMAND_RENDERING",
+  "persistedVaultScope": "ISOLATED_SYNTHETIC_REHEARSAL",
+  "evidenceDocument": "docs/sprint-7-closure.md",
+  "usageDocument": "docs/sprint-7-mock-signing-guide.md",
+  "outsideSprint7": [
+    "Real certificate/key/provider, qualified verification, legal authority and issuance",
+    "Main runtime vault activation and legacy source upgrade",
+    "Recovery certification for new receipt/check tables; other-device backup/restore",
+    "Production load, malware scanning, retention and institutional UAT"
+  ]
+}
