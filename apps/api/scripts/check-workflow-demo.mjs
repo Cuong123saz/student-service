@@ -20,8 +20,10 @@ const profile = demoProfile(process.argv.slice(2))
 assert.notEqual(profile.kind, 'sprint4', 'USE_PRIVATE_SPRINT4_CHECKER')
 assert.notEqual(profile.kind, 'sprint5', 'USE_PRIVATE_SPRINT5_CHECKER')
 assert.notEqual(profile.kind, 'queue-counts', 'USE_PRIVATE_QUEUE_COUNTS_CHECKER')
-if (['mock-signature', 'sprint6'].includes(profile.kind))
-  assert.ok(process.send && process.connected, 'REQUIRES_PRIVATE_DOCUMENT_REHEARSAL_PARENT')
+if (profile.kind === 'mock-signature')
+  assert.ok(process.send && process.connected, 'REQUIRES_MOCK_SIGNATURE_PARENT')
+if (profile.kind === 'sprint6')
+  assert.ok(process.send && process.connected, 'REQUIRES_SPRINT6_DEMO_PARENT')
 const vaultProfile = ['vault', 'workspace-vault', 'mock-signature', 'sprint6'].includes(
   profile.kind,
 )

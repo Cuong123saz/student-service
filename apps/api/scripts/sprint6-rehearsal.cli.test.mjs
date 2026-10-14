@@ -38,5 +38,5 @@ test('general workflow checker cannot consume the private Sprint 6 rehearsal', (
   )
   assert.equal(result.error, undefined)
   assert.notEqual(result.status, 0)
-  assert.match(result.stderr, /REQUIRES_PRIVATE_DOCUMENT_REHEARSAL_PARENT/)
+  assert.match(result.stderr, /REQUIRES_SPRINT6_DEMO_PARENT/)
 })
