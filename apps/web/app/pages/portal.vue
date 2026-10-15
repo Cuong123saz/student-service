@@ -38,7 +38,8 @@ const allItems: PortalItem[] = [
   },
   {
     label: 'Xét duyệt điểm rèn luyện',
-    description: 'Quy trình cố vấn và khoa sẽ triển khai ở Sprint 9.',
+    description: 'Đối chiếu minh chứng, xác nhận từng bản và tổng hợp theo lớp.',
+    to: '/training-reviews',
     roles: ['ACADEMIC_ADVISOR', 'FACULTY_REVIEWER'],
   },
   {

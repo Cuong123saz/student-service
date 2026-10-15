@@ -18,6 +18,7 @@ import { oldBytes, newBytes, recoveryValues, recoveryStudent } from './recovery-
 assert.equal(demoAction(process.argv.slice(2), process.env), 'start')
 const profile = demoProfile(process.argv.slice(2))
 assert.notEqual(profile.kind, 'sprint8', 'USE_PRIVATE_SPRINT8_CHECKER')
+assert.notEqual(profile.kind, 'sprint9', 'USE_PRIVATE_SPRINT9_CHECKER')
 assert.notEqual(profile.kind, 'sprint4', 'USE_PRIVATE_SPRINT4_CHECKER')
 assert.notEqual(profile.kind, 'sprint5', 'USE_PRIVATE_SPRINT5_CHECKER')
 assert.notEqual(profile.kind, 'queue-counts', 'USE_PRIVATE_QUEUE_COUNTS_CHECKER')

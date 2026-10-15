@@ -40,6 +40,7 @@ const sprint5Rehearsal = profile.kind === 'sprint5'
 const sprint6Rehearsal = profile.kind === 'sprint6'
 const sprint7Rehearsal = profile.kind === 'sprint7'
 const sprint8Rehearsal = profile.kind === 'sprint8'
+const sprint9Rehearsal = profile.kind === 'sprint9'
 const queueCountsRehearsal = profile.kind === 'queue-counts'
 const signatureRehearsal = profile.kind === 'mock-signature'
 const vaultEnabled =
@@ -266,7 +267,7 @@ if (action === 'stop') {
       await sql`INSERT INTO role_permissions(role_id,permission_id)
       SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code='DRILL_REVIEW' AND p.code='document.mock_sign' ON CONFLICT DO NOTHING`
     const accounts = []
-    if (sprint8Rehearsal) {
+    if (sprint8Rehearsal || sprint9Rehearsal) {
       const adminId = randomUUID()
       await sql`INSERT INTO roles(code,name,is_system) VALUES('SYSTEM_ADMIN','Quản trị hệ thống giả định',true) ON CONFLICT DO NOTHING`
       await sql`INSERT INTO users(id,username,full_name,password_hash,status,must_change_password,activated_at) VALUES(${adminId},'demo.quantri','Quản trị giả định',${hash},'ACTIVE',false,now())`
@@ -274,6 +275,27 @@ if (action === 'stop') {
       await sql`INSERT INTO role_permissions(role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code='SYSTEM_ADMIN' AND p.code='training_point.period.manage' ON CONFLICT DO NOTHING`
       await sql`INSERT INTO user_role_scopes(user_id,role_id,scope_id) SELECT ${adminId},r.id,s.id FROM roles r CROSS JOIN authorization_scopes s WHERE r.code='SYSTEM_ADMIN' AND s.scope_type='GLOBAL'`
       accounts.push({ username: 'demo.quantri', label: 'Quản trị đợt rèn luyện giả định' })
+    }
+    if (sprint9Rehearsal) {
+      const advisorId = randomUUID()
+      const [clazz] =
+        await sql`SELECT c.id,c.faculty_id FROM academic_classes c WHERE c.code='DRILL_CLASS'`
+      await sql`INSERT INTO roles(code,name,is_system) VALUES('ACADEMIC_ADVISOR','Cố vấn giả định',true) ON CONFLICT DO NOTHING`
+      await sql`INSERT INTO users(id,username,full_name,password_hash,status,must_change_password,activated_at) VALUES(${advisorId},'demo.covan','Cố vấn giả định',${hash},'ACTIVE',false,now())`
+      await sql`INSERT INTO user_roles(user_id,role_id) SELECT ${advisorId},id FROM roles WHERE code='ACADEMIC_ADVISOR'`
+      for (const [role, permission] of [
+        ['ACADEMIC_ADVISOR', 'training_point.review'],
+        ['FACULTY_REVIEWER', 'training_point.faculty_approve'],
+      ])
+        await sql`INSERT INTO role_permissions(role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code=${role} AND p.code=${permission} ON CONFLICT DO NOTHING`
+      const [cs] =
+        await sql`INSERT INTO authorization_scopes(scope_type,class_id) VALUES('CLASS',${clazz.id}) RETURNING id`
+      const [fs] =
+        await sql`INSERT INTO authorization_scopes(scope_type,faculty_id) VALUES('FACULTY',${clazz.faculty_id}) RETURNING id`
+      await sql`INSERT INTO user_role_scopes(user_id,role_id,scope_id) SELECT ${advisorId},id,${cs.id} FROM roles WHERE code='ACADEMIC_ADVISOR'`
+      await sql`INSERT INTO user_role_scopes(user_id,role_id,scope_id) SELECT ${fixture.reviewer.id},id,${fs.id} FROM roles WHERE code='FACULTY_REVIEWER'`
+      await sql`INSERT INTO academic_advisor_assignments(advisor_user_id,class_id,valid_from) VALUES(${advisorId},${clazz.id},now()-interval '1 day')`
+      accounts.push({ username: 'demo.covan', label: 'Cố vấn đúng lớp — giả định' })
     }
     for (const [actor, username, label] of [
       [fixture.owner, 'demo.sinhvien', 'Sinh viên'],
@@ -630,6 +652,22 @@ if (action === 'stop') {
         'queue-counts-browser',
       )
     }
+    if (sprint9Rehearsal)
+      launch(
+        join(apiRoot, 'scripts/check-sprint9-demo.mjs'),
+        apiRoot,
+        {
+          ...inherited,
+          WORKFLOW_SPRINT9_STATE_PATH: join(runRoot, 'state.json'),
+          ...(process.env.WORKFLOW_PLAYWRIGHT_MODULE
+            ? { WORKFLOW_PLAYWRIGHT_MODULE: process.env.WORKFLOW_PLAYWRIGHT_MODULE }
+            : {}),
+          ...(process.env.WORKFLOW_CHROMIUM_EXECUTABLE
+            ? { WORKFLOW_CHROMIUM_EXECUTABLE: process.env.WORKFLOW_CHROMIUM_EXECUTABLE }
+            : {}),
+        },
+        'sprint9-browser',
+      )
     if (sprint8Rehearsal)
       launch(
         join(apiRoot, 'scripts/check-sprint8-demo.mjs'),

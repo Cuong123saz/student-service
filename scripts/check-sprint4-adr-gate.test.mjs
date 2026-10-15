@@ -9,6 +9,7 @@ import test from 'node:test'
 const gatePath = fileURLToPath(new URL('./check-sprint4-adr-gate.mjs', import.meta.url))
 const adrPath = 'docs/adr/0001-submission-workflow.md'
 const protectedTables = [
+  'training_review_decisions',
   'training_periods',
   'training_declarations',
   'training_evidence',
@@ -89,6 +90,7 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
     )
   }
   if (adr !== undefined) {
+    write('docs/adr/0020-training-points-review-workflow.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0019-training-points-foundation.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0018-mock-signing-workflow.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0011-controlled-document-retry.md', '---\nstatus: ' + adr + '\n---\n')

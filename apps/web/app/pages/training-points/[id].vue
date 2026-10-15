@@ -41,6 +41,18 @@ function set(d: TrainingDeclaration) {
   reviewing.value = false
   accepted.value = false
 }
+function clearPrivateData(e: TrainingError) {
+  generation++
+  row.value = null
+  answers.value = {}
+  baseline.value = '{}'
+  busy.value = false
+  error.value = e
+  message.value = ''
+  stale.value = true
+  reviewing.value = false
+  accepted.value = false
+}
 function issue(code: string) {
   return error.value?.issues
     .filter((i) => i.path === code)
@@ -169,7 +181,11 @@ onMounted(load)
       <NuxtLink to="/training-points">← Các đợt đánh giá</NuxtLink>
       <p class="page-eyebrow">Kê khai A–E</p>
       <h1 class="page-title">{{ row?.period.name ?? 'Bản kê khai rèn luyện' }}</h1>
-      <p class="page-description">Điểm tự kê khai, chưa xét duyệt.</p>
+      <p class="page-description">
+        {{
+          row?.state === 'DRAFT' ? 'Điểm tự kê khai, chưa xét duyệt.' : 'Điểm sinh viên tự kê khai.'
+        }}
+      </p>
     </header>
     <div v-if="error" class="tp-notice tp-notice--error" role="alert">
       <p>{{ error.message }}</p>
@@ -195,12 +211,17 @@ onMounted(load)
           Thời hạn: {{ trainingDate(row.period.startsAt) }} – {{ trainingDate(row.period.endsAt) }}
         </p>
         <p class="tp-score">{{ total }} / 100</p>
-        <p>Điểm tự kê khai, chưa xét duyệt. Chưa có xếp loại chính thức.</p>
+        <p>Điểm sinh viên tự kê khai, được giữ riêng với kết quả xét duyệt.</p>
         <p v-if="row.submittedAt">Đã nộp lúc {{ trainingDate(row.submittedAt) }}</p>
         <p v-if="!row.editable && row.state === 'DRAFT'" class="tp-notice">
           Bản nháp hiện chỉ được xem: đợt chưa đến hạn, đã đóng/hết hạn hoặc lớp đã thay đổi.
         </p>
       </section>
+      <TrainingReviewResult
+        v-if="row.state === 'SUBMITTED'"
+        :declaration-id="row.id"
+        @unavailable="clearPrivateData"
+      />
       <form class="tp-panel" @submit.prevent="save">
         <h2>Nội dung kê khai</h2>
         <p class="tp-muted">

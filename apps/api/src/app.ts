@@ -1,3 +1,5 @@
+import { TrainingReviewService } from './modules/training-reviews/training-review.service.js'
+import { trainingReviewRoutes } from './modules/training-reviews/training-review.routes.js'
 import { TrainingPointService } from './modules/training-points/training-points.service.js'
 import {
   trainingAdminRoutes,
@@ -111,6 +113,7 @@ import { submissionRoutes } from './modules/submissions/submission.routes.js'
 import { submissionReviewRoutes } from './modules/submissions/submission-review.routes.js'
 import { notificationRoutes } from './modules/notifications/notification.routes.js'
 export interface BuildAppOptions {
+  trainingReviewService?: TrainingReviewService
   trainingService?: TrainingPointService
   submissionService?: SubmissionService
   procedureService?: ProcedureUseCase
@@ -367,6 +370,10 @@ export function buildApp(options: BuildAppOptions = {}) {
   const trainingService = options.trainingService ?? new TrainingPointService()
   app.register(trainingAdminRoutes, { prefix: ADMIN_API_PREFIX, trainingService })
   app.register(trainingStudentRoutes, { prefix: USER_API_PREFIX, trainingService })
+  app.register(trainingReviewRoutes, {
+    prefix: USER_API_PREFIX,
+    trainingReviewService: options.trainingReviewService ?? new TrainingReviewService(),
+  })
   app.register(serviceRoutes)
 
   return app

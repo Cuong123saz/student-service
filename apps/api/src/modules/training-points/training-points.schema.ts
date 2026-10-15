@@ -79,6 +79,9 @@ export const trainingDeclarations = pgTable(
     updatedAt: time('updated_at').notNull().defaultNow(),
   },
   (t) => [
+    index('training_review_period_queue')
+      .on(t.periodId, t.id)
+      .where(sql`${t.state}='SUBMITTED'`),
     unique('training_declarations_period_id_student_user_id_key').on(t.periodId, t.studentUserId),
     check('training_declarations_state_check', sql`${t.state} IN ('DRAFT','SUBMITTED')`),
     check('training_declarations_revision_check', sql`${t.revision}>0`),

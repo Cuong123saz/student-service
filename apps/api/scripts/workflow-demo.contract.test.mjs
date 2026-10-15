@@ -460,3 +460,16 @@ test('Sprint 8 has isolated state, cookies, ports and one-shot child completion'
   assert.equal(demoChildExitFailed('sprint8-browser', 0), false)
   assert.equal(demoChildExitFailed('sprint8-browser', 1), true)
 })
+
+test('Sprint 9 has isolated state, cookies, ports and one-shot child completion', () => {
+  const p = demoProfile(['--fake-data-only', '--sprint9'])
+  assert.equal(p.kind, 'sprint9')
+  assert.equal(new URL(p.webUrl).hostname, '127.0.0.14')
+  assert.equal(new URL(p.apiUrl).port, '3036')
+  assert.equal(new URL(p.webUrl).port, '3037')
+  assert.equal(demoAction(['--fake-data-only', '--sprint9'], {}), 'start')
+  assert.equal(demoAction(['--fake-data-only', '--sprint9', 'stop'], {}), 'stop')
+  assert.throws(() => demoAction(['--fake-data-only', '--sprint9', '--sprint7'], {}))
+  assert.equal(demoChildExitFailed('sprint9-browser', 0), false)
+  assert.equal(demoChildExitFailed('sprint9-browser', 1), true)
+})

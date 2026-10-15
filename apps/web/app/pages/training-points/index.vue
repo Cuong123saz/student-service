@@ -52,7 +52,8 @@ onMounted(load)
       </p>
     </header>
     <p class="tp-notice">
-      Điểm tự kê khai, chưa xét duyệt. Kết quả này chưa phải điểm rèn luyện chính thức.
+      Điểm sinh viên tự kê khai được giữ riêng. Xem kết quả xét duyệt trong từng bản; bộ tiêu chí
+      giả chưa tạo xếp loại chính thức.
     </p>
     <div v-if="error" class="tp-notice tp-notice--error" role="alert">
       <p>{{ error.message }}</p>
