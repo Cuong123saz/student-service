@@ -161,7 +161,7 @@ if (action === 'stop') {
     return child
   }
   async function ready(url) {
-    for (let i = 0; i < (vaultEnabled ? 600 : 160); i++) {
+    for (let i = 0; i < (vaultEnabled || sprint9Rehearsal ? 600 : 160); i++) {
       if (stopping) throw new Error('WORKFLOW_DEMO_CHILD_EXITED')
       try {
         if ((await fetch(url, { signal: AbortSignal.timeout(1000) })).ok) return
