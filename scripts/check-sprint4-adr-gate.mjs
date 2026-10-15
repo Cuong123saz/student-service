@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 
 const tableAdrMap = new Map([
+  ['training_review_decisions', 'docs/adr/0020-training-points-review-workflow.md'],
   ['training_periods', 'docs/adr/0019-training-points-foundation.md'],
   ['training_declarations', 'docs/adr/0019-training-points-foundation.md'],
   ['training_evidence', 'docs/adr/0019-training-points-foundation.md'],
