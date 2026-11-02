@@ -21,14 +21,14 @@ Quyền kiểm tại máy chủ theo role + permission + scope hiện có (`GLOB
 
 ## Quy tắc nghiệp vụ đã chốt
 
-**Hoạt động.** Có cấp tổ chức (Học viện / khoa / đơn vị / CLB) và điều kiện đối tượng (khoa, lớp, đơn vị, khóa). Hai loại:
+**Hoạt động.** Có cấp tổ chức (Học viện / khoa / đơn vị / CLB) và điều kiện đối tượng (khoa, lớp, đơn vị, niên khóa). Hai loại:
 
 - **Bắt buộc:** chỉ CTSV hoặc Phòng Đào tạo tạo; đơn vị tạo là chủ hoạt động; có thể giao một CLB thực hiện. Việc giao được ghi lại, chỉ áp dụng cho hoạt động đó, chủ hoạt động rút lại được bất cứ lúc nào.
 - **Tự nguyện:** CLB đang hoạt động tự mở, không cần duyệt trước. CTSV xem, tạm dừng và thu hồi chứng nhận khi phát hiện sai; mọi thao tác có audit.
 
 CLB bị tạm dừng/giải thể không mở hoạt động mới; chứng nhận đã cấp giữ nguyên. Không sửa thời gian/đối tượng/sức chứa sau khi đã có người đăng ký mà không ghi lịch sử.
 
-**Đối tượng.** Kiểm ở máy chủ khi xem, đăng ký và điểm danh. Đối tượng được chốt và lưu snapshot **tại lúc đăng ký**. Điều kiện khóa dùng **khóa của sinh viên** (ví dụ K2022), không dùng “năm thứ mấy”: sinh viên học chậm vẫn đúng khóa. Sinh viên chưa có dữ liệu khóa không đăng ký được hoạt động có giới hạn khóa.
+**Đối tượng.** Kiểm ở máy chủ khi xem, đăng ký và điểm danh. Đối tượng được chốt và lưu snapshot **tại lúc đăng ký**. Điều kiện niên khóa dùng **niên khóa của sinh viên** (ví dụ K2022), không dùng “năm thứ mấy”: sinh viên học chậm vẫn đúng niên khóa. Sinh viên chưa có dữ liệu niên khóa không đăng ký được hoạt động có giới hạn niên khóa.
 
 **Đăng ký.** Có sức chứa (hoặc không giới hạn) và danh sách chờ. Chống vượt sức chứa khi đăng ký đồng thời bằng khóa dòng trong transaction. Khi chỗ được nhả, người đầu danh sách chờ (theo thời điểm đăng ký) tự lên và nhận thông báo.
 
@@ -62,7 +62,7 @@ CLB bị tạm dừng/giải thể không mở hoạt động mới; chứng nh�
 
 | Increment | Đầu ra | Điều kiện nghiệm thu |
 | --- | --- | --- |
-| 11.0 — Khóa sinh viên | [ADR 0025](adr/0025-student-cohort.md); migration cột khóa (nullable), import Excel/CSV thêm cột “Khóa học”, hiển thị trong hồ sơ/quản trị | Dữ liệu cũ giữ nguyên; giá trị sai bị báo lỗi theo dòng; không suy khóa từ mã sinh viên/lớp |
+| 11.0 — Niên khóa sinh viên | [ADR 0025](adr/0025-student-cohort.md); migration cột niên khóa (nullable), import Excel/CSV thêm cột “Niên khóa”, hiển thị trong hồ sơ/quản trị | Dữ liệu cũ giữ nguyên; giá trị sai bị báo lỗi theo dòng; không suy niên khóa từ mã sinh viên/lớp |
 | 11.1 — CLB và vai trò | ADR; role/permission CTSV, Phòng Đào tạo, người phụ trách CLB; CLB là đơn vị tổ chức; trạng thái CLB | Đúng ma trận quyền; SYSTEM_ADMIN không thay vai trò; audit |
 | 11.2 — Hoạt động | ADR + migration; tạo/sửa/hủy hoạt động, bắt buộc/tự nguyện, đối tượng, sức chứa, giao CLB, tạm dừng | Chỉ CTSV/Phòng ĐT tạo bắt buộc; lịch sử thay đổi; đối tượng kiểm ở máy chủ |
 | 11.3 — Đăng ký | Đăng ký, danh sách chờ, yêu cầu hủy, vắng mặt, thông báo | Không vượt sức chứa khi đồng thời; danh sách chờ đúng thứ tự; hạn 24 giờ |
@@ -78,7 +78,7 @@ Mỗi increment có ADR trước khi đổi schema/quyền, test theo quy ước
 - **Camera trên web cần HTTPS** (trừ `localhost`). Sprint 11 diễn tập bằng trình duyệt giả lập camera; thử trên điện thoại thật cần môi trường HTTPS, thuộc hạ tầng Sprint 13.
 - **Khối lượng duyệt ảnh.** Cần giao diện duyệt nhanh (lưới, duyệt nhiều lượt có xác nhận) để một hoạt động vài trăm người vẫn xử lý được.
 - **CLB tự mở hoạt động tự nguyện** có thể bị lạm dụng để lên +5; giảm thiểu bằng quyền tạm dừng/thu hồi của CTSV, audit và cấm tự duyệt.
-- **Khóa chưa có dữ liệu thật.** 11.0 làm phần lưu trữ/import; dữ liệu do chủ dự án cung cấp sau.
+- **Niên khóa chưa có dữ liệu thật.** 11.0 làm phần lưu trữ/import; dữ liệu do chủ dự án cung cấp sau.
 
 ## Ngoài phạm vi
 
