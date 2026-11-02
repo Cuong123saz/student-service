@@ -612,3 +612,13 @@ Theo [ADR 0032](docs/adr/0032-activity-attendance-certificates.md):
 - **Điểm danh.** Trong giờ hoạt động, sinh viên đang có chỗ quét mã rồi chụp selfie bằng camera trước ngay trên trang (không chọn ảnh có sẵn) trong 3 phút. Máy chủ chỉ nhận JPEG, xóa EXIF/GPS trước khi lưu, lưu riêng tư và xóa ảnh sau 90 ngày.
 - **Duyệt.** Chủ hoạt động hoặc CLB được giao duyệt, không tự duyệt; duyệt được nhiều lượt một lần.
 - **Chứng nhận.** Hệ thống cấp chứng nhận có mã và hash, không phải văn bằng và chưa có chữ ký số. CTSV thu hồi được, kèm lý do.
+
+### Sprint 11.5 — Gợi ý điểm rèn luyện từ hoạt động
+
+Theo [ADR 0033](docs/adr/0033-activity-training-point-suggestions.md), bản kê khai hiện gợi ý điểm tính từ chứng nhận đang hiệu lực:
+
+- **Nhóm C** (hoạt động Học viện): đủ mọi hoạt động bắt buộc → +3; thêm hoạt động tự chọn → +5. Hủy có lý do được chấp nhận vẫn tính là đã tham gia.
+- **Nhóm A** (CLB, học thuật): tham gia → +3; ban tổ chức → +2.
+- **Nhóm D** (tình nguyện, hiến máu): tham gia → +5.
+
+Người quản lý đợt chỉnh các mức này và khoảng thời gian tính ở trang quản trị đợt. Nút “Điền gợi ý” chỉ điền vào bản nháp; cố vấn và khoa thấy cùng gợi ý và vẫn xét duyệt như cũ.

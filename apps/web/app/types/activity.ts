@@ -223,3 +223,45 @@ export const attendanceStatusLabels: Record<AttendanceStatus, string> = {
   APPROVED: 'Đã duyệt',
   REJECTED: 'Bị từ chối',
 }
+
+/** ADR 0033: training point suggestions from activities. */
+export type TrainingGroupCode = 'A' | 'B' | 'C' | 'D' | 'E'
+export interface SuggestionLine {
+  group: TrainingGroupCode
+  rule:
+    | 'SCHOOL_ACTIVE'
+    | 'SCHOOL_FULL'
+    | 'SCHOOL_MISSING'
+    | 'CLUB_PARTICIPANT'
+    | 'CLUB_ORGANIZER'
+    | 'VOLUNTEER'
+  points: number
+  explanation: string
+  certificateCodes: string[]
+}
+export interface ActivitySuggestion {
+  window: { from: string; to: string }
+  lines: SuggestionLine[]
+  totals: Partial<Record<TrainingGroupCode, number>>
+  notice: string
+}
+export interface SuggestionSettings {
+  window: { from: string; to: string }
+  school: {
+    group: TrainingGroupCode
+    full: number
+    active: number
+    minVoluntary: number
+    fullWithoutMandatory: boolean
+  }
+  club: { group: TrainingGroupCode; participant: number; organizer: number }
+  volunteer: { group: TrainingGroupCode; participant: number }
+}
+export interface Organizer {
+  id: string
+  studentUserId: string
+  studentCode: string
+  fullName: string
+  addedBy: string
+  addedAt: string
+}

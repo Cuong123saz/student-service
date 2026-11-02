@@ -259,14 +259,51 @@
       ]
     },
     "11.5": {
-      "status": "PENDING"
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0033_PERIOD_SETTINGS_ORGANIZERS_SUGGESTIONS",
+      "adr": "docs/adr/0033-activity-training-point-suggestions.md",
+      "migration": "apps/api/drizzle/0035_activity_suggestions.sql",
+      "quality": {
+        "check": "PASS",
+        "lint": "PASS",
+        "formatCheck": "PASS",
+        "build": "PASS",
+        "adrGate": "PASS (52)"
+      },
+      "apiUnit": {
+        "passed": 237,
+        "failed": 0
+      },
+      "apiIntegration": {
+        "passed": 405,
+        "failed": 0
+      },
+      "storageRecoveryBundleGuards": {
+        "passed": 82,
+        "failed": 0
+      },
+      "web": {
+        "passed": 193,
+        "failed": 0
+      },
+      "decisions": [
+        "C (III.3.1): all mandatory SCHOOL activities → +3; plus >= minVoluntary voluntary SCHOOL certificates → +5; missing → 0; excused counts; B=0 → +3 by default (configurable)",
+        "A (I.1.4a): CLUB_ACADEMIC certificate → +3; organising committee → +2; D (IV.4.5): VOLUNTEER certificate → +5",
+        "Per-period settings with revision, validation against period criteria and audit; defaults HK1 Aug–Jan, HK2 Feb–Jul (Vietnam time)",
+        "Suggestions computed on read from ISSUED certificates; revoked ones drop out; never written into declarations",
+        "Student 'Điền gợi ý' fills only the browser draft; reviewers see the same suggestion"
+      ],
+      "limitations": [
+        "Sub-items of the form are not modelled; points land on the group (ADR 0026)",
+        "No automatic scoring at approval; reviewers decide"
+      ]
     },
     "11.6": {
       "status": "PENDING"
     }
   },
   "productionReadiness": "NOT_READY",
-  "nextIncrement": "11.5 — training point suggestions",
+  "nextIncrement": "11.6 — UI polish, rehearse:sprint11, runbook and Sprint 11 closure",
   "academyTemplates": {
     "status": "COMPLETE_LOCAL",
     "adr": "docs/adr/0026-academy-criteria-classification-templates.md",

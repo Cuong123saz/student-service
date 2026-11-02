@@ -325,8 +325,9 @@ onMounted(load)
             >Quay lại</BaseButton
           >
         </div>
-      </section></template
-    >
+      </section>
+      <ActivitySettingsPanel v-if="selected" :key="selected.id" :period-id="selected.id"
+    /></template>
   </section>
 </template>
 <style src="~/assets/css/training.css"></style>

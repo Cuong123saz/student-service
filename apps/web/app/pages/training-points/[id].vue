@@ -6,6 +6,8 @@ import type {
   TrainingGroup,
 } from '~/types/training-point'
 import { trainingDate, trainingActions, trainingIssues } from '~/utils/training-point'
+import { applySuggestion } from '~/utils/activity'
+import type { ActivitySuggestion } from '~/types/activity'
 definePageMeta({
   middleware: 'user-auth',
   validate: (route) =>
@@ -96,6 +98,12 @@ async function load() {
 async function reload() {
   if (dirty.value && !window.confirm('Bỏ nội dung chưa lưu và tải lại bản trên máy chủ?')) return
   await load()
+}
+// ADR 0033: fills the browser draft only; the student still saves and submits.
+function fillSuggestion(suggestion: ActivitySuggestion) {
+  if (!row.value || !editable.value) return
+  answers.value = applySuggestion(answers.value, suggestion, row.value.period.criteria)
+  message.value = 'Đã điền gợi ý vào bản nháp. Kiểm tra rồi bấm lưu.'
 }
 async function save() {
   if (!row.value || !editable.value) return
@@ -221,6 +229,12 @@ onMounted(load)
         v-if="row.state === 'SUBMITTED'"
         :declaration-id="row.id"
         @unavailable="clearPrivateData"
+      />
+      <ActivitySuggestionPanel
+        :declaration-id="row.id"
+        mode="student"
+        :can-apply="!!editable && !reviewing"
+        @apply="fillSuggestion"
       />
       <form class="tp-panel" @submit.prevent="save">
         <h2>Nội dung kê khai</h2>

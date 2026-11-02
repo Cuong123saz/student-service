@@ -58,6 +58,12 @@ function mockApi() {
   }
 }
 let api = mockApi()
+// ADR 0033: the suggestion/settings panels are covered in activity-suggestions.acceptance.test.ts.
+mockNuxtImport('useActivitySuggestions', () => () => ({
+  forStudent: () => new Promise(() => {}),
+  forReview: () => new Promise(() => {}),
+  settings: () => new Promise(() => {}),
+}))
 mockNuxtImport('useTrainingPoints', () => () => api)
 mockNuxtImport('useRoute', () => () => route)
 beforeEach(() => {

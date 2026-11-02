@@ -239,6 +239,10 @@ onBeforeUnmount(() => {
       />
       <ActivityRosterPanel v-if="activity.status !== 'DRAFT'" :activity-id="activity.id" />
       <ActivityAttendancePanel v-if="activity.status !== 'DRAFT'" :activity-id="activity.id" />
+      <ActivityOrganizersPanel
+        v-if="activity.status !== 'DRAFT' && activity.category === 'CLUB_ACADEMIC'"
+        :activity-id="activity.id"
+      />
       <section class="tp-panel" aria-labelledby="activity-history-title">
         <h2 id="activity-history-title">Lịch sử</h2>
         <ul class="tp-files">

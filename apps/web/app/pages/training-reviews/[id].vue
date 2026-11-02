@@ -242,6 +242,7 @@ onBeforeUnmount(() => {
           </ul></template
         >
       </section>
+      <ActivitySuggestionPanel :declaration-id="row.id" mode="review" />
       <section
         v-if="
           row.canAdvisorSign ||
