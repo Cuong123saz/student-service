@@ -4,6 +4,7 @@ import {
   parseStudentImportFile,
   type ParsedStudentImportFile,
   type StudentImportColumn,
+  type StudentImportRequiredColumn,
   type StudentImportFormat,
   type StudentImportSourceCellValue,
   type StudentImportSourceRow,
@@ -20,6 +21,8 @@ export interface StudentImportRecord {
   fullName: string
   email: string
   classCode: string
+  /** ADR 0025: start year of the cohort (niên khóa); null when the file gives none. */
+  cohortYear: number | null
 }
 
 export interface StudentImportRowIssue {
@@ -35,7 +38,12 @@ export interface StudentImportErrorCell {
   text: string | null
 }
 
-export type StudentImportErrorValues = Record<StudentImportColumn, StudentImportErrorCell>
+export type StudentImportErrorValues = Record<
+  StudentImportRequiredColumn,
+  StudentImportErrorCell
+> & {
+  cohortYear?: StudentImportErrorCell
+}
 
 export interface StudentImportErrorRecord {
   sourceRow: number
@@ -288,9 +296,33 @@ type StudentImportParser = (filename: string, buffer: Buffer) => Promise<ParsedS
 
 type Clock = () => Date
 
+/** Accepts 2022, "2022" or "K2022"; an empty cell means unknown, never a guess. */
+function optionalCohortYear(
+  row: StudentImportSourceRow,
+  issues: StudentImportRowIssue[],
+): number | null | undefined {
+  const value: StudentImportSourceCellValue | null = row.values.cohortYear ?? null
+  if (value === null || (typeof value === 'string' && value.trim() === '')) return null
+  const year =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && /^[Kk]?\d{4}$/.test(value.trim())
+        ? Number(value.trim().replace(/^[Kk]/, ''))
+        : Number.NaN
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    issues.push({
+      field: 'cohortYear',
+      code: 'INVALID_FORMAT',
+      message: 'cohortYear must be a year from 2000 to 2100, e.g. 2022 or K2022',
+    })
+    return undefined
+  }
+  return year
+}
+
 function requiredString(
   row: StudentImportSourceRow,
-  field: StudentImportColumn,
+  field: StudentImportRequiredColumn,
   issues: StudentImportRowIssue[],
 ): string | undefined {
   const value: StudentImportSourceCellValue | null = row.values[field]
@@ -387,6 +419,10 @@ function createErrorValues(row: StudentImportSourceRow): StudentImportErrorValue
     fullName: createErrorCell(row.values.fullName),
     email: createErrorCell(row.values.email),
     classCode: createErrorCell(row.values.classCode),
+    // Only files that have the optional cohort column show it in the error table.
+    ...('cohortYear' in row.values
+      ? { cohortYear: createErrorCell(row.values.cohortYear ?? null) }
+      : {}),
   }
 }
 
@@ -399,6 +435,7 @@ function validateRow(row: StudentImportSourceRow): {
   const fullName = requiredString(row, 'fullName', issues)
   const email = requiredString(row, 'email', issues)?.toLowerCase()
   const classCode = requiredString(row, 'classCode', issues)?.toUpperCase()
+  const cohortYear = optionalCohortYear(row, issues)
 
   if (studentCode && (studentCode.length > 50 || !/^\d+$/.test(studentCode))) {
     issues.push({
@@ -432,7 +469,14 @@ function validateRow(row: StudentImportSourceRow): {
     })
   }
 
-  if (issues.length > 0 || !studentCode || !fullName || !email || !classCode) {
+  if (
+    issues.length > 0 ||
+    !studentCode ||
+    !fullName ||
+    !email ||
+    !classCode ||
+    cohortYear === undefined
+  ) {
     return {
       error: {
         sourceRow: row.sourceRow,
@@ -450,6 +494,7 @@ function validateRow(row: StudentImportSourceRow): {
       fullName,
       email,
       classCode,
+      cohortYear,
     },
   }
 }
@@ -582,6 +627,9 @@ export class StudentImportService implements StudentImportUseCase {
             fullName: createErrorCell(record.fullName),
             email: createErrorCell(record.email),
             classCode: createErrorCell(record.classCode),
+            ...(record.cohortYear !== null
+              ? { cohortYear: createErrorCell(record.cohortYear) }
+              : {}),
           },
           issues: [
             {

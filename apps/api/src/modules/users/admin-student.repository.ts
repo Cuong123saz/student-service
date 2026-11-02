@@ -147,6 +147,7 @@ export class DrizzleAdminStudentRepository implements AdminStudentRepository {
         email: users.email,
         status: users.status,
         studentCode: studentProfiles.studentCode,
+        cohortYear: studentProfiles.cohortYear,
         classId: academicClasses.id,
         classCode: academicClasses.code,
         className: academicClasses.name,
@@ -191,6 +192,7 @@ export class DrizzleAdminStudentRepository implements AdminStudentRepository {
         email: row.email,
         status: row.status,
         studentCode: row.studentCode,
+        cohortYear: row.cohortYear,
         academicClass: {
           id: row.classId,
           code: row.classCode,

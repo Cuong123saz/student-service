@@ -1,0 +1,65 @@
+{
+  "sprint": 11,
+  "status": "IN_PROGRESS",
+  "updatedAt": "2026-11-02",
+  "closureScope": "NOT_CLOSED",
+  "plan": "docs/sprint-11-plan.md",
+  "ownerApproval": "đồng ý hết — 02/11/2026",
+  "increments": {
+    "11.0": {
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0025_STUDENT_COHORT_YEAR_IMPORT_PROFILE_AUDIT",
+      "migration": "apps/api/drizzle/0028_student_cohort.sql",
+      "quality": {
+        "check": "PASS",
+        "lint": "PASS",
+        "formatCheck": "PASS",
+        "build": "PASS",
+        "adrGate": "PASS (52)"
+      },
+      "apiUnit": {
+        "passed": 210,
+        "skipped": 2,
+        "failed": 0
+      },
+      "apiIntegration": {
+        "passed": 360,
+        "failed": 0
+      },
+      "storageRecoveryBundleGuards": {
+        "passed": 315,
+        "failed": 0
+      },
+      "web": {
+        "passed": 156,
+        "failed": 0
+      },
+      "migrationPreservationRehearsal": "PASS (fake DB: existing row unchanged, cohort_year NULL, CHECK rejects 1999)",
+      "limitations": [
+        "No real cohort data imported yet",
+        "No dedicated browser rehearsal for 11.0 (folded into 11.6)",
+        "Manual cohort edit outside import not provided"
+      ]
+    },
+    "11.1": {
+      "status": "PENDING"
+    },
+    "11.2": {
+      "status": "PENDING"
+    },
+    "11.3": {
+      "status": "PENDING"
+    },
+    "11.4": {
+      "status": "PENDING"
+    },
+    "11.5": {
+      "status": "PENDING"
+    },
+    "11.6": {
+      "status": "PENDING"
+    }
+  },
+  "productionReadiness": "NOT_READY",
+  "nextIncrement": "11.1 — clubs and roles"
+}

@@ -2,7 +2,7 @@
 
 export type StudentImportFormat = 'CSV' | 'XLSX'
 
-export type StudentImportColumn = 'studentCode' | 'fullName' | 'email' | 'classCode'
+export type StudentImportColumn = 'studentCode' | 'fullName' | 'email' | 'classCode' | 'cohortYear'
 
 export type StudentImportDuplicateStrategy = 'SKIP' | 'OVERWRITE' | 'FAIL'
 
@@ -13,6 +13,8 @@ export interface StudentImportRecord {
   fullName: string
   email: string
   classCode: string
+  /** Niên khóa (năm bắt đầu); vắng hoặc null là chưa có. Preview cũ không có trường này. */
+  cohortYear?: number | null
 }
 
 export interface StudentImportRowIssue {
@@ -28,7 +30,13 @@ export interface StudentImportErrorCell {
   text: string | null
 }
 
-export type StudentImportErrorValues = Record<StudentImportColumn, StudentImportErrorCell>
+export type StudentImportErrorValues = Record<
+  Exclude<StudentImportColumn, 'cohortYear'>,
+  StudentImportErrorCell
+> & {
+  /** Chỉ có khi file có cột Niên khóa. */
+  cohortYear?: StudentImportErrorCell
+}
 
 /**
  * Một dòng bị lỗi có thể chứa nhiều issue,

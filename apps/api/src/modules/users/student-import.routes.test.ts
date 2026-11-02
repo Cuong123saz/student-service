@@ -282,6 +282,7 @@ test('tải file Excel mẫu đúng cấu trúc import', async (context) => {
     fullName: 'Nguyễn Văn A',
     email: '00123456@example.edu.vn',
     classCode: 'K15A',
+    cohortYear: 'K2022',
   })
 })
 
@@ -733,6 +734,106 @@ test('OVERWRITE cập nhật sinh viên đã tồn tại thay vì tạo bản gh
     .from(users)
     .where(eq(users.id, existingUser.id))
   assert.equal(updatedUser?.fullName, 'Tên sau import')
+})
+
+test('niên khóa: tạo mới, đổi có audit, ô trống không xóa giá trị cũ, DB chặn năm sai', async (context) => {
+  const { actor, academicClass } = await createImportContext()
+  const [studentRole] = await db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(eq(roles.code, 'STUDENT'))
+    .limit(1)
+  assert.ok(studentRole)
+  const existing: Record<string, string> = {}
+  for (const code of ['300', '301']) {
+    const [user] = await db
+      .insert(users)
+      .values({
+        username: 'sv' + code,
+        email: `sv${code}@example.edu.vn`,
+        fullName: 'Sinh viên ' + code,
+        status: 'ACTIVE',
+        mustChangePassword: false,
+      })
+      .returning({ id: users.id })
+    assert.ok(user)
+    await db.insert(userRoles).values({ userId: user.id, roleId: studentRole.id })
+    await db
+      .insert(studentProfiles)
+      .values({ userId: user.id, studentCode: code, classId: academicClass.id, cohortYear: 2021 })
+    existing[code] = user.id
+  }
+
+  const { app, jobService } = createApp()
+  context.after(() => app.close())
+  const cookie = await createAdminCookie(app, actor)
+  const upload = multipartCsv(
+    [
+      'Mã sinh viên,Họ và tên,Email,Mã lớp,Niên khóa',
+      '300,Sinh viên 300,sv300@example.edu.vn,K15A,K2022',
+      '301,Sinh viên 301,sv301@example.edu.vn,K15A,',
+      '302,Sinh viên 302,sv302@example.edu.vn,K15A,2023',
+    ].join('\n'),
+  )
+  const preview = (await uploadAndProcessPreview(app, jobService, cookie, upload)) as {
+    previewId: string
+    validRecords: Array<{ studentCode: string; cohortYear: number | null }>
+    duplicateRecords: Array<{ record: { studentCode: string; cohortYear: number | null } }>
+  }
+  // The cohort survives HTTP serialization of the preview.
+  assert.deepEqual(
+    [...preview.validRecords, ...preview.duplicateRecords.map((r) => r.record)]
+      .map((r) => [r.studentCode, r.cohortYear])
+      .sort(),
+    [
+      ['300', 2022],
+      ['301', null],
+      ['302', 2023],
+    ],
+  )
+
+  const confirm = await app.inject({
+    method: 'POST',
+    url: `/api/v1/admin/students/imports/${preview.previewId}/confirm`,
+    headers: { cookie },
+    payload: { duplicateStrategy: 'OVERWRITE' },
+  })
+  assert.equal(confirm.statusCode, 200, confirm.body)
+  assert.deepEqual(confirm.json(), { imported: 1, updated: 2, skipped: 0 })
+
+  const cohorts = await db
+    .select({ code: studentProfiles.studentCode, cohortYear: studentProfiles.cohortYear })
+    .from(studentProfiles)
+    .where(inArray(studentProfiles.studentCode, ['300', '301', '302']))
+  assert.deepEqual(Object.fromEntries(cohorts.map((r) => [r.code, r.cohortYear])), {
+    '300': 2022,
+    '301': 2021,
+    '302': 2023,
+  })
+
+  const audits = await db
+    .select({
+      resourceId: auditLogs.resourceId,
+      before: auditLogs.before,
+      after: auditLogs.after,
+      actorUserId: auditLogs.actorUserId,
+    })
+    .from(auditLogs)
+    .where(eq(auditLogs.action, 'STUDENT_COHORT_UPDATE'))
+  assert.deepEqual(audits, [
+    {
+      resourceId: existing['300'],
+      before: { cohortYear: 2021 },
+      after: { cohortYear: 2022 },
+      actorUserId: actor.id,
+    },
+  ])
+
+  await assert.rejects(
+    db.execute(sql`UPDATE student_profiles SET cohort_year = 1999 WHERE student_code = '300'`),
+    (error: { cause?: { constraint_name?: string } }) =>
+      error.cause?.constraint_name === 'student_profiles_cohort_year_check',
+  )
 })
 
 test('hai confirm đồng thời chỉ commit preview một lần trên PostgreSQL', async (context) => {

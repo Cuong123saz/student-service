@@ -10,15 +10,20 @@ export const STUDENT_IMPORT_MAX_ARCHIVE_RATIO = 100
 
 export type StudentImportFormat = 'CSV' | 'XLSX'
 
-export type StudentImportColumn = 'studentCode' | 'fullName' | 'email' | 'classCode'
+export type StudentImportColumn = 'studentCode' | 'fullName' | 'email' | 'classCode' | 'cohortYear'
 
 // read-excel-file returns Date instances at runtime, but
 // its published CellValue type currently declares typeof Date.
 export type StudentImportSourceCellValue = CellValue | Date
 
+export type StudentImportRequiredColumn = Exclude<StudentImportColumn, 'cohortYear'>
+
 export interface StudentImportSourceRow {
   sourceRow: number
-  values: Record<StudentImportColumn, StudentImportSourceCellValue | null>
+  values: Record<StudentImportRequiredColumn, StudentImportSourceCellValue | null> & {
+    /** Optional column (ADR 0025); absent or null means the cohort is unknown. */
+    cohortYear?: StudentImportSourceCellValue | null
+  }
 }
 
 export interface ParsedStudentImportFile {
@@ -47,6 +52,17 @@ export class StudentImportMissingColumnsError extends Error {
   }
 }
 
+/**
+ * Thrown for a header literally named “Khóa”: after accent stripping it collides with “Khoa”
+ * (faculty), so it is neither ignored nor guessed (ADR 0025).
+ */
+export class StudentImportAmbiguousColumnError extends StudentImportFileParseError {
+  constructor() {
+    super('Ambiguous column "Khóa": rename it to "Niên khóa"')
+    this.name = 'StudentImportAmbiguousColumnError'
+  }
+}
+
 export class StudentImportRowLimitError extends Error {
   constructor(readonly maximumRows: number) {
     super(`Import file exceeds ${maximumRows} data rows`)
@@ -61,7 +77,7 @@ export class StudentImportArchiveLimitError extends StudentImportFileParseError 
   }
 }
 
-const REQUIRED_COLUMNS: readonly StudentImportColumn[] = [
+const REQUIRED_COLUMNS: readonly StudentImportRequiredColumn[] = [
   'studentCode',
   'fullName',
   'email',
@@ -79,6 +95,20 @@ const HEADER_ALIASES: Record<string, StudentImportColumn> = {
   classcode: 'classCode',
   malop: 'classCode',
   lop: 'classCode',
+  // ADR 0025: never alias plain "khoa" — it is also the accent-stripped form of "Khoa" (faculty).
+  nienkhoa: 'cohortYear',
+  khoahoc: 'cohortYear',
+  namnhaphoc: 'cohortYear',
+  cohort: 'cohortYear',
+  cohortyear: 'cohortYear',
+}
+
+function isAmbiguousCohortHeader(value: StudentImportSourceCellValue | null): boolean {
+  const text = String(value ?? '')
+    .normalize('NFC')
+    .trim()
+    .toLowerCase()
+  return text === 'khóa' || text === 'khoá'
 }
 
 function normalizeHeader(value: StudentImportSourceCellValue | null): string {
@@ -104,6 +134,10 @@ function mapRows(
   }
 
   const columnIndexes = new Map<StudentImportColumn, number>()
+
+  if (header.some(isAmbiguousCohortHeader)) {
+    throw new StudentImportAmbiguousColumnError()
+  }
 
   header.forEach((value, index) => {
     const column = HEADER_ALIASES[normalizeHeader(value)]
@@ -138,6 +172,10 @@ function mapRows(
       fullName: row[columnIndexes.get('fullName')!] ?? null,
       email: row[columnIndexes.get('email')!] ?? null,
       classCode: row[columnIndexes.get('classCode')!] ?? null,
+      // Optional column: present only when the file has it; absent means unknown.
+      ...(columnIndexes.has('cohortYear')
+        ? { cohortYear: row[columnIndexes.get('cohortYear')!] ?? null }
+        : {}),
     },
   }))
 }

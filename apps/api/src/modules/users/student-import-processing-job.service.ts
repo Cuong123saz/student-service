@@ -1,5 +1,6 @@
 import {
   StudentImportArchiveLimitError,
+  StudentImportAmbiguousColumnError,
   StudentImportFileParseError,
   StudentImportMissingColumnsError,
   StudentImportRowLimitError,
@@ -89,6 +90,9 @@ function permanentErrorCode(error: unknown): string | null {
   }
   if (error instanceof StudentImportRowLimitError) {
     return 'IMPORT_ROW_LIMIT_EXCEEDED'
+  }
+  if (error instanceof StudentImportAmbiguousColumnError) {
+    return 'IMPORT_AMBIGUOUS_COHORT_COLUMN'
   }
   if (error instanceof StudentImportFileParseError) {
     return 'IMPORT_FILE_PARSE_FAILED'

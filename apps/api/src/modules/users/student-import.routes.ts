@@ -7,6 +7,7 @@ import { requireAdminPermission } from '../auth/admin-permission.guard.js'
 import type { AuthorizationUseCase } from '../auth/authorization.service.js'
 import {
   STUDENT_IMPORT_MAX_FILE_BYTES,
+  StudentImportAmbiguousColumnError,
   StudentImportFileParseError,
   StudentImportMissingColumnsError,
   StudentImportRowLimitError,
@@ -35,6 +36,7 @@ const studentImportErrorCodeSchema = Type.Union([
   Type.Literal('IMPORT_UPLOAD_BUSY'),
   Type.Literal('IMPORT_FILE_UNSUPPORTED'),
   Type.Literal('IMPORT_FILE_PARSE_FAILED'),
+  Type.Literal('IMPORT_AMBIGUOUS_COHORT_COLUMN'),
   Type.Literal('IMPORT_MISSING_COLUMNS'),
   Type.Literal('IMPORT_FORBIDDEN'),
   Type.Literal('IMPORT_PREVIEW_NOT_FOUND'),
@@ -59,6 +61,8 @@ const recordSchema = Type.Object({
   fullName: Type.String(),
   email: Type.String(),
   classCode: Type.String(),
+  // Optional: previews stored before ADR 0025 have no cohort field.
+  cohortYear: Type.Optional(Type.Union([Type.Integer(), Type.Null()])),
 })
 
 const duplicateReasonSchema = Type.Object({
@@ -85,6 +89,7 @@ const importErrorValuesSchema = Type.Object({
   fullName: importErrorCellSchema,
   email: importErrorCellSchema,
   classCode: importErrorCellSchema,
+  cohortYear: Type.Optional(importErrorCellSchema),
 })
 
 const previewResponseSchema = Type.Object({
@@ -371,6 +376,12 @@ export async function studentImportRoutes(
           return reply
             .code(400)
             .send(createImportError(request, 'IMPORT_FILE_UNSUPPORTED', error.message))
+        }
+
+        if (error instanceof StudentImportAmbiguousColumnError) {
+          return reply
+            .code(400)
+            .send(createImportError(request, 'IMPORT_AMBIGUOUS_COHORT_COLUMN', error.message))
         }
 
         if (error instanceof StudentImportFileParseError) {

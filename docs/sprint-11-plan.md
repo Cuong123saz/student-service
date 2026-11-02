@@ -65,7 +65,7 @@ CLB bị tạm dừng/giải thể không mở hoạt động mới; chứng nh�
 
 | Increment | Đầu ra | Điều kiện nghiệm thu |
 | --- | --- | --- |
-| 11.0 — Niên khóa sinh viên | [ADR 0025](adr/0025-student-cohort.md); migration cột niên khóa (nullable), import Excel/CSV thêm cột “Niên khóa”, hiển thị trong hồ sơ/quản trị | Dữ liệu cũ giữ nguyên; giá trị sai bị báo lỗi theo dòng; không suy niên khóa từ mã sinh viên/lớp |
+| 11.0 — COMPLETE_LOCAL | [ADR 0025](adr/0025-student-cohort.md); migration cột niên khóa (nullable), import Excel/CSV thêm cột “Niên khóa”, hiển thị trong hồ sơ/quản trị | Dữ liệu cũ giữ nguyên; giá trị sai bị báo lỗi theo dòng; không suy niên khóa từ mã sinh viên/lớp |
 | 11.1 — CLB và vai trò | ADR; role/permission CTSV, Phòng Đào tạo, người phụ trách CLB; CLB là đơn vị tổ chức; trạng thái CLB | Đúng ma trận quyền; SYSTEM_ADMIN không thay vai trò; audit |
 | 11.2 — Hoạt động | ADR + migration; tạo/sửa/hủy hoạt động, bắt buộc/tự nguyện, đối tượng, sức chứa, giao CLB, tạm dừng | Chỉ CTSV/Phòng ĐT tạo bắt buộc; lịch sử thay đổi; đối tượng kiểm ở máy chủ |
 | 11.3 — Đăng ký | Đăng ký, danh sách chờ, yêu cầu hủy, vắng mặt, thông báo | Không vượt sức chứa khi đồng thời; danh sách chờ đúng thứ tự; hạn 24 giờ |
@@ -86,3 +86,11 @@ Mỗi increment có ADR trước khi đổi schema/quyền, test theo quy ước
 ## Ngoài phạm vi
 
 Phạt vắng mặt; luồng sinh viên đề nghị lập CLB; QR/NFC trên ứng dụng di động riêng; nhận diện khuôn mặt hay xác minh vị trí tự động; chữ ký số; quy chế điểm rèn luyện chính thức; Sprint 12 (nghiên cứu khoa học).
+
+## Kết quả increment 11.0 — 02/11/2026
+
+Theo [ADR 0025](adr/0025-student-cohort.md). Migration viết tay `0028_student_cohort.sql`: cột `student_profiles.cohort_year smallint NULL` + CHECK 2000–2100; không cập nhật dữ liệu có sẵn. Không dùng `drizzle-kit generate` vì snapshot chỉ tới 0024 (0025–0027 viết tay), lệnh sinh ra cả việc tạo lại các bảng Sprint 7–9. ADR gate ánh xạ `student_profiles` → ADR 0025.
+
+Import: cột tùy chọn “Niên khóa” (`2022`/`K2022`), tên khác `Khóa học`, `Năm nhập học`, `cohort`, `cohortYear`; cột “Khóa” bị từ chối với mã `IMPORT_AMBIGUOUS_COHORT_COLUMN`. Giá trị sai báo lỗi theo dòng. Tạo mới ghi niên khóa; `OVERWRITE` chỉ ghi khi có giá trị và ghi audit `STUDENT_COHORT_UPDATE` (trước/sau) khi thực sự đổi. Preview lưu trước nâng cấp vẫn đọc được. File mẫu có cột “Niên khóa”. Hồ sơ cá nhân và danh sách sinh viên quản trị hiển thị niên khóa.
+
+Kiểm chứng: typecheck/lint/format/build đạt; ADR gate 52 đạt và đạt so với nhánh có ADR Accepted (trượt đúng thiết kế nếu so với `main` chưa có ADR); unit API 210 đạt / 2 bỏ qua; integration API 360 đạt; storage/recovery/bundle/guard 315 đạt; web 156 đạt. Diễn tập migration trên database giả riêng: áp tới 0027, thêm sinh viên cũ, áp 0028 → dữ liệu cũ giữ nguyên, `cohort_year` = NULL, CHECK từ chối 1999. Chưa có dữ liệu niên khóa thật; chưa chạy diễn tập trình duyệt riêng cho 11.0 (gộp vào 11.6). Bước kế tiếp 11.1 — CLB và vai trò.

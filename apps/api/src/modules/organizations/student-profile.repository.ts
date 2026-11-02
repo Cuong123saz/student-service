@@ -15,6 +15,8 @@ export interface StudentProfileView {
   fullName: string
   email: string | null
   studentCode: string
+  /** ADR 0025: cohort start year (2022 = K2022), null when unknown. */
+  cohortYear: number | null
   class: {
     id: string
     code: string
@@ -56,6 +58,7 @@ export class DrizzleStudentProfileRepository implements StudentProfileRepository
         fullName: users.fullName,
         email: users.email,
         studentCode: studentProfiles.studentCode,
+        cohortYear: studentProfiles.cohortYear,
         classId: academicClasses.id,
         classCode: academicClasses.code,
         className: academicClasses.name,
@@ -82,6 +85,7 @@ export class DrizzleStudentProfileRepository implements StudentProfileRepository
       fullName: row.fullName,
       email: row.email,
       studentCode: row.studentCode,
+      cohortYear: row.cohortYear,
       class: {
         id: row.classId,
         code: row.classCode,
