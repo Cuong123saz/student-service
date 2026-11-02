@@ -86,7 +86,7 @@ describe('handover confirmation', () => {
     await button(wrapper, 'Bàn giao hồ sơ').trigger('click')
     await flushPromises()
     expect(api.reassign).toHaveBeenCalledWith('one', 4, 'next', 'Lý do cập nhật')
-    expect(wrapper.emitted('updated')?.[0]?.[0].reviewerName).toBe('Người mới')
+    expect(wrapper.emitted('updated')?.[0]?.[0]).toMatchObject({ reviewerName: 'Người mới' })
     wrapper.unmount()
   })
   it('preserves recipient and note after failure for the parent to reload', async () => {
@@ -96,9 +96,11 @@ describe('handover confirmation', () => {
     api.reassign.mockRejectedValue({ status: 409, message: 'Đã thay đổi' })
     await button(wrapper, 'Bàn giao hồ sơ').trigger('click')
     await flushPromises()
-    expect(wrapper.get('#handover-recipient').element.value).toBe('next')
-    expect(wrapper.get('#handover-note').element.value).toContain('Bàn giao vì thay cán bộ')
-    expect(wrapper.emitted('failed')?.[0]?.[0].status).toBe(409)
+    expect(wrapper.get<HTMLSelectElement>('#handover-recipient').element.value).toBe('next')
+    expect(wrapper.get<HTMLTextAreaElement>('#handover-note').element.value).toContain(
+      'Bàn giao vì thay cán bộ',
+    )
+    expect(wrapper.emitted('failed')?.[0]?.[0]).toMatchObject({ status: 409 })
     await wrapper.setProps({ blocked: true })
     expect(wrapper.get('fieldset').attributes('disabled')).toBeDefined()
     wrapper.unmount()

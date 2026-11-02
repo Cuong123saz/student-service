@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DeepReadonly } from 'vue'
 import type { SystemRoleCode } from '~/types/auth'
 import type {
   AccessRole,
@@ -17,7 +18,7 @@ const { logout } = useAdminAuth()
 
 const search = ref('')
 const appliedSearch = ref('')
-const editingUser = ref<ManagedAccessUser | null>(null)
+const editingUser = ref<DeepReadonly<ManagedAccessUser> | null>(null)
 const selectedRoles = ref<SystemRoleCode[]>([])
 const scopeDrafts = reactive<Partial<Record<SystemRoleCode, string[]>>>({})
 const isSaving = ref(false)
@@ -60,11 +61,11 @@ function scopeLabel(scopeId: string) {
   return scopes.value.find((scope) => scope.id === scopeId)?.label ?? 'Phạm vi không còn khả dụng'
 }
 
-function scopesForRole(role: AccessRole): AccessScope[] {
+function scopesForRole(role: DeepReadonly<AccessRole>): AccessScope[] {
   return scopes.value.filter((scope) => role.allowedScopeTypes.includes(scope.type))
 }
 
-function openEditor(user: ManagedAccessUser) {
+function openEditor(user: DeepReadonly<ManagedAccessUser>) {
   editingUser.value = user
   selectedRoles.value = user.assignments.map((row) => row.roleCode)
   for (const role of roles.value) scopeDrafts[role.code] = []
@@ -81,7 +82,7 @@ function closeEditor() {
   editorError.value = ''
 }
 
-function toggleRole(role: AccessRole, checked: boolean) {
+function toggleRole(role: DeepReadonly<AccessRole>, checked: boolean) {
   if (checked) {
     if (!selectedRoles.value.includes(role.code)) {
       selectedRoles.value = [...selectedRoles.value, role.code]

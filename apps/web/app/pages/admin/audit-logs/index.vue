@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DeepReadonly } from 'vue'
 import type { AuditActorType, AuditLogItem, AuditState } from '~/types/audit-log'
 import { formatAuditValue, sanitizeAuditState } from '~/utils/audit-log'
 
@@ -94,7 +95,7 @@ function getActionLabel(action: string) {
   return actionLabels[action] ?? action
 }
 
-function getActorLabel(log: AuditLogItem) {
+function getActorLabel(log: DeepReadonly<AuditLogItem>) {
   if (log.actorUsername) {
     return log.actorUsername
   }
@@ -102,7 +103,7 @@ function getActorLabel(log: AuditLogItem) {
   return actorTypeLabels[log.actorType]
 }
 
-function getResourceLabel(log: AuditLogItem) {
+function getResourceLabel(log: DeepReadonly<AuditLogItem>) {
   return log.resourceId ? `${log.resourceType} · ${log.resourceId}` : log.resourceType
 }
 
@@ -113,7 +114,7 @@ function formatOccurredAt(value: string) {
   }).format(new Date(value))
 }
 
-function stateEntries(state: AuditState | null) {
+function stateEntries(state: DeepReadonly<AuditState> | null) {
   return Object.entries(sanitizeAuditState(state) ?? {})
 }
 

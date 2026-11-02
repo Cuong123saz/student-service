@@ -4,7 +4,9 @@ Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, đượ
 
 > Baseline chức năng tại `ffa38f5`: P0.1–P0.5 của luồng import đã được triển khai và kiểm chứng trên môi trường local. Demo và sửa lỗi hồi quy được hoàn tất qua `777c3f9`; Sprint 3 được Phan Phương Cường tự xác nhận hoàn tất ngày 13/09/2026 trong phạm vi dự án cá nhân, không phải phê duyệt độc lập của bên thứ ba. Import API đạt local nhưng chưa production-ready/deployed.
 
-Hiện Sprint 8 đã đóng kỹ thuật local ngày 15/10/2026: [hồ sơ đóng nền tảng điểm rèn luyện](docs/sprint-8-closure.md). Sprint 9 đang triển khai theo [kế hoạch cố vấn và khoa xét duyệt](docs/sprint-9-plan.md). Roadmap hợp nhất xác định xét duyệt điểm rèn luyện ở Sprint 9 và xuất bảng/biên bản ở Sprint 10.
+Hiện Sprint 8 đã đóng kỹ thuật local ngày 15/10/2026: [hồ sơ đóng nền tảng điểm rèn luyện](docs/sprint-8-closure.md). Sprint 9 đã [đóng kỹ thuật local ngày 23/10/2026](docs/sprint-9-closure.md). [Sprint 10 — xuất bảng và biên bản](docs/sprint-10-plan.md) đang IN_PROGRESS: increment 10.1–10.2 đã có snapshot theo quyền và [API POST tải Excel](docs/sprint-10-xlsx.md); biên bản và UI tải còn ở các increment sau. Roadmap hợp nhất xác định xét duyệt điểm rèn luyện ở Sprint 9 và xuất bảng/biên bản ở Sprint 10.
+
+Quy ước mở rộng module, dependency injection và cách chạy kiểm tra: [hướng dẫn phát triển](docs/development-guidelines.md).
 
 ## Trạng thái dự án
 
@@ -568,4 +570,4 @@ Quản trị tạo/sửa/mở/đóng đợt theo lớp, năm học/học kỳ v�
 
 Đã triển khai luồng đối chiếu điểm và minh chứng, cố vấn xác nhận từng bản, khoa duyệt/trả về và tổng hợp cấp lớp. Bản tự kê khai giữ nguyên; mỗi vòng xét duyệt có snapshot, người thực hiện, thời gian và mã đối chiếu riêng. Quyền/phạm vi/phân công hiện tại và tách hai người được kiểm tại máy chủ. Xác nhận bằng tài khoản chưa phải chữ ký số được xác minh; bộ tiêu chí vẫn giả định.
 
-[Hướng dẫn Sprint 9](docs/sprint-9-training-review.md) mô tả vai trò, cách sử dụng và API. Chỉ đóng kỹ thuật local sau khi kiểm thử, build và diễn tập trình duyệt đạt; xuất Excel/biên bản thuộc Sprint 10.
+[Hướng dẫn Sprint 9](docs/sprint-9-training-review.md) mô tả vai trò, cách sử dụng và API. Sprint 9 **CLOSED kỹ thuật local ngày 23/10/2026**; [hồ sơ đóng](docs/sprint-9-closure.md) ghi bằng chứng kiểm thử và diễn tập. Xuất Excel/biên bản thuộc [Sprint 10](docs/sprint-10-plan.md).

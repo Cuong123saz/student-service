@@ -1,16 +1,28 @@
-import { createHash } from 'node:crypto'
-import { resolve } from 'node:path'
-import { LocalEvidenceStorage, type EvidenceStorage } from '../submissions/submission.storage.js'
+import { readVerifiedEvidence } from '../../lib/verified-evidence.js'
+import type { EvidenceStorage } from '../submissions/submission.storage.js'
 import { inspectEvidence } from '../submissions/submission.validation.js'
 import { SubmissionError } from '../submissions/submission.types.js'
-import { TrainingPointRepository } from './training-points.repository.js'
+import type { TrainingPointRepository } from './training-points.repository.js'
 import type { Group } from './training-points.types.js'
+export type TrainingPointStore = Pick<
+  TrainingPointRepository,
+  | 'catalog'
+  | 'periods'
+  | 'periodDetail'
+  | 'createPeriod'
+  | 'changePeriod'
+  | 'start'
+  | 'detail'
+  | 'save'
+  | 'submit'
+  | 'addFile'
+  | 'removeFile'
+  | 'file'
+>
 export class TrainingPointService {
   constructor(
-    readonly repository = new TrainingPointRepository(),
-    private readonly storage: EvidenceStorage = new LocalEvidenceStorage(
-      resolve(process.env.SUBMISSION_STORAGE_ROOT || '.local/submission-files', 'training-points'),
-    ),
+    readonly repository: TrainingPointStore,
+    private readonly storage: EvidenceStorage,
   ) {}
   async upload(
     user: string,
@@ -48,20 +60,26 @@ export class TrainingPointService {
     return this.repository.submit(user, id, expectedRevision, requestId)
   }
   async download(user: string, id: string, fileId: string) {
-    const file = await this.repository.file(user, id, fileId),
-      bytes = await this.storage.read(file.storage_key)
-    if (
-      bytes.length !== file.size ||
-      createHash('sha256').update(bytes).digest('hex') !== file.sha256
+    return readVerifiedEvidence(
+      async () => {
+        const file = await this.repository.file(user, id, fileId)
+        return {
+          storageKey: file.storage_key,
+          sha256: file.sha256,
+          size: file.size,
+          name: file.name,
+          mimeType: file.mime_type,
+        }
+      },
+      (key) => this.storage.read(key),
+      (reason) =>
+        new SubmissionError(
+          409,
+          reason === 'UNAVAILABLE' ? 'TRAINING_FILE_UNAVAILABLE' : 'TRAINING_FILE_INTEGRITY',
+          reason === 'UNAVAILABLE'
+            ? 'Không đọc được minh chứng. Hãy liên hệ người phụ trách để kiểm tra kho tệp.'
+            : 'Tệp không khớp bản đã lưu hoặc đã thay đổi. Hãy liên hệ người phụ trách.',
+        ),
     )
-      throw new SubmissionError(
-        409,
-        'TRAINING_FILE_INTEGRITY',
-        'Tệp không khớp bản đã lưu. Hãy liên hệ người phụ trách.',
-      )
-    const after = await this.repository.file(user, id, fileId)
-    if (after.storage_key !== file.storage_key || after.sha256 !== file.sha256)
-      throw new SubmissionError(409, 'TRAINING_FILE_INTEGRITY', 'Tệp đã thay đổi.')
-    return { bytes, name: file.name, mimeType: file.mime_type }
   }
 }

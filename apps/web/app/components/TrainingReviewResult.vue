@@ -67,8 +67,8 @@ onBeforeUnmount(() => {
         </li>
       </ol>
       <p v-if="row.historyTruncated">Hiển thị 100 cập nhật gần nhất.</p></template
-    ><button class="button button--secondary" :disabled="busy" @click="load">
+    ><BaseButton variant="secondary" :disabled="busy" @click="load">
       Tải lại kết quả xét duyệt
-    </button>
+    </BaseButton>
   </section>
 </template>

@@ -1,10 +1,16 @@
+import type { VueWrapper } from '@vue/test-utils'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import NotificationInbox from '../../app/components/NotificationInbox.vue'
 const { api, navigate } = vi.hoisted(() => ({
-  api: { identity: { value: 'person:1' }, unreadCount: { value: 2 }, list: vi.fn(), read: vi.fn() },
+  api: {
+    identity: { value: 'person:1' as string | null },
+    unreadCount: { value: 2 },
+    list: vi.fn(),
+    read: vi.fn(),
+  },
   navigate: vi.fn(),
 }))
 mockNuxtImport('useNotifications', () => () => api)
@@ -31,7 +37,7 @@ beforeEach(() => {
   api.read.mockReset()
   navigate.mockReset()
 })
-function button(wrapper: Awaited<ReturnType<typeof mountSuspended>>, name: string) {
+function button(wrapper: VueWrapper, name: string) {
   return wrapper.findAll('button').find((b) => b.text() === name)!
 }
 describe('personal inbox', () => {

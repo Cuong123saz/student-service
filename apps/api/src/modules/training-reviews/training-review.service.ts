@@ -1,29 +1,32 @@
-import { createHash } from 'node:crypto'
-import { resolve } from 'node:path'
-import { LocalEvidenceStorage, type EvidenceStorage } from '../submissions/submission.storage.js'
+import { readVerifiedEvidence } from '../../lib/verified-evidence.js'
+import type { EvidenceStorage } from '../submissions/submission.storage.js'
 import { SubmissionError } from '../submissions/submission.types.js'
-import { TrainingReviewRepository } from './training-review.repository.js'
+import type { TrainingReviewRepository } from './training-review.repository.js'
 import type { ReviewAction, ReviewInput } from './training-review.types.js'
+export type TrainingReviewStore = Pick<
+  TrainingReviewRepository,
+  'periods' | 'queue' | 'detail' | 'file' | 'act'
+>
 export class TrainingReviewService {
   constructor(
-    readonly repository = new TrainingReviewRepository(),
-    private readonly storage: EvidenceStorage = new LocalEvidenceStorage(
-      resolve(process.env.SUBMISSION_STORAGE_ROOT || '.local/submission-files', 'training-points'),
-    ),
+    readonly repository: TrainingReviewStore,
+    private readonly storage: EvidenceStorage,
   ) {}
   async download(user: string, id: string, fileId: string) {
-    const f = await this.repository.file(user, id, fileId),
-      bytes = await this.storage.read(f.storageKey)
-    if (bytes.length !== f.size || createHash('sha256').update(bytes).digest('hex') !== f.sha256)
-      throw new SubmissionError(
-        409,
-        'TRAINING_REVIEW_FILE_INTEGRITY',
-        'Minh chứng không khớp bản nộp. Chưa thể xác nhận.',
-      )
-    const after = await this.repository.file(user, id, fileId)
-    if (after.storageKey !== f.storageKey || after.sha256 !== f.sha256)
-      throw new SubmissionError(409, 'TRAINING_REVIEW_FILE_INTEGRITY', 'Minh chứng đã thay đổi.')
-    return { bytes, name: f.name, mimeType: f.mimeType }
+    return readVerifiedEvidence(
+      () => this.repository.file(user, id, fileId),
+      (key) => this.storage.read(key),
+      (reason) =>
+        new SubmissionError(
+          409,
+          reason === 'UNAVAILABLE'
+            ? 'TRAINING_REVIEW_FILE_UNAVAILABLE'
+            : 'TRAINING_REVIEW_FILE_INTEGRITY',
+          reason === 'UNAVAILABLE'
+            ? 'Không đọc được minh chứng. Hãy liên hệ người phụ trách để kiểm tra kho tệp.'
+            : 'Minh chứng không khớp bản nộp hoặc đã thay đổi. Chưa thể xác nhận.',
+        ),
+    )
   }
   async act(user: string, id: string, action: ReviewAction, input: ReviewInput) {
     const d = await this.repository.detail(user, id)

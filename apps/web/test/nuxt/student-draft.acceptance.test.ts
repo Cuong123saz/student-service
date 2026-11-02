@@ -1,3 +1,4 @@
+import type { VueWrapper } from '@vue/test-utils'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
@@ -252,10 +253,10 @@ function sent(status: 'SUBMITTED' | 'IN_REVIEW' = 'SUBMITTED'): StudentDraft {
     reviewStartedAt: status === 'IN_REVIEW' ? '2026-10-09T02:00:00Z' : null,
   }
 }
-function button(wrapper: Awaited<ReturnType<typeof mountSuspended>>, label: string) {
+function button(wrapper: VueWrapper, label: string) {
   return wrapper.findAll('button').find((item) => item.text() === label)!
 }
-async function confirm(wrapper: Awaited<ReturnType<typeof mountSuspended>>) {
+async function confirm(wrapper: VueWrapper) {
   await button(wrapper, 'Xem lại thông tin').trigger('click')
   await wrapper.get('#confirm-submission').setValue(true)
 }
@@ -284,7 +285,7 @@ describe('student submission', () => {
     const wrapper = await mountSuspended(StudentDraftEditor, { props: { initialDraft: sample() } })
     await button(wrapper, 'Xem lại thông tin').trigger('click')
     expect(wrapper.get('#confirm-submission').attributes('disabled')).toBeDefined()
-    expect(wrapper.get('aside a[href="#attachment-proof"]').exists()).toBe(true)
+    expect(wrapper.find('aside a[href="#attachment-proof"]').exists()).toBe(true)
     await button(wrapper, 'Gửi hồ sơ').trigger('click')
     expect(api.submit).not.toHaveBeenCalled()
     wrapper.unmount()
@@ -360,7 +361,7 @@ describe('student submission', () => {
     await flushPromises()
     expect(wrapper.get('#field-purpose').element).toHaveProperty('value', 'Xin xác nhận học tập')
     expect(wrapper.get('.draft-error a').attributes('href')).toBe('#attachment-proof')
-    expect(wrapper.get('#attachment-proof').exists()).toBe(true)
+    expect(wrapper.find('#attachment-proof').exists()).toBe(true)
     expect(document.activeElement).toBe(wrapper.get('.draft-error').element)
     wrapper.unmount()
   })
@@ -474,6 +475,7 @@ function supplement(): StudentDraft {
         id: 'event-1',
         roundNumber: 1,
         action: 'SUPPLEMENT_REQUESTED',
+        reassignment: null,
         actorName: 'Cán bộ A',
         note: '<b>Bổ sung nội dung và thay minh chứng</b>',
         createdAt: '2026-10-10T03:00:00Z',
@@ -567,6 +569,7 @@ describe('student supplement and history', () => {
                 id: 'decision',
                 roundNumber: 1,
                 action: status,
+                reassignment: null,
                 actorName: 'Cán bộ A',
                 note: '<script>reason</script>',
                 createdAt: '2026-10-10T04:00:00Z',

@@ -167,9 +167,7 @@ onBeforeUnmount(() => {
     </div>
     <p v-if="message" class="tp-notice" role="status">{{ message }}</p>
     <p v-if="busy" role="status">Đang xử lý…</p>
-    <button class="button button--secondary" :disabled="busy" @click="reload">
-      Tải lại kết quả
-    </button>
+    <BaseButton variant="secondary" :disabled="busy" @click="reload"> Tải lại kết quả </BaseButton>
     <template v-if="row"
       ><section class="tp-panel">
         <h2>{{ reviewLabels[row.state] }}</h2>
@@ -244,9 +242,9 @@ onBeforeUnmount(() => {
             <li v-for="f in row.files.filter((f) => f.criterion === c.code)" :key="f.id">
               <strong>{{ c.code }} · {{ f.name }}</strong>
               <p class="tp-muted">Chưa kiểm tra chữ ký / dấu</p>
-              <button class="button button--secondary" :disabled="busy" @click="download(f)">
+              <BaseButton variant="secondary" :disabled="busy" @click="download(f)">
                 Tải {{ f.name }}
-              </button>
+              </BaseButton>
             </li>
           </ul></template
         >
@@ -267,23 +265,22 @@ onBeforeUnmount(() => {
           không sửa trực tiếp điểm.
         </p>
         <div class="tp-actions">
-          <button
+          <BaseButton
             v-if="row.canAdvisorSign"
-            class="button"
             :disabled="busy || stale"
             @click="prepare('advisor-sign')"
           >
-            Kiểm tra xác nhận cố vấn</button
+            Kiểm tra xác nhận cố vấn</BaseButton
           ><template v-if="row.canFacultyDecide"
-            ><button class="button" :disabled="busy || stale" @click="prepare('faculty-approve')">
-              Kiểm tra duyệt của khoa</button
-            ><button
-              class="button button--secondary"
+            ><BaseButton :disabled="busy || stale" @click="prepare('faculty-approve')">
+              Kiểm tra duyệt của khoa</BaseButton
+            ><BaseButton
+              variant="secondary"
               :disabled="busy || stale"
               @click="prepare('faculty-return')"
             >
               Kiểm tra trả về cố vấn
-            </button></template
+            </BaseButton></template
           >
         </div>
         <div v-if="pending" id="review-confirm" class="tp-confirm" tabindex="-1">
@@ -299,8 +296,7 @@ onBeforeUnmount(() => {
             minh chứng và nhận xét</label
           >
           <div class="tp-actions">
-            <button
-              class="button"
+            <BaseButton
               :disabled="
                 busy ||
                 !accepted ||
@@ -309,10 +305,10 @@ onBeforeUnmount(() => {
               "
               @click="submit"
             >
-              {{ actionLabel }}</button
-            ><button class="button button--secondary" :disabled="busy" @click="cancelConfirmation">
+              {{ actionLabel }}</BaseButton
+            ><BaseButton variant="secondary" :disabled="busy" @click="cancelConfirmation">
               Quay lại đối chiếu
-            </button>
+            </BaseButton>
           </div>
         </div>
       </section>
@@ -341,3 +337,4 @@ onBeforeUnmount(() => {
     >
   </section>
 </template>
+<style src="~/assets/css/training.css"></style>

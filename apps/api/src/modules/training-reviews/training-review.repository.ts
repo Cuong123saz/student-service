@@ -1,7 +1,12 @@
+import {
+  trainingExportMaxRows,
+  type TrainingExportSnapshot,
+  type TrainingExportRow,
+} from './training-export.types.js'
 import { randomUUID } from 'node:crypto'
 import type { Sql, TransactionSql } from 'postgres'
 import { databaseClient } from '../../db/client.js'
-import { SubmissionError } from '../submissions/submission.types.js'
+import { SubmissionError, type SubmissionActor } from '../submissions/submission.types.js'
 import { validateAnswers } from '../training-points/training-points.validation.js'
 import type { Answers } from '../training-points/training-points.types.js'
 import {
@@ -154,7 +159,7 @@ export class TrainingReviewRepository {
     })
   }
   async queue(user: string, periodId: string, cursor?: string, state?: ReviewState) {
-    return this.db.begin(async (tx) => {
+    return this.db.begin('isolation level repeatable read, read only', async (tx) => {
       await this.staff(tx, user)
       const [period] = await tx<
         ReviewQueuePeriod[]
@@ -175,6 +180,99 @@ export class TrainingReviewRepository {
       }
     })
   }
+  private async exportContext(tx: Tx, user: string, periodId: string) {
+    await this.staff(tx, user)
+    const [context] = await tx<
+      Pick<TrainingExportSnapshot, 'capturedAt' | 'exportedBy' | 'period'>[]
+    >`
+      SELECT to_char(transaction_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "capturedAt",
+        jsonb_build_object('userId',u.id,'username',u.username,'fullName',u.full_name) AS "exportedBy",
+        jsonb_build_object('id',p.id,'classId',p.class_id,'classCode',c.code,'className',c.name,
+          'facultyCode',f.code,'facultyName',f.name,'name',p.name,'academicYear',p.academic_year,
+          'semester',p.semester,'status',p.status,'policyLabel',p.policy_label,'criteria',p.criteria) AS period
+      FROM training_periods p JOIN academic_classes c ON c.id=p.class_id
+      JOIN faculties f ON f.id=c.faculty_id JOIN users u ON u.id=${user}
+      WHERE p.id=${periodId} AND p.status<>'DRAFT'
+        AND (training_review_allowed(${user}::uuid,p.class_id,'ADVISOR')
+          OR training_review_allowed(${user}::uuid,p.class_id,'FACULTY'))`
+    if (!context) throw missing()
+    return context
+  }
+  async recordExport(
+    actor: SubmissionActor,
+    periodId: string,
+    receipt: { snapshotId: string; rowCount: number; sha256: string; size: number },
+  ): Promise<void> {
+    await this.db.begin(async (tx) => {
+      await this.locks(tx)
+      const context = await this.exportContext(tx, actor.userId, periodId)
+      await tx`INSERT INTO audit_logs(actor_type,actor_user_id,actor_username,action,resource_type,resource_id,outcome,request_id,ip_address,user_agent,metadata)
+        VALUES('USER',${actor.userId},${context.exportedBy.username},'training.export.xlsx.prepared','training_period',${periodId},'SUCCESS',${actor.requestId},${actor.ipAddress},${actor.userAgent},
+          jsonb_build_object('snapshotId',${receipt.snapshotId}::text,'rowCount',${receipt.rowCount}::integer,'sha256',${receipt.sha256}::text,'size',${receipt.size}::integer,'format','XLSX'))`
+    })
+  }
+
+  async assertExportAccess(user: string, periodId: string): Promise<void> {
+    await this.db.begin(async (tx) => {
+      await this.exportContext(tx, user, periodId)
+    })
+  }
+  async exportSnapshot(user: string, periodId: string): Promise<TrainingExportSnapshot> {
+    return this.db.begin('isolation level repeatable read, read only', async (tx) => {
+      await tx`SET LOCAL statement_timeout='10s'`
+      const context = await this.exportContext(tx, user, periodId)
+      const rows = await tx<TrainingExportRow[]>`
+        SELECT d.id AS "declarationId",r.declaration_sha256 AS "declarationSha256",
+          d.student_snapshot AS student,d.total_points AS "selfPoints",
+          r.assessed_answers AS "approvedAnswers",r.total_points AS "approvedPoints",
+          jsonb_build_object('id',a.id,'revision',a.revision,'actor',a.actor_snapshot,
+            'confirmedAt',to_char(a.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+            'payloadSha256',a.payload_sha256) AS advisor,
+          jsonb_build_object('id',r.id,'revision',r.revision,'actor',r.actor_snapshot,
+            'confirmedAt',to_char(r.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+            'payloadSha256',r.payload_sha256) AS faculty
+        FROM training_declarations d
+        JOIN LATERAL (SELECT * FROM training_review_decisions WHERE declaration_id=d.id ORDER BY revision DESC LIMIT 1) r ON r.action='FACULTY_APPROVED'
+        JOIN training_review_decisions a ON a.id=r.parent_decision_id AND a.declaration_id=d.id AND a.action='ADVISOR_SIGNED'
+        WHERE d.period_id=${periodId} AND d.state='SUBMITTED'
+        ORDER BY (d.student_snapshot->>'studentCode') COLLATE "C",d.id
+        LIMIT ${trainingExportMaxRows + 1}`
+      if (rows.length > trainingExportMaxRows)
+        throw fail(
+          422,
+          'TRAINING_EXPORT_TOO_LARGE',
+          'Một lần xuất tối đa 1.000 bản đã duyệt. Hãy liên hệ người phụ trách.',
+        )
+      const [summary] = await tx<ReviewSummary[]>`
+        SELECT count(*)::integer AS submitted,count(*) FILTER(WHERE r.action IS NULL)::integer AS "waitingAdvisor",
+          count(*) FILTER(WHERE r.action='ADVISOR_SIGNED')::integer AS "waitingFaculty",
+          count(*) FILTER(WHERE r.action='FACULTY_RETURNED')::integer AS "returnedToAdvisor",
+          count(*) FILTER(WHERE r.action='FACULTY_APPROVED')::integer AS approved,
+          COALESCE(sum(r.total_points) FILTER(WHERE r.action='FACULTY_APPROVED'),0)::integer AS "approvedTotalPoints",
+          round(avg(r.total_points) FILTER(WHERE r.action='FACULTY_APPROVED'),2)::float AS "approvedAveragePoints"
+        FROM training_declarations d
+        LEFT JOIN LATERAL (SELECT action,total_points FROM training_review_decisions WHERE declaration_id=d.id ORDER BY revision DESC LIMIT 1) r ON true
+        WHERE d.period_id=${periodId} AND d.state='SUBMITTED'`
+      if (!summary || summary.approved !== rows.length)
+        throw fail(
+          409,
+          'TRAINING_EXPORT_INTEGRITY',
+          'Dữ liệu xét duyệt không nhất quán. Chưa thể xuất.',
+        )
+      return {
+        schemaVersion: 1,
+        snapshotId: randomUUID(),
+        ...context,
+        summary,
+        rows: Array.from(rows),
+        classification: 'NOT_ASSIGNED',
+        technicalSignatureStatus: 'NOT_VERIFIED',
+        legalEffect: false,
+        notice: 'DỮ LIỆU THỬ NGHIỆM — CHƯA PHẢI BIỂU MẪU CHÍNH THỨC',
+      }
+    })
+  }
+
   async file(user: string, id: string, fileId: string) {
     return this.db.begin(async (tx) => {
       const detail = await this.load(tx, user, id)

@@ -5,7 +5,7 @@ export interface SessionUser {
   id: string
   username: string
   mustChangePassword: boolean
-  roles: SystemRoleCode[]
+  roles: readonly SystemRoleCode[]
 }
 
 export type AdminSessionUser = SessionUser

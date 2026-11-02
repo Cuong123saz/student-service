@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineVitestProject } from '@nuxt/test-utils/config'
 import { defineConfig } from 'vitest/config'
 
@@ -24,6 +25,12 @@ export default defineConfig({
           environmentOptions: {
             nuxt: {
               domEnvironment: 'happy-dom',
+              // Tests must not overwrite the application build's generated manifest.
+              overrides: {
+                buildDir: fileURLToPath(
+                  new URL('./node_modules/.cache/nuxt-vitest', import.meta.url),
+                ),
+              },
             },
           },
         },

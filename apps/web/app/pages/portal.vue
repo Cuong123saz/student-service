@@ -4,6 +4,9 @@ import { roleLabels, type SystemRoleCode } from '~/types/auth'
 definePageMeta({ middleware: 'user-auth' })
 
 const { user } = useUserAuth()
+const currentRoleLabels = computed(
+  () => user.value?.roles.map((role) => roleLabels[role]).join(', ') ?? '',
+)
 
 interface PortalItem {
   label: string
@@ -102,9 +105,7 @@ const items = computed(() =>
       </template>
     </div>
 
-    <p class="portal__identity">
-      Quyền hiện tại: {{ user.roles.map((role) => roleLabels[role]).join(', ') }}
-    </p>
+    <p class="portal__identity">Quyền hiện tại: {{ currentRoleLabels }}</p>
   </section>
 </template>
 

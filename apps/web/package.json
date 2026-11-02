@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
+    "typecheck": "nuxt typecheck",
     "dev": "nuxt dev --port 3001",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
     "test:acceptance": "vitest run --project nuxt",
     "test:watch": "vitest"
   },
@@ -21,6 +23,7 @@
     "@nuxt/test-utils": "^4.2.0",
     "@vue/test-utils": "^2.5.0",
     "happy-dom": "^20.14.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "vue-tsc": "^3.3.13"
   }
 }

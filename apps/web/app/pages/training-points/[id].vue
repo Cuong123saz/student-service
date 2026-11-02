@@ -34,7 +34,7 @@ function set(d: TrainingDeclaration) {
   answers.value = Object.fromEntries(
     d.period.criteria.map((c) => [
       c.code,
-      d.answers[c.code] ? { ...d.answers[c.code] } : { points: null, note: '' },
+      { points: d.answers[c.code]?.points ?? null, note: d.answers[c.code]?.note ?? '' },
     ]),
   )
   baseline.value = JSON.stringify(answers.value)

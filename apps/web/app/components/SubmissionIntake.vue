@@ -642,7 +642,7 @@ watch(
         :events="detail.events"
         :procedure="detail.procedure"
         :download-url="
-          (roundNumber, fileId) => api.roundDownloadUrl(detail.id, roundNumber, fileId)
+          (roundNumber, fileId) => api.roundDownloadUrl(props.id ?? '', roundNumber, fileId)
         "
       />
     </template>

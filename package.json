@@ -13,7 +13,8 @@
     "dev:api": "npm run dev --workspace @student-service/api",
     "dev:web": "npm run dev --workspace @student-service/web",
     "dev:imports-worker": "npm run imports:worker --workspace @student-service/api",
-    "check": "npm run check:api",
+    "check": "npm run check:api && npm run check:web",
+    "check:web": "npm run typecheck --workspace @student-service/web",
     "check:api": "npm run typecheck --workspace @student-service/api",
     "check:sprint4-adr": "node scripts/check-sprint4-adr-gate.mjs",
     "lint": "npm run lint --workspace @student-service/api",
@@ -22,7 +23,7 @@
     "test": "npm run test:sprint4-adr && npm run test:api && npm run test:web",
     "test:sprint4-adr": "node --test scripts/check-sprint4-adr-gate.test.mjs",
     "test:api": "npm run test --workspace @student-service/api",
-    "test:web": "npm run test --workspace @student-service/web && npm run test:acceptance --workspace @student-service/web",
+    "test:web": "npm run test --workspace @student-service/web",
     "build": "npm run build:api && npm run build:web",
     "build:api": "npm run build --workspace @student-service/api",
     "build:web": "npm run build --workspace @student-service/web"

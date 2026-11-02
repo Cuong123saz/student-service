@@ -1,8 +1,12 @@
+import { createHash } from 'node:crypto'
+import { readSheet } from 'read-excel-file/node'
+import { createTrainingExportWorkbook } from './training-export.xlsx.js'
+import { TrainingExportService } from './training-export.service.js'
 import assert from 'node:assert/strict'
 import { test, after } from 'node:test'
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
-import postgres from 'postgres'
+import postgres, { type TransactionSql } from 'postgres'
 import { databaseClient } from '../../db/client.js'
 import { env } from '../../config/env.js'
 import { buildApp } from '../../app.js'
@@ -181,6 +185,340 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
         )
       return { p, d: await points.submit(student, d.id, d.revision, randomUUID()) }
     }
+    await t.test(
+      'export snapshot excludes drafts and pending rows without inventing zero results',
+      async () => {
+        const p = await pointRepo.createPeriod(admin, {
+          classId: clazz,
+          academicYear: `${year}-${++year}`,
+          semester: '1',
+          name: 'Đợt trống',
+          policyLabel: 'Giả định',
+          startsAt: new Date(Date.now() - 60000).toISOString(),
+          endsAt: new Date(Date.now() + 3600000).toISOString(),
+          criteria: demoCriteria().map((c) => ({ ...c, evidenceRequired: false })),
+        })
+        await assert.rejects(repo.exportSnapshot(advisor, p.id), status(404))
+        await pointRepo.changePeriod(admin, p.id, 1, 'OPEN')
+        await pointRepo.start(other, p.id)
+        const empty = await repo.exportSnapshot(advisor, p.id)
+        assert.deepEqual(empty.rows, [])
+        assert.equal(empty.summary.submitted, 0)
+        assert.equal(empty.summary.approvedAveragePoints, null)
+        assert.equal(empty.summary.approvedTotalPoints, 0)
+        const pending = await fixture()
+        await pointRepo.start(other, pending.p.id)
+        const snapshot = await repo.exportSnapshot(faculty, pending.p.id)
+        assert.equal(snapshot.summary.submitted, 1)
+        assert.equal(snapshot.summary.waitingAdvisor, 1)
+        assert.equal(snapshot.summary.approved, 0)
+        assert.deepEqual(snapshot.rows, [])
+        assert.equal(snapshot.classification, 'NOT_ASSIGNED')
+        assert.equal(snapshot.legalEffect, false)
+        assert.equal(snapshot.exportedBy.userId, faculty)
+        assert.match(snapshot.capturedAt, /^\d{4}-\d{2}-\d{2}T.*Z$/)
+        assert.notEqual(
+          snapshot.snapshotId,
+          (await repo.exportSnapshot(faculty, pending.p.id)).snapshotId,
+        )
+      },
+    )
+    await t.test(
+      'export uses final approval parent, frozen student and actor data, including genuine zero scores',
+      async () => {
+        const { p, d } = await fixture()
+        await repo.act(advisor, d.id, 'ADVISOR_SIGNED', input())
+        await repo.act(faculty, d.id, 'FACULTY_RETURNED', input(1, false))
+        const revised = input(2)
+        revised.answers = { ...assessed, A: { points: 9, note: 'Xác nhận lại' } }
+        const signed = await repo.act(advisor, d.id, 'ADVISOR_SIGNED', revised)
+        const approved = await repo.act(faculty, d.id, 'FACULTY_APPROVED', input(3, false))
+        let second = await pointRepo.start(other, p.id)
+        const zero = Object.fromEntries(
+          Object.keys(answers).map((code) => [code, { points: 0, note: '' }]),
+        )
+        second = await pointRepo.save(other, second.id, second.revision, zero)
+        await pointRepo.submit(other, second.id, second.revision, randomUUID())
+        await repo.act(advisor, second.id, 'ADVISOR_SIGNED', { ...input(), answers: zero })
+        await repo.act(faculty, second.id, 'FACULTY_APPROVED', input(1, false))
+        const [advisorBefore] = await db<
+          { full_name: string }[]
+        >`SELECT full_name FROM users WHERE id=${advisor}`
+        try {
+          await db`UPDATE student_profiles SET class_id=${foreignClass} WHERE user_id=${student}`
+          await db`UPDATE users SET full_name='Tên đã thay đổi sau duyệt' WHERE id=${advisor}`
+          const snapshot = await repo.exportSnapshot(faculty, p.id)
+          assert.deepEqual(
+            snapshot.rows.map((row) => row.student.studentCode),
+            ['S9001', 'S9002'],
+          )
+          const row = snapshot.rows[0]!
+          assert.equal(row.student.classCode, 'S9CLASS')
+          assert.equal(row.selfPoints, 15)
+          assert.equal(row.approvedPoints, 14)
+          assert.equal(row.approvedAnswers.A!.points, 9)
+          assert.equal(row.advisor.id, signed.decisions[2]!.id)
+          assert.equal(row.advisor.actor.fullName, advisorBefore!.full_name)
+          assert.equal(row.faculty.id, approved.decisions[3]!.id)
+          assert.equal(row.declarationSha256, approved.declarationSha256)
+          assert.equal(snapshot.rows[1]!.approvedPoints, 0)
+          assert.equal(snapshot.summary.approved, 2)
+          assert.equal(snapshot.summary.approvedTotalPoints, 14)
+          assert.equal(snapshot.summary.approvedAveragePoints, 7)
+          assert.equal('files' in row, false)
+          assert.equal('storageKey' in row, false)
+        } finally {
+          await db`UPDATE student_profiles SET class_id=${clazz} WHERE user_id=${student}`
+          await db`UPDATE users SET full_name=${advisorBefore!.full_name} WHERE id=${advisor}`
+        }
+      },
+    )
+    await t.test(
+      'export requires current role, scope and assignment; service refuses a snapshot after revocation',
+      async () => {
+        const { p } = await fixture()
+        for (const read of [repo.exportSnapshot.bind(repo), repo.assertExportAccess.bind(repo)]) {
+          await assert.rejects(read(admin, p.id), status(403))
+          await assert.rejects(read(student, p.id), status(403))
+          await assert.rejects(read(outsider, p.id), status(404))
+          await assert.rejects(read(faculty, randomUUID()), status(404))
+        }
+        try {
+          await db`UPDATE academic_advisor_assignments SET status='INACTIVE' WHERE advisor_user_id=${advisor}`
+          await assert.rejects(repo.exportSnapshot(advisor, p.id), status(404))
+          await db`UPDATE academic_advisor_assignments SET status='ACTIVE' WHERE advisor_user_id=${advisor}`
+          await db`DELETE FROM user_role_scopes WHERE user_id=${faculty}`
+          await assert.rejects(repo.exportSnapshot(faculty, p.id), status(404))
+          await grant(faculty, 'FACULTY_REVIEWER', facultyScope!.id)
+          const service = new TrainingExportService({
+            exportSnapshot: async (user, id) => {
+              const snapshot = await repo.exportSnapshot(user, id)
+              await db`UPDATE academic_advisor_assignments SET status='INACTIVE' WHERE advisor_user_id=${advisor}`
+              return snapshot
+            },
+            assertExportAccess: repo.assertExportAccess.bind(repo),
+            recordExport: repo.recordExport.bind(repo),
+          })
+          await assert.rejects(service.capture(advisor, p.id), status(404))
+        } finally {
+          await db`UPDATE academic_advisor_assignments SET status='ACTIVE' WHERE advisor_user_id=${advisor}`
+          await grant(faculty, 'FACULTY_REVIEWER', facultyScope!.id)
+        }
+      },
+    )
+    await t.test(
+      'export rows and summary share a snapshot when faculty approves between reads',
+      async () => {
+        const { p, d } = await fixture()
+        await repo.act(advisor, d.id, 'ADVISOR_SIGNED', input())
+        let interleaved = false
+        const concurrentDb = new Proxy(db, {
+          get(target, property, receiver) {
+            if (property !== 'begin') return Reflect.get(target, property, receiver) as unknown
+            return (options: string, fn: (tx: TransactionSql) => Promise<unknown>) =>
+              target.begin(options, (tx) =>
+                fn(
+                  new Proxy(tx, {
+                    apply(query, context, args) {
+                      const sql = (args[0] as TemplateStringsArray).join('?')
+                      if (sql.includes('AS submitted,'))
+                        return (async () => {
+                          await repo.act(faculty, d.id, 'FACULTY_APPROVED', input(1, false))
+                          interleaved = true
+                          return Reflect.apply(query, context, args) as unknown
+                        })()
+                      return Reflect.apply(query, context, args) as unknown
+                    },
+                  }),
+                ),
+              )
+          },
+        })
+        const result = await new TrainingReviewRepository(concurrentDb).exportSnapshot(
+          advisor,
+          p.id,
+        )
+        assert.equal(interleaved, true)
+        assert.deepEqual(result.rows, [])
+        assert.equal(result.summary.waitingFaculty, 1)
+        assert.equal(result.summary.approved, 0)
+        const later = await repo.exportSnapshot(advisor, p.id)
+        assert.equal(later.rows.length, 1)
+        assert.equal(later.summary.approved, 1)
+      },
+    )
+
+    await t.test(
+      'XLSX HTTP download enforces session, origin, scope, fresh rights and transactional audit',
+      async () => {
+        const { p, d } = await fixture()
+        await repo.act(advisor, d.id, 'ADVISOR_SIGNED', input())
+        await repo.act(faculty, d.id, 'FACULTY_APPROVED', input(1, false))
+        let revokeAfterRender = false
+        const exporter = new TrainingExportService(repo, async (snapshot) => {
+          const bytes = createTrainingExportWorkbook(snapshot)
+          if (revokeAfterRender)
+            await db`UPDATE academic_advisor_assignments SET status='INACTIVE' WHERE advisor_user_id=${advisor}`
+          return bytes
+        })
+        const app = buildApp({
+          trainingReviewService: service,
+          trainingService: points,
+          trainingExportService: exporter,
+        })
+        await app.ready()
+        const cookie = (user = advisor, portal: 'user' | 'admin' = 'user') =>
+          portal +
+          '_session=' +
+          app.jwt.sign(
+            {
+              sub: user,
+              username: 'test',
+              roles: portal === 'admin' ? ['SYSTEM_ADMIN'] : ['ACADEMIC_ADVISOR', 'STUDENT'],
+              portal,
+              mustChangePassword: false,
+              iss: JWT_ISSUER,
+              aud: portal === 'admin' ? ADMIN_JWT_AUDIENCE : USER_JWT_AUDIENCE,
+            },
+            { expiresIn: '5m' },
+          )
+        const url = '/api/v1/user/training-reviews/periods/' + p.id + '/export.xlsx'
+        let ip = 1
+        const request = (headers: Record<string, string>, path = url) =>
+          app.inject({
+            method: 'POST',
+            payload: {},
+            url: path,
+            headers,
+            remoteAddress: '127.0.1.' + ip++,
+          })
+        try {
+          for (const headers of [{}, { cookie: cookie(admin, 'admin') }]) {
+            const res = await request(headers)
+            assert.equal(res.statusCode, 401)
+            assert.match(res.headers['cache-control'] as string, /private.*no-store/)
+          }
+          for (const [user, expected] of [
+            [admin, 403],
+            [student, 403],
+            [outsider, 404],
+          ] as const)
+            assert.equal(
+              (await request({ cookie: cookie(user), origin: env.corsOrigin })).statusCode,
+              expected,
+            )
+          assert.equal((await request({ cookie: cookie() })).statusCode, 403)
+          assert.equal(
+            (await request({ cookie: cookie(), origin: 'https://foreign.invalid' })).statusCode,
+            403,
+          )
+          assert.equal(
+            (await request({ cookie: cookie(), origin: env.corsOrigin }, url + '?format=csv'))
+              .statusCode,
+            400,
+          )
+          assert.equal(
+            (await app.inject({ url, headers: { cookie: cookie(), origin: env.corsOrigin } }))
+              .statusCode,
+            404,
+          )
+          assert.equal(
+            (
+              await app.inject({
+                url,
+                method: 'POST',
+                payload: { format: 'csv' },
+                headers: { cookie: cookie(), origin: env.corsOrigin },
+                remoteAddress: '127.0.3.200',
+              })
+            ).statusCode,
+            400,
+          )
+          const res = await request({ cookie: cookie(), origin: env.corsOrigin })
+          assert.equal(res.statusCode, 200, res.body)
+          assert.match(res.headers['content-type'] as string, /spreadsheetml/)
+          assert.match(
+            res.headers['content-disposition'] as string,
+            /attachment; filename="training-points.xlsx"/,
+          )
+          assert.equal(res.headers['x-content-type-options'], 'nosniff')
+          const data = await readSheet(res.rawPayload, 'Kết quả đã duyệt')
+          assert.equal(data[4]![1], 'S9001')
+          assert.equal(data[4]![6], 15)
+          assert.equal(data[4]![12], 13)
+          const [audit] = await db<
+            {
+              metadata: {
+                snapshotId: string
+                rowCount: number
+                sha256: string
+                size: number
+                format: string
+              }
+              actor_username: string
+            }[]
+          >`SELECT metadata,actor_username FROM audit_logs WHERE action='training.export.xlsx.prepared' AND resource_id=${p.id}`
+          assert.equal(audit!.metadata.snapshotId, res.headers['x-export-snapshot-id'])
+          assert.equal(
+            audit!.metadata.sha256,
+            createHash('sha256').update(res.rawPayload).digest('hex'),
+          )
+          assert.equal(audit!.metadata.sha256, res.headers['x-export-sha256'])
+          assert.equal(audit!.metadata.rowCount, 1)
+          assert.deepEqual(Object.keys(audit!.metadata).sort(), [
+            'format',
+            'rowCount',
+            'sha256',
+            'size',
+            'snapshotId',
+          ])
+          revokeAfterRender = true
+          const revoked = await request({ cookie: cookie(), origin: env.corsOrigin })
+          assert.equal(revoked.statusCode, 404)
+          assert.match(revoked.headers['content-type'] as string, /json/)
+          assert.equal(revoked.headers['x-export-snapshot-id'], undefined)
+          revokeAfterRender = false
+          await db`UPDATE academic_advisor_assignments SET status='ACTIVE' WHERE advisor_user_id=${advisor}`
+          await db.unsafe(
+            `CREATE FUNCTION s10_fail_export_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='training.export.xlsx.prepared' THEN RAISE EXCEPTION 'synthetic export audit failure'; END IF; RETURN NEW; END $$`,
+          )
+          await db.unsafe(
+            'CREATE TRIGGER s10_fail_export_audit BEFORE INSERT ON audit_logs FOR EACH ROW EXECUTE FUNCTION s10_fail_export_audit()',
+          )
+          try {
+            const failed = await request({ cookie: cookie(), origin: env.corsOrigin })
+            assert.equal(failed.statusCode, 500)
+            assert.equal(failed.headers['x-export-sha256'], undefined)
+            assert.doesNotMatch(
+              failed.body,
+              /synthetic export audit failure|SELECT|INSERT|storage_key/,
+            )
+          } finally {
+            await db.unsafe('DROP TRIGGER s10_fail_export_audit ON audit_logs')
+            await db.unsafe('DROP FUNCTION s10_fail_export_audit()')
+          }
+          const [count] = await db<
+            { n: number }[]
+          >`SELECT count(*)::integer AS n FROM audit_logs WHERE action='training.export.xlsx.prepared' AND resource_id=${p.id}`
+          assert.equal(count!.n, 1)
+          for (let i = 0; i < 6; i++) {
+            const limited = await app.inject({
+              url,
+              method: 'POST',
+              payload: {},
+              headers: { cookie: cookie(), origin: env.corsOrigin },
+              remoteAddress: '127.0.2.250',
+            })
+            assert.equal(limited.statusCode, i < 5 ? 200 : 429)
+            assert.match(limited.headers['cache-control'] as string, /no-store/)
+          }
+        } finally {
+          await db`UPDATE academic_advisor_assignments SET status='ACTIVE' WHERE advisor_user_id=${advisor}`
+          await app.close()
+        }
+      },
+    )
+
     await t.test(
       'advisor, return, new confirmation and faculty approval preserve original and frozen receipts',
       async () => {
@@ -370,6 +708,14 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
         assert.deepEqual((await service.download(advisor, d.id, file.id)).bytes, pdf)
         const [record] = await db`SELECT storage_key FROM training_evidence WHERE id=${file.id}`
         const key = record!.storage_key as string
+        blobs.delete(key)
+        const unavailable = (e: unknown) =>
+          e instanceof SubmissionError &&
+          e.statusCode === 409 &&
+          e.code === 'TRAINING_REVIEW_FILE_UNAVAILABLE'
+        await assert.rejects(service.download(advisor, d.id, file.id), unavailable)
+        await assert.rejects(service.act(advisor, d.id, 'ADVISOR_SIGNED', input()), unavailable)
+        assert.equal((await repo.detail(advisor, d.id)).revision, 0)
         blobs.set(key, Buffer.from('corrupt'))
         await assert.rejects(service.act(advisor, d.id, 'ADVISOR_SIGNED', input()), status(409))
         assert.equal((await repo.detail(advisor, d.id)).revision, 0)
@@ -413,6 +759,40 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
         await assert.rejects(repo.queue(outsider, p.id), status(404))
       },
     )
+    await t.test('queue rows and summary share a snapshot during concurrent approval', async () => {
+      const { p, d } = await fixture()
+      await repo.act(advisor, d.id, 'ADVISOR_SIGNED', input())
+      let approvedBetweenReads = false
+      const concurrentDb = new Proxy(db, {
+        get(target, property, receiver) {
+          if (property !== 'begin') return Reflect.get(target, property, receiver) as unknown
+          return (options: string, fn: (tx: TransactionSql) => Promise<unknown>) =>
+            target.begin(options, (tx) =>
+              fn(
+                new Proxy(tx, {
+                  apply(query, context, args) {
+                    const sql = (args[0] as TemplateStringsArray).join('?')
+                    if (sql.includes('AS submitted,')) {
+                      return (async () => {
+                        await repo.act(faculty, d.id, 'FACULTY_APPROVED', input(1, false))
+                        approvedBetweenReads = true
+                        return Reflect.apply(query, context, args) as unknown
+                      })()
+                    }
+                    return Reflect.apply(query, context, args) as unknown
+                  },
+                }),
+              ),
+            )
+        },
+      })
+      const result = await new TrainingReviewRepository(concurrentDb).queue(advisor, p.id)
+      assert.equal(approvedBetweenReads, true)
+      assert.equal(result.items[0]!.state, 'WAITING_FACULTY')
+      assert.equal(result.summary.waitingFaculty, 1)
+      assert.equal(result.summary.approved, 0)
+      assert.equal((await repo.queue(advisor, p.id)).summary.approved, 1)
+    })
     await t.test(
       'student owns result while drafts and foreign students remain private',
       async () => {

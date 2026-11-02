@@ -140,7 +140,7 @@ async function handleSubmit() {
       field === 'studentCode' ||
       field === 'classId'
     ) {
-      errors[field] = responseError.message ?? 'Giá trị không hợp lệ.'
+      errors[field] = responseError?.message ?? 'Giá trị không hợp lệ.'
       requestError.value = ''
     } else {
       requestError.value = 'Không thể gửi lời mời. Bạn hãy kiểm tra quyền và dữ liệu đã nhập.'

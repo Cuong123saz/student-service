@@ -33,8 +33,10 @@ export interface UseStudentImportOptions {
   fetcher?: StudentImportFetcher
 }
 
-const defaultFetcher: StudentImportFetcher = async <Response>(url, options) =>
-  await $fetch<Response>(url, options)
+const defaultFetcher: StudentImportFetcher = async <Response>(
+  url: string,
+  options: StudentImportRequestOptions,
+) => await $fetch<Response>(url, options)
 
 function getPreviewErrorMessage(error: ApiErrorContext): string {
   if (error.status === 400) {

@@ -1,0 +1,112 @@
+{
+  "sprint": 10,
+  "status": "IN_PROGRESS",
+  "updatedAt": "2026-10-23",
+  "closureScope": "NOT_CLOSED",
+  "increments": {
+    "10.1": {
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0021_INTERNAL_APPROVED_EXPORT_SNAPSHOT",
+      "repositoryRunnerPassed": 18,
+      "repositorySubcases": 17,
+      "newExportIntegrationCases": 4,
+      "serviceUnitPassed": 1,
+      "quality": {
+        "apiTypecheck": "PASS",
+        "apiLint": "PASS",
+        "apiBuild": "PASS",
+        "changedCodeFormat": "PASS"
+      },
+      "limitations": [
+        "No download route or app composition yet",
+        "No XLSX/DOCX/PDF/ZIP generation",
+        "1000-row cap and 10-second statement timeout implemented; large-volume boundary not separately exercised"
+      ]
+    },
+    "10.2": {
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0022_XLSX_POST_API_CURRENT_AUTHORIZATION_TRANSACTIONAL_AUDIT",
+      "unitPassed": 9,
+      "repositoryRunnerPassed": 19,
+      "repositorySubcases": 18,
+      "failed": 0,
+      "skipped": 0,
+      "quality": {
+        "apiTypecheck": "PASS",
+        "apiLint": "PASS (full then final changed files)",
+        "apiBuild": "PASS",
+        "changedCodeFormat": "PASS",
+        "diffWhitespace": "PASS"
+      },
+      "workbookQA": {
+        "independentReader": "PASS",
+        "artifactImportValues": "PASS",
+        "nativeCalcVisual": "PASS",
+        "sheetsReviewed": 2,
+        "microsoftExcelDesktop": "NOT_RUN"
+      },
+      "proofIndex": "C:\\Users\\Personal\\Documents\\ChatGPT\\New project\\sprint10-2\\verification\\proof-index.json",
+      "usageDocument": "docs/sprint-10-xlsx.md",
+      "limitations": [
+        "No UI button yet (10.4)",
+        "No meeting Word/PDF/ZIP feature yet",
+        "Row boundary validated in renderer, large-volume SQL cap not independently exercised",
+        "Concurrency limits are per service instance"
+      ]
+    },
+    "10.3": {
+      "status": "PENDING"
+    },
+    "10.4": {
+      "status": "PENDING"
+    },
+    "10.5": {
+      "status": "PENDING"
+    }
+  },
+  "productionReadiness": "NOT_READY",
+  "workingTreeHasUncommittedChanges": true,
+  "nextIncrement": "10.3 — meeting Word/PDF",
+  "evidenceDirectory": "C:\\Users\\Personal\\Documents\\ChatGPT\\New project\\sprint10-1\\verification",
+  "runtimeFiles": [
+    {
+      "path": "apps/api/src/modules/training-reviews/training-review.repository.ts",
+      "sha256": "6cf54357a8e8b2ba0103ba46e3c5e2fe7ddf5edca250ff705ff3164c1edd5083"
+    },
+    {
+      "path": "apps/api/src/modules/training-reviews/training-review.repository.test.ts",
+      "sha256": "4d349a39d880e3a1e83964a5b39a2d6e07d57896eb6f708633a709a3dcc1b4b0"
+    },
+    {
+      "path": "apps/api/src/modules/training-reviews/training-export.types.ts",
+      "sha256": "58df1596e70e15e2c4edb3aa1737880ada73595cbef6e1096a41e0237e434f08"
+    },
+    {
+      "path": "apps/api/src/modules/training-reviews/training-export.service.ts",
+      "sha256": "fa7652f2daa6d3e1653848ebce7d14c304a346714a662d4370f97c267b3d2fff"
+    },
+    {
+      "path": "apps/api/src/modules/training-reviews/training-export.service.test.ts",
+      "sha256": "5a454d97548c8296f56e018ded0604b9bd998fde796ad4bad3be087255ccfbb7"
+    }
+  ],
+  "evidenceFiles": [
+    {
+      "path": "C:\\Users\\Personal\\Documents\\ChatGPT\\New project\\sprint10-1\\verification\\repository-tests.log",
+      "sha256": "8a848f6553f136a3086a0889e7e4bb3347943e65048de71cf68beec9d1b7ea3f"
+    },
+    {
+      "path": "C:\\Users\\Personal\\Documents\\ChatGPT\\New project\\sprint10-1\\verification\\repository-tests-final.log",
+      "sha256": "8b9801bdd8bb3f741a377363a14c8292e1be76196d158b4b4e82fddcf827d281"
+    },
+    {
+      "path": "C:\\Users\\Personal\\Documents\\ChatGPT\\New project\\sprint10-1\\verification\\service-tests.log",
+      "sha256": "f71590b508369f828ceb3e59fdee1444641edf2a32d9fc202ef0f124a24edebd"
+    },
+    {
+      "path": "C:\\Users\\Personal\\Documents\\ChatGPT\\New project\\sprint10-1\\verification\\api-build.log",
+      "sha256": "a1261418d6278b29b2746c9bbfbf312c6666846a107048941e2c041b426e0141"
+    }
+  ],
+  "previousRuntimePreservedOutsideChangedFiles": true
+}

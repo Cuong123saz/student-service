@@ -1,3 +1,11 @@
+import {
+  TrainingExportService,
+  type TrainingExportUseCase,
+} from './modules/training-reviews/training-export.service.js'
+import { trainingExportRoutes } from './modules/training-reviews/training-export.routes.js'
+import { resolve } from 'node:path'
+import { TrainingPointRepository } from './modules/training-points/training-points.repository.js'
+import { TrainingReviewRepository } from './modules/training-reviews/training-review.repository.js'
 import { TrainingReviewService } from './modules/training-reviews/training-review.service.js'
 import { trainingReviewRoutes } from './modules/training-reviews/training-review.routes.js'
 import { TrainingPointService } from './modules/training-points/training-points.service.js'
@@ -113,6 +121,7 @@ import { submissionRoutes } from './modules/submissions/submission.routes.js'
 import { submissionReviewRoutes } from './modules/submissions/submission-review.routes.js'
 import { notificationRoutes } from './modules/notifications/notification.routes.js'
 export interface BuildAppOptions {
+  trainingExportService?: TrainingExportUseCase
   trainingReviewService?: TrainingReviewService
   trainingService?: TrainingPointService
   submissionService?: SubmissionService
@@ -367,12 +376,24 @@ export function buildApp(options: BuildAppOptions = {}) {
   })
   app.register(notificationRoutes, { prefix: USER_API_PREFIX, portal: 'user' })
   app.register(notificationRoutes, { prefix: ADMIN_API_PREFIX, portal: 'admin' })
-  const trainingService = options.trainingService ?? new TrainingPointService()
+  const trainingStorage = new LocalEvidenceStorage(
+    resolve(process.env.SUBMISSION_STORAGE_ROOT || '.local/submission-files', 'training-points'),
+  )
+  const trainingService =
+    options.trainingService ??
+    new TrainingPointService(new TrainingPointRepository(), trainingStorage)
   app.register(trainingAdminRoutes, { prefix: ADMIN_API_PREFIX, trainingService })
   app.register(trainingStudentRoutes, { prefix: USER_API_PREFIX, trainingService })
   app.register(trainingReviewRoutes, {
     prefix: USER_API_PREFIX,
-    trainingReviewService: options.trainingReviewService ?? new TrainingReviewService(),
+    trainingReviewService:
+      options.trainingReviewService ??
+      new TrainingReviewService(new TrainingReviewRepository(), trainingStorage),
+  })
+  app.register(trainingExportRoutes, {
+    prefix: USER_API_PREFIX,
+    trainingExportService:
+      options.trainingExportService ?? new TrainingExportService(new TrainingReviewRepository()),
   })
   app.register(serviceRoutes)
 

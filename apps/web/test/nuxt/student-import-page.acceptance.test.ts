@@ -1,3 +1,4 @@
+import type { VueWrapper } from '@vue/test-utils'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
@@ -53,7 +54,7 @@ const validPreview: StudentImportPreviewResponse = {
   duplicateRecords: [],
 }
 
-async function selectFile(wrapper: Awaited<ReturnType<typeof mountSuspended>>, file: File) {
+async function selectFile(wrapper: VueWrapper, file: File) {
   const input = wrapper.get<HTMLInputElement>('#student-import-file')
 
   Object.defineProperty(input.element, 'files', {

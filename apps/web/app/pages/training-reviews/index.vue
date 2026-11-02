@@ -83,9 +83,9 @@ onBeforeUnmount(() => {
         >
       </div>
       <div class="tp-actions">
-        <button class="button button--secondary" :disabled="busy" @click="load(true)">
+        <BaseButton variant="secondary" :disabled="busy" @click="load(true)">
           Tải lại danh sách
-        </button>
+        </BaseButton>
       </div>
       <p v-if="!busy && !error && !periods.length" class="tp-muted">
         Chưa có đợt thuộc quyền, phạm vi và phân công hiện tại của bạn.
@@ -140,15 +140,16 @@ onBeforeUnmount(() => {
             >
           </li>
         </ul>
-        <button
+        <BaseButton
           v-if="queue.nextCursor"
-          class="button button--secondary"
+          variant="secondary"
           :disabled="busy"
           @click="load(false, queue.nextCursor ?? undefined)"
         >
           Tải thêm bản kê khai
-        </button>
+        </BaseButton>
       </section></template
     >
   </section>
 </template>
+<style src="~/assets/css/training.css"></style>

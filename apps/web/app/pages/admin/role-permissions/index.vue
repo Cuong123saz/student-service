@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DeepReadonly } from 'vue'
 import type { ManagedRolePermissions, RolePermissionApiError } from '~/types/role-permission'
 
 definePageMeta({
@@ -38,7 +39,11 @@ function isSelected(roleId: number, permissionCode: string) {
   return (drafts[roleId] ?? []).includes(permissionCode)
 }
 
-function togglePermission(role: ManagedRolePermissions, permissionCode: string, checked: boolean) {
+function togglePermission(
+  role: DeepReadonly<ManagedRolePermissions>,
+  permissionCode: string,
+  checked: boolean,
+) {
   if (!role.canManage || savingRoleId.value !== null) return
   const current = drafts[role.id] ?? []
   drafts[role.id] = checked
@@ -47,20 +52,20 @@ function togglePermission(role: ManagedRolePermissions, permissionCode: string, 
   feedback.value = null
 }
 
-function normalized(codes: string[]) {
+function normalized(codes: readonly string[]) {
   return [...codes].sort().join('|')
 }
 
-function isDirty(role: ManagedRolePermissions) {
+function isDirty(role: DeepReadonly<ManagedRolePermissions>) {
   return normalized(drafts[role.id] ?? []) !== normalized(role.permissionCodes)
 }
 
-function resetRole(role: ManagedRolePermissions) {
+function resetRole(role: DeepReadonly<ManagedRolePermissions>) {
   drafts[role.id] = [...role.permissionCodes]
   feedback.value = null
 }
 
-async function saveRole(role: ManagedRolePermissions) {
+async function saveRole(role: DeepReadonly<ManagedRolePermissions>) {
   if (!role.canManage || !isDirty(role) || savingRoleId.value !== null) return
   savingRoleId.value = role.id
   feedback.value = null

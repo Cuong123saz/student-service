@@ -92,10 +92,39 @@ try {
         client: document.documentElement.clientWidth,
         scroll: document.documentElement.scrollWidth,
       }))
-      assert.ok(size.scroll <= size.client + 1, label + ' horizontal overflow ' + width)
       const file = label + '-' + width + '.png'
       await page.screenshot({ path: join(root, file), fullPage: true })
       report.screenshots.push(file)
+      if (size.scroll > size.client + 1) {
+        report.overflow = await page.evaluate(() =>
+          [...document.querySelectorAll('body *')]
+            .filter(
+              (element) =>
+                element.getBoundingClientRect().right > document.documentElement.clientWidth + 1,
+            )
+            .slice(0, 20)
+            .map((element) => ({
+              tag: element.tagName,
+              className: element.className,
+              width: element.getBoundingClientRect().width,
+            })),
+        )
+      }
+      assert.ok(size.scroll <= size.client + 1, label + ' horizontal overflow ' + width)
+      const smallButtons = await page
+        .locator('.training-workspace button, .training-workspace a.button')
+        .evaluateAll((buttons) =>
+          buttons
+            .filter(
+              (button) =>
+                button.getBoundingClientRect().width > 0 &&
+                button.getBoundingClientRect().height < 44,
+            )
+            .map((button) => button.textContent.trim()),
+        )
+      assert.deepEqual(smallButtons, [], label + ' touch targets below 44px at ' + width)
+      report.checks.reviewTouchTargetsAtLeast44px = true
+
       report.responsive.push({ label, width, horizontalOverflow: false })
     }
   }

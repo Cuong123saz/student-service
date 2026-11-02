@@ -1,3 +1,4 @@
+import type { VueWrapper } from '@vue/test-utils'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { reactive } from 'vue'
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
@@ -91,7 +92,7 @@ function mockApi() {
 let api = mockApi()
 mockNuxtImport('useTrainingReviews', () => () => api)
 mockNuxtImport('useRoute', () => () => route)
-function button(w: Awaited<ReturnType<typeof mountSuspended>>, name: string) {
+function button(w: VueWrapper, name: string) {
   return w.findAll('button').find((b) => b.text() === name)!
 }
 beforeEach(() => {

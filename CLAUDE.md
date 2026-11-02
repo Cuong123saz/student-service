@@ -9,4 +9,4 @@
 
 ## Bối cảnh dự án
 
-Xem chi tiết kiến trúc, trạng thái sprint và roadmap tại [README.md](README.md) và `docs/ke-hoach-proj-hop-nhat.docx`. Dự án là monorepo TypeScript (Fastify API + Nuxt web), đang ở Sprint 3/13 theo roadmap hợp nhất. Sprint 13 (Hardening/UAT) là nơi dự kiến làm hạ tầng deploy, bảo mật, hiệu năng — các việc production-readiness khác nên chờ đến sprint đó trừ khi chi phí trì hoãn cao (ví dụ: lint gate, test glob pattern, log redaction).
+Xem chi tiết kiến trúc, trạng thái sprint và roadmap tại [README.md](README.md) và `docs/ke-hoach-proj-hop-nhat.docx`. Dự án là monorepo TypeScript (Fastify API + Nuxt web). Trạng thái sprint hiện hành theo README và kế hoạch sprint tương ứng; quy ước mở rộng module và kiểm thử nằm tại `docs/development-guidelines.md`. Sprint 13 (Hardening/UAT) là nơi dự kiến làm hạ tầng deploy, bảo mật, hiệu năng — các việc production-readiness khác nên chờ đến sprint đó trừ khi chi phí trì hoãn cao (ví dụ: lint gate, test glob pattern, log redaction).

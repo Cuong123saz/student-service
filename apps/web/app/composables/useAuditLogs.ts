@@ -24,8 +24,10 @@ export interface UseAuditLogsOptions {
   pageSize?: number
 }
 
-const defaultFetcher: AuditLogFetcher = async <Response>(url, options) =>
-  await $fetch<Response>(url, options)
+const defaultFetcher: AuditLogFetcher = async <Response>(
+  url: string,
+  options: AuditLogRequestOptions,
+) => await $fetch<Response>(url, options)
 
 export function useAuditLogs(options: UseAuditLogsOptions = {}) {
   const apiBase = options.apiBase ?? useRuntimeConfig().public.apiBase

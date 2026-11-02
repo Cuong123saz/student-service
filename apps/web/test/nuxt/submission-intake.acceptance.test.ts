@@ -1,3 +1,4 @@
+import type { VueWrapper } from '@vue/test-utils'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { defineComponent } from 'vue'
 import { clearNuxtState, useState } from '#imports'
@@ -161,7 +162,7 @@ beforeEach(() => {
   api = createApi()
   requestedPortal = ''
 })
-function button(wrapper: Awaited<ReturnType<typeof mountSuspended>>, label: string) {
+function button(wrapper: VueWrapper, label: string) {
   return wrapper.findAll('button').find((item) => item.text() === label)!
 }
 
@@ -444,6 +445,7 @@ function processing(): ReviewSubmissionDetail {
         id: 'claim-1',
         roundNumber: 1,
         action: 'CLAIMED',
+        reassignment: null,
         actorName: 'Cán bộ A',
         note: null,
         createdAt: '2026-10-10T02:00:00Z',
@@ -452,7 +454,7 @@ function processing(): ReviewSubmissionDetail {
   }
 }
 async function reviewDecision(
-  wrapper: Awaited<ReturnType<typeof mountSuspended>>,
+  wrapper: VueWrapper,
   action = 'REQUEST_SUPPLEMENT',
   note = 'Bổ sung minh chứng đúng nội dung',
 ) {
@@ -749,8 +751,10 @@ describe('handover in intake', () => {
       'next-reviewer',
       'Giữ lý do bàn giao',
     )
-    expect(wrapper.get('#handover-note').element.value).toBe('Giữ lý do bàn giao')
-    expect(wrapper.get('#resolution-action').element.closest('fieldset').disabled).toBe(true)
+    expect(wrapper.get<HTMLTextAreaElement>('#handover-note').element.value).toBe(
+      'Giữ lý do bàn giao',
+    )
+    expect(wrapper.get('#resolution-action').element.closest('fieldset')?.disabled).toBe(true)
     expect(wrapper.text()).toContain('Tải lại trạng thái hồ sơ')
     api.get.mockResolvedValue({
       ...entry,
@@ -759,7 +763,9 @@ describe('handover in intake', () => {
     })
     await button(wrapper, 'Tải lại trạng thái hồ sơ').trigger('click')
     await flushPromises()
-    expect(wrapper.get('#handover-note').element.value).toBe('Giữ lý do bàn giao')
+    expect(wrapper.get<HTMLTextAreaElement>('#handover-note').element.value).toBe(
+      'Giữ lý do bàn giao',
+    )
     expect(wrapper.text()).toContain('Cán bộ mới')
     wrapper.unmount()
   })

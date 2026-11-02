@@ -1,0 +1,48 @@
+{
+  "sprint": 9,
+  "status": "CLOSED",
+  "closedAt": "2026-10-23",
+  "closureScope": "LOCAL_TECHNICAL",
+  "basis": "USER_AUTHORIZED_AGENT_COMPLETION",
+  "authorization": "oke — accepted sequence to complete Sprint 9 before Sprint 10",
+  "manualOwnerAcceptance": "NOT_SEPARATELY_RECORDED",
+  "institutionalApproval": "NOT_CLAIMED",
+  "productionReadiness": "NOT_READY",
+  "testedImplementationCommit": "11be64facdda1345acc67b3e8052096c5789d85a",
+  "workingTreeHasUncommittedChanges": true,
+  "runtimeManifest": "run/workflow-demo/7c29e286-1eeb-4cd7-87cd-9125a3191717/sprint9-runtime-manifest.json",
+  "automatedTests": {
+    "baselinePassed": 1065,
+    "baselineSkipped": 1,
+    "baselineFailed": 0,
+    "baselineReport": "C:\\Users\\Personal\\Documents\\ChatGPT\\New project\\verification-2026-10-23\\report.md",
+    "finalWebPassed": 147,
+    "countingMethod": "Final 147 web cases replace baseline web cases; do not add. Final browser and 21 guard cases reported separately.",
+    "guardCasesPassed": 21
+  },
+  "quality": {
+    "baselineApiTypecheckLintFormatBuild": "PASS per 2026-10-23 report",
+    "finalWebTypecheck": "PASS",
+    "finalWebBuild": "PASS"
+  },
+  "browserRehearsal": {
+    "runId": "7c29e286-1eeb-4cd7-87cd-9125a3191717",
+    "status": "PASS",
+    "checksPassed": 14,
+    "responsiveChecksPassed": 16,
+    "pageErrors": 0,
+    "screenshotsVisuallyReviewed": 4,
+    "terminalState": "STOPPED",
+    "reportSha256": "d2f8c581a6f6523fbdbba55531fc38878ed445b9c764e358a8e28b3e6cff3d9e",
+    "proofIndexSha256": "0f15d1ea7933f593dac4e928da886b859036453eba0e6b6287652e09f4b99445"
+  },
+  "evidenceDocument": "docs/sprint-9-closure.md",
+  "nextSprint": "docs/sprint-10-plan.md",
+  "outsideClosure": [
+    "Institutional policy and operational UAT",
+    "Production deployment",
+    "Real certificates or verified digital signatures",
+    "Recovery acceptance for the new review schema",
+    "Sprint 10 exports"
+  ]
+}

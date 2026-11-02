@@ -426,7 +426,7 @@ onBeforeRouteLeave(
             <textarea
               v-else-if="field.type === 'TEXTAREA'"
               :id="'field-' + field.key"
-              :value="answers[field.key] ?? ''"
+              :value="String(answers[field.key] ?? '')"
               :maxlength="field.maxLength"
               rows="4"
               :aria-invalid="Boolean(fieldIssue(field.key))"
@@ -456,7 +456,7 @@ onBeforeRouteLeave(
               v-else
               :id="'field-' + field.key"
               :type="field.type === 'NUMBER' ? 'number' : field.type === 'DATE' ? 'date' : 'text'"
-              :value="answers[field.key] ?? ''"
+              :value="String(answers[field.key] ?? '')"
               :maxlength="field.maxLength"
               :step="field.type === 'NUMBER' ? 'any' : undefined"
               :aria-invalid="Boolean(fieldIssue(field.key))"

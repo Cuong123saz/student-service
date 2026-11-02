@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DeepReadonly } from 'vue'
 import type {
   ManagedAcademicClass,
   ManagedFaculty,
@@ -215,7 +216,7 @@ async function submitOrganizationalUnit() {
   }
 }
 
-function startFacultyEdit(faculty: ManagedFaculty) {
+function startFacultyEdit(faculty: DeepReadonly<ManagedFaculty>) {
   editingFacultyId.value = faculty.id
   editingClassId.value = ''
   facultyEditForm.code = faculty.code
@@ -223,7 +224,7 @@ function startFacultyEdit(faculty: ManagedFaculty) {
   clearFeedback()
 }
 
-async function saveFaculty(faculty: ManagedFaculty) {
+async function saveFaculty(faculty: DeepReadonly<ManagedFaculty>) {
   if (validateCode(facultyEditForm.code) || facultyEditForm.name.trim().length < 2) {
     showError({ message: 'Dữ liệu khoa không hợp lệ.' })
     return
@@ -294,7 +295,7 @@ async function saveClass(academicClass: ManagedAcademicClass) {
   if (saved) editingClassId.value = ''
 }
 
-async function toggleFacultyStatus(faculty: ManagedFaculty) {
+async function toggleFacultyStatus(faculty: DeepReadonly<ManagedFaculty>) {
   const nextStatus = faculty.status === 'ACTIVE' ? ('INACTIVE' as const) : ('ACTIVE' as const)
   const saved = await runMutation(
     `faculty-status-${faculty.id}`,

@@ -1,3 +1,4 @@
+import type { VueWrapper } from '@vue/test-utils'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { reactive } from 'vue'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
@@ -71,7 +72,7 @@ beforeEach(() => {
 afterEach(() => {
   Reflect.deleteProperty(window, 'confirm')
 })
-function button(wrapper: Awaited<ReturnType<typeof mountSuspended>>, name: string) {
+function button(wrapper: VueWrapper, name: string) {
   return wrapper.findAll('button').find((b) => b.text() === name)!
 }
 describe('student training declaration', () => {
