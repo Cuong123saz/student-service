@@ -370,3 +370,61 @@ test('confirm OVERWRITE dùng bản ghi cuối khi trùng trong file', async () 
   assert.equal(repository.committed?.rows[0]?.fullName, 'Tên cuối cùng')
   assert.equal(repository.committed?.previewTotalRows, 2)
 })
+
+test('niên khóa nhận K15, 15 hoặc năm vào học; ô trống là chưa có; giá trị sai báo lỗi theo dòng', async () => {
+  const row = (sourceRow: number, cohortYear: string | number | null | undefined) => ({
+    sourceRow,
+    values: {
+      studentCode: String(100 + sourceRow),
+      fullName: 'Sinh viên giả ' + sourceRow,
+      email: `sv${sourceRow}@example.edu.vn`,
+      classCode: 'K15A',
+      ...(cohortYear === undefined ? {} : { cohortYear }),
+    },
+  })
+  const service = new StudentImportService(
+    new FakeStudentImportRepository(),
+    new InMemoryStudentImportPreviewStore(),
+    createParser([
+      row(2, 'K15'),
+      row(3, 16),
+      row(4, ' k17 '),
+      row(5, '2021'),
+      row(6, ''),
+      row(7, null),
+      row(8, undefined),
+      row(9, 'K2021'),
+      row(10, '2006'),
+      row(11, 15.5),
+      row(12, 'K95'),
+    ]),
+    () => fixedNow,
+  )
+  const preview = await service.previewImport({
+    actorUserId: 'actor-1',
+    fileName: 'students.csv',
+    fileBuffer: Buffer.from('ignored'),
+  })
+  assert.deepEqual(
+    preview.validRecords.map((r) => [r.sourceRow, r.cohortYear]),
+    [
+      [2, 2021],
+      [3, 2022],
+      [4, 2023],
+      [5, 2021],
+      [6, null],
+      [7, null],
+      [8, null],
+    ],
+  )
+  assert.deepEqual(
+    preview.errorRecords.map((r) => [r.sourceRow, r.issues.map((i) => `${i.field}:${i.code}`)]),
+    [
+      [9, ['cohortYear:INVALID_FORMAT']],
+      [10, ['cohortYear:INVALID_FORMAT']],
+      [11, ['cohortYear:INVALID_FORMAT']],
+      [12, ['cohortYear:INVALID_FORMAT']],
+    ],
+  )
+  assert.deepEqual(preview.errorRecords[0]?.values.cohortYear, { kind: 'TEXT', text: 'K2021' })
+})

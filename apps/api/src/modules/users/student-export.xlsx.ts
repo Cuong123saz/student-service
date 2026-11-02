@@ -184,15 +184,17 @@ export function createStudentExportWorkbook(records: readonly StudentExportRecor
 export function createStudentImportTemplateWorkbook(): Buffer {
   return createWorkbook({
     sheetName: 'Mẫu import sinh viên',
-    headers: ['Mã sinh viên', 'Họ và tên', 'Email', 'Mã lớp'],
+    // "Niên khóa" is optional (ADR 0025); the empty cell shows it may be left blank.
+    headers: ['Mã sinh viên', 'Họ và tên', 'Email', 'Mã lớp', 'Niên khóa'],
     rows: [
-      ['00123456', 'Nguyễn Văn A', '00123456@example.edu.vn', 'K15A'],
-      ['00123457', 'Trần Thị B', '00123457@example.edu.vn', 'K15A'],
+      ['00123456', 'Nguyễn Văn A', '00123456@example.edu.vn', 'K15A', 'K15'],
+      ['00123457', 'Trần Thị B', '00123457@example.edu.vn', 'K15A', ''],
     ],
     columnsXml: `
     <col min="1" max="1" width="18" customWidth="1"/>
     <col min="2" max="2" width="30" customWidth="1"/>
     <col min="3" max="3" width="34" customWidth="1"/>
-    <col min="4" max="4" width="18" customWidth="1"/>`,
+    <col min="4" max="4" width="18" customWidth="1"/>
+    <col min="5" max="5" width="14" customWidth="1"/>`,
   })
 }

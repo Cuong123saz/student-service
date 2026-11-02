@@ -2,7 +2,7 @@
 
 Cập nhật bối cảnh ngày **02/11/2026**, sau khi đóng Sprint 10 (LOCAL_TECHNICAL) và hồ sơ sprint trong repo. Đây là điểm bắt đầu để AI tiếp tục dự án khi không có lịch sử chat hoặc tệp Word local. Đọc tình trạng thực tế bằng Git và code trước khi sửa; ngày cập nhật tài liệu không có nghĩa kiểm thử đã được chạy lại trong ngày đó.
 
-**Điểm tiếp tục: Sprint 10 đã CLOSED LOCAL_TECHNICAL ngày 02/11/2026 ([hồ sơ đóng](docs/sprint-10-closure.md)); Sprint 11 đã có [kế hoạch đề xuất](docs/sprint-11-plan.md) và [ADR 0025 — niên khóa sinh viên](docs/adr/0025-student-cohort.md), cả hai đã được duyệt ngày 02/11; công việc hiện tại là 11.0 — niên khóa sinh viên.** Production vẫn NOT_READY.
+**Điểm tiếp tục: Sprint 10 đã CLOSED LOCAL_TECHNICAL ngày 02/11/2026 ([hồ sơ đóng](docs/sprint-10-closure.md)); Sprint 11 đã có [kế hoạch đề xuất](docs/sprint-11-plan.md) và [ADR 0025 — niên khóa sinh viên](docs/adr/0025-student-cohort.md), cả hai đã được duyệt ngày 02/11; 11.0 (niên khóa) đã COMPLETE_LOCAL, công việc tiếp theo là 11.1 — CLB và vai trò ([trạng thái](docs/sprint-11-status.json)).** Production vẫn NOT_READY.
 
 ## 1. Dự án và cách cộng tác
 
@@ -105,8 +105,8 @@ Chi tiết tại [hướng dẫn Excel](docs/sprint-10-xlsx.md), [ADR 0021](docs
 ### Bắt đầu Sprint 11 khi người dùng yêu cầu tiếp tục
 
 1. Đọc lại Git và trạng thái PR của 10.5 và plan Sprint 11. Đọc [plan](docs/sprint-11-plan.md): bảng actor, quy tắc đã chốt, mục “chờ xác nhận” và rủi ro đã chấp nhận. Không tự đổi quyết định của chủ dự án; mâu thuẫn thì nêu và hỏi.
-2. 11.0 theo ADR 0025 (Accepted): cột `cohort_year` nullable trên `student_profiles`, import thêm cột “Niên khóa” (không nhận alias `khoa` vì trùng “Khoa” sau bỏ dấu), audit, thêm ánh xạ vào ADR gate.
-3. Mỗi increment sau (11.1–11.6) lập ADR trước schema/quyền. Chứng nhận tham gia không phải văn bằng/chữ ký số; gợi ý điểm không sửa bản đã nộp hay điểm đã duyệt; “Giấy xác nhận sinh viên” vẫn OFFLINE.
+2. 11.0 đã xong theo ADR 0025 — **niên khóa K = năm vào học − 2006**, DB lưu năm vào học (giữ nguyên các quyết định sau): cột `cohort_year` nullable trên `student_profiles`, import thêm cột “Niên khóa” (không nhận alias `khoa` vì trùng “Khoa” sau bỏ dấu), audit, thêm ánh xạ vào ADR gate.
+3. **Migration mới phải viết tay** và thêm entry journal như 0025–0028; không dùng `drizzle-kit generate` (snapshot chỉ tới 0024, lệnh sẽ sinh lại các bảng Sprint 7–9). Mỗi increment sau (11.1–11.6) lập ADR trước schema/quyền. Chứng nhận tham gia không phải văn bằng/chữ ký số; gợi ý điểm không sửa bản đã nộp hay điểm đã duyệt; “Giấy xác nhận sinh viên” vẫn OFFLINE.
 
 Chạy lại diễn tập Sprint 10 theo runbook khi đổi code xuất; nhớ đặt `WORKFLOW_PLAYWRIGHT_MODULE`/`WORKFLOW_CHROMIUM_EXECUTABLE`.
 

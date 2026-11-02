@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm'
-import { check, index, pgTable, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
+import {
+  check,
+  index,
+  pgTable,
+  smallint,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core'
 
 import { users } from '../auth/auth.schema.js'
 
@@ -144,6 +153,10 @@ export const studentProfiles = pgTable(
         onDelete: 'restrict',
       }),
 
+    // ADR 0025: admission year of the student's niên khóa; K = year - 2006 (2021 = K15).
+    // NULL means unknown; it is never inferred from student or class codes.
+    cohortYear: smallint('cohort_year'),
+
     createdAt: timestamp('created_at', {
       withTimezone: true,
     })
@@ -160,6 +173,11 @@ export const studentProfiles = pgTable(
     uniqueIndex('student_profiles_student_code_unique').on(table.studentCode),
 
     index('student_profiles_class_id_idx').on(table.classId),
+
+    check(
+      'student_profiles_cohort_year_check',
+      sql`${table.cohortYear} IS NULL OR ${table.cohortYear} BETWEEN 2007 AND 2100`,
+    ),
   ],
 )
 

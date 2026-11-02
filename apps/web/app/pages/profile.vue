@@ -67,6 +67,10 @@ onMounted(() => {
               <dd>{{ profile.class.code }}</dd>
             </div>
             <div>
+              <dt>Niên khóa</dt>
+              <dd>{{ formatCohort(profile.cohortYear) }}</dd>
+            </div>
+            <div>
               <dt>Khoa</dt>
               <dd>{{ profile.faculty.name }}</dd>
             </div>

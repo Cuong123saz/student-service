@@ -22,6 +22,8 @@ export interface AdminStudentDirectoryItem {
   email: string | null
   status: StudentAccountStatus
   studentCode: string
+  /** Niên khóa (lưu năm vào học; hiển thị K = năm − 2006), null khi chưa có. */
+  cohortYear: number | null
   academicClass: AdminStudentIdentity
   faculty: AdminStudentIdentity
 }

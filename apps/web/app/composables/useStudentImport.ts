@@ -237,7 +237,9 @@ export function useStudentImport(options: UseStudentImportOptions = {}) {
           setError(
             job.errorCode === 'IMPORT_ARCHIVE_LIMIT_EXCEEDED'
               ? 'File XLSX vượt giới hạn giải nén an toàn.'
-              : 'Không thể phân tích file import. Vui lòng kiểm tra file và thử lại.',
+              : job.errorCode === 'IMPORT_AMBIGUOUS_COHORT_COLUMN'
+                ? 'Cột “Khóa” dễ nhầm với “Khoa”. Hãy đổi tên cột thành “Niên khóa” rồi tải lại.'
+                : 'Không thể phân tích file import. Vui lòng kiểm tra file và thử lại.',
             { code: job.errorCode ?? undefined },
           )
           return false

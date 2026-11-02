@@ -6,7 +6,7 @@ scope: Sprint 11.0 student cohort (niên khóa) for activity eligibility
 
 # ADR 0025 — Niên khóa của sinh viên
 
-**Accepted ngày 02/11/2026 — chủ dự án duyệt (“đồng ý hết”).** Phục vụ [kế hoạch Sprint 11](../sprint-11-plan.md): hoạt động ngoại khóa có thể giới hạn theo niên khóa (ví dụ chỉ K2022).
+**Accepted ngày 02/11/2026 — chủ dự án duyệt (“đồng ý hết”). Sửa đổi cùng ngày, trước khi migration được merge hay áp lên cơ sở dữ liệu nào ngoài DB test giả:** chủ dự án chốt quy tắc niên khóa của Học viện là **K = năm vào học − 2006** (vào học 2021 → K15). Phục vụ [kế hoạch Sprint 11](../sprint-11-plan.md): hoạt động ngoại khóa có thể giới hạn theo niên khóa (ví dụ chỉ K15).
 
 ## Bối cảnh
 
@@ -14,11 +14,11 @@ scope: Sprint 11.0 student cohort (niên khóa) for activity eligibility
 
 ## Quyết định
 
-- Thêm cột `cohort_year smallint NULL` vào `student_profiles`: năm bắt đầu của niên khóa (2022 nghĩa là K2022). Ràng buộc `CHECK (cohort_year BETWEEN 2000 AND 2100)`. Hiển thị dạng “K2022”.
+- Thêm cột `cohort_year smallint NULL` vào `student_profiles`: **năm vào học**. Niên khóa hiển thị **K = năm vào học − 2006** (2021 → K15). Ràng buộc `CHECK (cohort_year BETWEEN 2007 AND 2100)` (K1–K94). Mốc 2006 là một hằng số duy nhất ở mỗi phía (`apps/api/src/modules/organizations/student-cohort.ts`, `apps/web/app/utils/cohort.ts`).
 - **Lưu theo sinh viên, không theo lớp.** Sinh viên học lại hoặc chuyển lớp vẫn giữ đúng niên khóa.
 - **Không suy niên khóa** từ mã sinh viên, mã lớp hay năm học. Dữ liệu cũ để `NULL`.
 - **Thiếu dữ liệu thì từ chối:** sinh viên `cohort_year IS NULL` không thuộc đối tượng của hoạt động có điều kiện niên khóa. Hoạt động không giới hạn niên khóa không bị ảnh hưởng.
-- **Import Excel/CSV (Sprint 3)** nhận thêm cột tùy chọn **“Niên khóa”**, giá trị `2022` hoặc `K2022`. Tên cột chấp nhận (sau khi parser bỏ dấu, chuyển chữ thường): `nienkhoa` (“Niên khóa”, tên chính trong mẫu), `khoahoc` (“Khóa học”), `namnhaphoc` (“Năm nhập học”), `cohort`, `cohortyear`. **Không nhận `khoa`**: parser bỏ dấu nên “Khóa” và “Khoa” (đơn vị đào tạo) trùng nhau thành `khoa`; nhận alias này sẽ hiểu nhầm cột khoa thành niên khóa. Tệp có cột tên “Khóa” sẽ được báo lỗi tiêu đề kèm gợi ý đổi thành “Niên khóa”. Giá trị sai báo lỗi theo dòng như các cột hiện có. Cột trống giữ `NULL`; không ghi đè niên khóa đã có bằng giá trị trống.
+- **Import Excel/CSV (Sprint 3)** nhận thêm cột tùy chọn **“Niên khóa”**, giá trị `K15`, `15` hoặc năm vào học `2021` (số trong Excel cũng được). **`K2021` bị từ chối** vì có thể hiểu là khóa 2021 hoặc năm 2021. Tên cột chấp nhận (sau khi parser bỏ dấu, chuyển chữ thường): `nienkhoa` (“Niên khóa”, tên chính trong mẫu), `khoahoc` (“Khóa học”), `namnhaphoc` (“Năm nhập học”), `cohort`, `cohortyear`. **Không nhận `khoa`**: parser bỏ dấu nên “Khóa” và “Khoa” (đơn vị đào tạo) trùng nhau thành `khoa`; nhận alias này sẽ hiểu nhầm cột khoa thành niên khóa. Tệp có cột tên “Khóa” sẽ được báo lỗi tiêu đề kèm gợi ý đổi thành “Niên khóa”. Giá trị sai báo lỗi theo dòng như các cột hiện có. Cột trống giữ `NULL`; không ghi đè niên khóa đã có bằng giá trị trống.
 - Thay đổi niên khóa của sinh viên ghi audit (giá trị cũ → mới, actor). Hồ sơ cá nhân và trang quản trị sinh viên hiển thị niên khóa.
 - Snapshot sinh viên trong bản kê khai điểm rèn luyện (Sprint 8) **không** đổi. Đối tượng hoạt động được chốt riêng tại lúc đăng ký (ADR của 11.2–11.3).
 
@@ -34,4 +34,4 @@ Một migration mới chỉ `ALTER TABLE student_profiles ADD COLUMN cohort_year
 
 ## Kiểm chứng dự kiến
 
-Unit parser (cột Niên khóa: hợp lệ, `K2022`, sai định dạng, ngoài khoảng, trống). Integration: import preview/confirm ghi đúng, giá trị trống không ghi đè, audit thay đổi, migration trên DB giả giữ dữ liệu cũ. Web: hiển thị niên khóa trong hồ sơ và trang quản trị; preview import báo lỗi theo dòng.
+Unit quy đổi và parser (cột Niên khóa: `K15`, `15`, `2021`, `K2021` bị từ chối, ngoài khoảng, trống). Integration: import preview/confirm ghi đúng, giá trị trống không ghi đè, audit thay đổi, migration trên DB giả giữ dữ liệu cũ. Web: hiển thị niên khóa trong hồ sơ và trang quản trị; preview import báo lỗi theo dòng.

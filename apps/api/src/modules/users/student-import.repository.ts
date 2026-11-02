@@ -337,6 +337,7 @@ export class DrizzleStudentImportRepository implements StudentImportRepository {
             const [profile] = await transaction
               .select({
                 classId: studentProfiles.classId,
+                cohortYear: studentProfiles.cohortYear,
               })
               .from(studentProfiles)
               .where(eq(studentProfiles.userId, existingUserId))
@@ -360,14 +361,37 @@ export class DrizzleStudentImportRepository implements StudentImportRepository {
               })
               .where(eq(users.id, existingUserId))
 
+            // ADR 0025: an empty cohort cell never erases a known cohort.
+            // Previews stored before the cohort column existed carry no value.
+            const cohortYear = row.cohortYear ?? null
+            const cohortChanged = cohortYear !== null && cohortYear !== profile.cohortYear
+
             await transaction
               .update(studentProfiles)
               .set({
                 studentCode: row.studentCode,
                 classId: academicClass.id,
+                ...(cohortChanged ? { cohortYear } : {}),
                 updatedAt: input.occurredAt,
               })
               .where(eq(studentProfiles.userId, existingUserId))
+
+            if (cohortChanged) {
+              await transaction.insert(auditLogs).values({
+                occurredAt: input.occurredAt,
+                actorType: 'USER',
+                actorUserId: input.actorUserId,
+                actorUsername: input.actorUsername,
+                action: 'STUDENT_COHORT_UPDATE',
+                resourceType: 'STUDENT_PROFILE',
+                resourceId: existingUserId,
+                outcome: 'SUCCESS',
+                ...input.audit,
+                metadata: { source: 'STUDENT_IMPORT', previewId: input.previewId },
+                before: { cohortYear: profile.cohortYear },
+                after: { cohortYear },
+              })
+            }
 
             await transaction
               .insert(userRoles)
@@ -413,6 +437,7 @@ export class DrizzleStudentImportRepository implements StudentImportRepository {
             userId: createdUser.id,
             studentCode: row.studentCode,
             classId: academicClass.id,
+            cohortYear: row.cohortYear ?? null,
             createdAt: input.occurredAt,
             updatedAt: input.occurredAt,
           })

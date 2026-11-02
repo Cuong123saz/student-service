@@ -4,6 +4,7 @@ import { zipSync } from 'fflate'
 
 import {
   STUDENT_IMPORT_MAX_ROWS,
+  StudentImportAmbiguousColumnError,
   StudentImportArchiveLimitError,
   StudentImportFileParseError,
   StudentImportRowLimitError,
@@ -137,8 +138,11 @@ test('parse worksheet đầu tiên của file XLSX', async () => {
       fullName: 'Nguyễn Văn A',
       email: '00123456@example.edu.vn',
       classCode: 'K15A',
+      cohortYear: 'K15',
     },
   })
+  // The template's second row leaves the optional cohort blank.
+  assert.equal(result.rows[1]?.values.cohortYear, null)
 })
 
 test('parser từ chối file vượt giới hạn số dòng', async () => {
@@ -154,4 +158,42 @@ test('parser từ chối file vượt giới hạn số dòng', async () => {
     () => parseStudentImportFile('students.csv', Buffer.from(rows.join('\n'))),
     StudentImportRowLimitError,
   )
+})
+
+test('cột Niên khóa là tùy chọn và nhận các tên cột không thể nhầm với Khoa', async () => {
+  for (const header of ['Niên khóa', 'Khóa học', 'Năm nhập học', 'cohortYear']) {
+    const csv = [
+      `Mã sinh viên,Họ và tên,Email,Mã lớp,${header}`,
+      'SV001,Nguyễn Văn A,sv001@example.edu.vn,K15A,K15',
+      'SV002,Trần Thị B,sv002@example.edu.vn,K15A,',
+    ].join('\n')
+    const result = await parseStudentImportFile('students.csv', Buffer.from(csv))
+    assert.equal(result.rows[0]?.values.cohortYear, 'K15', header)
+    assert.equal(result.rows[1]?.values.cohortYear, '', header)
+  }
+  const withoutCohort = await parseStudentImportFile(
+    'students.csv',
+    Buffer.from('Mã sinh viên,Họ và tên,Email,Mã lớp\nSV001,A B,a@example.edu.vn,K15A'),
+  )
+  assert.equal('cohortYear' in withoutCohort.rows[0]!.values, false)
+})
+
+test('cột “Khoa” (đơn vị) bị bỏ qua, còn cột “Khóa” bị từ chối vì dễ nhầm sau khi bỏ dấu', async () => {
+  const faculty = await parseStudentImportFile(
+    'students.csv',
+    Buffer.from('Mã sinh viên,Họ và tên,Email,Mã lớp,Khoa\nSV001,A B,a@example.edu.vn,K15A,CNTT'),
+  )
+  assert.equal('cohortYear' in faculty.rows[0]!.values, false)
+  for (const header of ['Khóa', 'KHÓA', 'Khoá', 'Khóa']) {
+    await assert.rejects(
+      parseStudentImportFile(
+        'students.csv',
+        Buffer.from(
+          `Mã sinh viên,Họ và tên,Email,Mã lớp,${header}\nSV001,A B,a@example.edu.vn,K15A,2022`,
+        ),
+      ),
+      StudentImportAmbiguousColumnError,
+      header,
+    )
+  }
 })

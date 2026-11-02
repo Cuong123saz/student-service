@@ -30,6 +30,7 @@ const directoryPage: StudentDirectoryPage = {
       email: 'student.001@example.edu.vn',
       status: 'ACTIVE',
       studentCode: 'SV001',
+      cohortYear: 2022,
       academicClass: {
         id: classId,
         code: 'K15A',
