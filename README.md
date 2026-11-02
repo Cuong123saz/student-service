@@ -427,6 +427,7 @@ Cookie session được gửi tự động bởi trình duyệt. Khi gọi API t
 - File tối đa 5 MiB và 1.000 dòng dữ liệu; chỉ đọc worksheet đầu tiên của `.xlsx`.
 - CSV phải dùng UTF-8, hỗ trợ dấu phẩy hoặc dấu chấm phẩy và giá trị được bao bởi dấu nháy kép.
 - Bốn cột bắt buộc: `studentCode`, `fullName`, `email`, `classCode`. Header tiếng Việt tương ứng như `Mã sinh viên`, `Họ và tên`, `Mã lớp` cũng được chấp nhận.
+- Đợt điểm rèn luyện mới mặc định dùng bộ tiêu chí 5 mục của phiếu đánh giá Học viện (20/25/20/25/10). Bản xuất có xếp loại tạm tính 6 mức, bảng điểm lớp theo mẫu trường (`class-sheet.xlsx`) và biên bản họp lớp (`training-minutes-v2`) — [ADR 0026](docs/adr/0026-academy-criteria-classification-templates.md).
 - Cột tùy chọn `Niên khóa` (Sprint 11.0, [ADR 0025](docs/adr/0025-student-cohort.md)), nhận `K15`, `15` hoặc năm vào học `2021` (niên khóa K = năm vào học − 2006; `K2021` bị từ chối vì mơ hồ); cũng nhận tên `Khóa học`, `Năm nhập học`, `cohortYear`. Cột tên đúng `Khóa` bị từ chối vì sau khi bỏ dấu trùng với `Khoa`. Ô trống không xóa niên khóa đã có; khi ghi đè làm đổi niên khóa, hệ thống ghi audit `STUDENT_COHORT_UPDATE`.
 - `username` được suy ra từ mã sinh viên đã chuẩn hóa sang chữ thường.
 - Trùng trong file và trùng với hệ thống được báo riêng theo `studentCode` và `email`.

@@ -16,6 +16,7 @@ const sample = async () =>
 const sha = (b: Uint8Array) => createHash('sha256').update(b).digest('hex')
 const entries = () => ({
   xlsx: { name: 'a.xlsx', mimeType: 'application/x-xlsx', bytes: Buffer.from('xlsx-bytes') },
+  classSheet: { name: 'class.xlsx', mimeType: 'application/x-xlsx', bytes: Buffer.from('class') },
   docx: { name: 'a.docx', mimeType: 'application/x-docx', bytes: Buffer.from('docx-bytes') },
   pdf: { name: 'a.pdf', mimeType: 'application/pdf', bytes: Buffer.from('%PDF-bytes') },
 })
@@ -25,10 +26,16 @@ test('bundle stores the exact bytes with a manifest of one snapshot and SHA-256 
   const { bytes, manifest, manifestSha256 } = createTrainingExportBundle(
     s,
     entries(),
-    'training-minutes-v1',
+    'training-minutes-v2',
   )
   const files = unzipSync(bytes)
-  assert.deepEqual(Object.keys(files).sort(), ['a.docx', 'a.pdf', 'a.xlsx', 'manifest.json'])
+  assert.deepEqual(Object.keys(files).sort(), [
+    'a.docx',
+    'a.pdf',
+    'a.xlsx',
+    'class.xlsx',
+    'manifest.json',
+  ])
   for (const [name, entry] of Object.entries(entries()))
     assert.deepEqual(Buffer.from(files[entry.name]!), entry.bytes, name)
   assert.equal(sha(files['manifest.json']!), manifestSha256)
@@ -44,7 +51,7 @@ test('bundle stores the exact bytes with a manifest of one snapshot and SHA-256 
     Object.values(entries()).map((e) => [e.name, e.bytes.length, sha(e.bytes)]),
   )
   // Same inputs give the same bundle bytes.
-  assert.deepEqual(createTrainingExportBundle(s, entries(), 'training-minutes-v1').bytes, bytes)
+  assert.deepEqual(createTrainingExportBundle(s, entries(), 'training-minutes-v2').bytes, bytes)
 })
 
 test('bundle refuses duplicate names or a file that would shadow the manifest', async () => {

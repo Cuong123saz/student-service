@@ -1,32 +1,43 @@
-export type TrainingExportFormat = 'xlsx' | 'docx' | 'pdf' | 'zip'
+export type TrainingExportFormat = 'xlsx' | 'class-sheet' | 'docx' | 'pdf' | 'zip'
 
 export const trainingExportFormats: Record<
   TrainingExportFormat,
-  { label: string; path: string; prefix: string; description: string }
+  { label: string; path: string; prefix: string; extension: string; description: string }
 > = {
   xlsx: {
     label: 'Tải Excel',
     path: 'export.xlsx',
     prefix: 'training-points',
-    description: 'Bảng kết quả đã duyệt',
+    extension: 'xlsx',
+    description: 'Bảng kết quả chi tiết đã duyệt',
+  },
+  'class-sheet': {
+    label: 'Tải bảng điểm lớp',
+    path: 'class-sheet.xlsx',
+    prefix: 'training-class-sheet',
+    extension: 'xlsx',
+    description: 'Bảng điểm rèn luyện lớp theo mẫu của Học viện, có xếp loại tạm tính',
   },
   docx: {
     label: 'Tải Word',
     path: 'minutes.docx',
     prefix: 'training-minutes',
-    description: 'Biên bản để chỉnh in',
+    extension: 'docx',
+    description: 'Biên bản họp lớp theo mẫu của Học viện, kèm phụ lục điểm',
   },
   pdf: {
     label: 'Tải PDF',
     path: 'minutes.pdf',
     prefix: 'training-minutes',
+    extension: 'pdf',
     description: 'Biên bản chuyển từ đúng bản Word',
   },
   zip: {
     label: 'Tải gói ZIP',
     path: 'export.zip',
     prefix: 'training-export',
-    description: 'Excel, Word, PDF và manifest cùng một snapshot',
+    extension: 'zip',
+    description: 'Hai bảng Excel, Word, PDF và manifest cùng một snapshot',
   },
 }
 
@@ -35,10 +46,10 @@ const sha256Pattern = /^[0-9a-f]{64}$/
 
 /** The file name never comes from free-form server text, only from a validated snapshot UUID. */
 export function trainingExportFileName(format: TrainingExportFormat, snapshotId: string) {
-  const { prefix } = trainingExportFormats[format]
+  const { prefix, extension } = trainingExportFormats[format]
   return uuid.test(snapshotId)
-    ? `${prefix}-${snapshotId.toLowerCase()}.${format}`
-    : `${prefix}.${format}`
+    ? `${prefix}-${snapshotId.toLowerCase()}.${extension}`
+    : `${prefix}.${extension}`
 }
 
 export function isSha256(value: string | null | undefined): value is string {

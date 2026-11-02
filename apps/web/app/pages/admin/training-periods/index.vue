@@ -48,21 +48,26 @@ function set(p: TrainingPeriod | null) {
         academicYear: '2026-2027',
         semester: '1',
         name: 'Đợt kê khai thử nghiệm',
-        policyLabel: 'Tiêu chí giả định để thử nghiệm — chưa phải quy chế chính thức',
+        // ADR 0026: default to the Học viện assessment form when the API provides it.
+        policyLabel:
+          catalog.value?.criteriaPresets?.[0]?.policyLabel ??
+          'Tiêu chí giả định để thử nghiệm — chưa phải quy chế chính thức',
         startsAt: local(new Date(Date.now() - 300000).toISOString()),
         endsAt: local(new Date(Date.now() + 7 * 86400000).toISOString()),
-        criteria: ['A', 'B', 'C', 'D', 'E'].map((code, i) => ({
-          code: code as 'A' | 'B' | 'C' | 'D' | 'E',
-          label: [
-            'Ý thức học tập',
-            'Chấp hành nội quy',
-            'Hoạt động cộng đồng',
-            'Trách nhiệm tập thể',
-            'Đóng góp khác',
-          ][i]!,
-          maxPoints: 20,
-          evidenceRequired: i === 0,
-        })),
+        criteria: catalog.value?.criteriaPresets?.[0]
+          ? structuredClone(toRaw(catalog.value.criteriaPresets[0].criteria))
+          : ['A', 'B', 'C', 'D', 'E'].map((code, i) => ({
+              code: code as 'A' | 'B' | 'C' | 'D' | 'E',
+              label: [
+                'Ý thức học tập',
+                'Chấp hành nội quy',
+                'Hoạt động cộng đồng',
+                'Trách nhiệm tập thể',
+                'Đóng góp khác',
+              ][i]!,
+              maxPoints: 20,
+              evidenceRequired: i === 0,
+            })),
       }
   baseline.value = JSON.stringify(form.value)
 }
@@ -158,8 +163,9 @@ onMounted(load)
       </p>
     </header>
     <p class="tp-notice">
-      Bộ tiêu chí mặc định là dữ liệu giả định để thử nghiệm. Cần nhập quy chế được phê duyệt trước
-      khi sử dụng thật.
+      Bộ tiêu chí mặc định lấy theo phiếu đánh giá kết quả rèn luyện của Học viện (5 mục, tổng 100
+      điểm), chỉ chấm theo mục lớn. Cần đối chiếu văn bản quy chế được phê duyệt trước khi sử dụng
+      thật.
     </p>
     <div v-if="error" class="tp-notice tp-notice--error" role="alert">
       <p>{{ error.message }}</p>

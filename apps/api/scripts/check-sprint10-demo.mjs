@@ -263,20 +263,21 @@ try {
 
   phase = 'downloads'
   const formats = [
-    ['xlsx', 'Tải Excel', 'training-points'],
-    ['docx', 'Tải Word', 'training-minutes'],
-    ['pdf', 'Tải PDF', 'training-minutes'],
-    ['zip', 'Tải gói ZIP', 'training-export'],
+    ['xlsx', 'Tải Excel', 'training-points', 'xlsx'],
+    ['class-sheet', 'Tải bảng điểm lớp', 'training-class-sheet', 'xlsx'],
+    ['docx', 'Tải Word', 'training-minutes', 'docx'],
+    ['pdf', 'Tải PDF', 'training-minutes', 'pdf'],
+    ['zip', 'Tải gói ZIP', 'training-export', 'zip'],
   ]
   const snapshots = new Set()
-  for (const [format, label, prefix] of formats) {
+  for (const [format, label, prefix, extension] of formats) {
     const waiting = page.waitForEvent('download', { timeout: 120000 })
     await page.getByRole('button', { name: label, exact: true }).click()
     const download = await waiting
     const name = download.suggestedFilename()
-    assert.match(name, new RegExp('^' + prefix + '-' + uuid + '\\.' + format + '$'), name)
-    await download.saveAs(join(root, 'export-' + format + '.' + format))
-    const bytes = await readFile(join(root, 'export-' + format + '.' + format))
+    assert.match(name, new RegExp('^' + prefix + '-' + uuid + '\\.' + extension + '$'), name)
+    await download.saveAs(join(root, 'export-' + format + '.' + extension))
+    const bytes = await readFile(join(root, 'export-' + format + '.' + extension))
     const digest = sha256(bytes)
     const status = panel.getByRole('status').filter({ hasText: 'Đã tải' })
     await status.waitFor()
@@ -297,7 +298,7 @@ try {
       assert.equal(manifest.snapshotId, snapshotId)
       assert.equal(manifest.approvedRows, 1)
       assert.equal(manifest.legalEffect, false)
-      assert.equal(manifest.files.length, 3)
+      assert.equal(manifest.files.length, 4)
       for (const f of manifest.files) assert.equal(sha256(files[f.name]), f.sha256, f.name)
       const pdfName = manifest.files.find((f) => f.name.endsWith('.pdf')).name
       await writeFile(join(root, 'zip-' + pdfName), files[pdfName], { flag: 'wx', mode: 0o600 })

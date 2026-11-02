@@ -24,7 +24,10 @@ test('xlsx round trip keeps identifiers as text, scores numeric, and original/re
   assert.equal(data[4]![7], 9)
   assert.equal(data[4]![12], 14)
   assert.equal(data[5]![12], 0)
-  const date: unknown = data[4]![14]
+  // ADR 0026: provisional classification from the approved total (14 → Kém, 0 → Kém).
+  assert.equal(data[4]![13], 'Kém')
+  assert.equal(data[5]![13], 'Kém')
+  const date: unknown = data[4]![15]
   assert.ok(date instanceof Date)
   // Fractional Excel days can lose one millisecond in the independent reader.
   assert.ok(
@@ -34,6 +37,8 @@ test('xlsx round trip keeps identifiers as text, scores numeric, and original/re
   assert.equal(info.find((r) => r[0] === 'Khoa đã duyệt')?.[1], 2)
   assert.equal(info.find((r) => r[0] === 'Trung bình đã duyệt')?.[1], 7)
   assert.equal(info.find((r) => r[0] === 'Bản đã nộp')?.[1], 5)
+  assert.equal(info.find((r) => r[0] === 'Số bản xếp loại Kém')?.[1], 2)
+  assert.equal(info.find((r) => r[0] === 'Số bản xếp loại Trung bình')?.[1], 0)
 })
 test('untrusted formula-like text stays literal without formula, external link or macro parts', async () => {
   const s = await sample()

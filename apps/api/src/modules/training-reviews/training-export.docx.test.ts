@@ -37,21 +37,27 @@ test('minutes DOCX carries the snapshot, keeps self and approved points apart an
   const xml = documentXml(bytes)
   const text = visible(xml)
   for (const expected of [
-    'BIÊN BẢN TỔNG HỢP KẾT QUẢ ĐIỂM RÈN LUYỆN',
+    'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',
+    'BIÊN BẢN HỌP LỚP DEMO01 KHOA DEMO',
+    'Đánh giá điểm rèn luyện học kỳ I năm học 2026-2027.',
+    'Số phiếu đánh giá đã nộp trên hệ thống: 5; đã được khoa duyệt: 2; chưa duyệt: 3.',
+    '+ Xếp loại kém: 2',
+    '+ Xếp loại trung bình: 0',
+    'PHỤ LỤC — KẾT QUẢ ĐIỂM RÈN LUYỆN ĐÃ ĐƯỢC KHOA DUYỆT',
     s.notice,
     s.snapshotId,
     trainingMinutesTemplate.label,
     'Nguyễn Minh An (giả định)',
     '001234',
     '23/10/2026 10:00 (UTC+7)',
-    'Chưa gán xếp loại chính thức',
-    'CỐ VẤN HỌC TẬP',
-    'ĐẠI DIỆN KHOA',
+    'Tạm tính theo mốc chuẩn (classification-standard-v1)',
+    'THƯ KÝ',
+    'GV CỐ VẤN HỌC TẬP',
   ])
     assert.ok(text.includes(expected), expected)
   // The first approved row: self-declared 15 and approved 14 stay separate cells.
   const firstRow = text.slice(text.indexOf('001234'), text.indexOf('Trần Thị Bình'))
-  assert.match(firstRow, /\n15\n9\n5\n0\n0\n0\n14\n/)
+  assert.match(firstRow, /\n15\n9\n5\n0\n0\n0\n14\nKém\n/)
   // An approved 0 stays a real 0, it is not replaced by self-declared points.
   assert.match(text, /Lớp lúc nộp: DEMO01\n0\n0\n0\n0\n0\n0\n0\n/)
   assert.ok(xml.includes('<w:tblHeader/>'), 'result header repeats on every page')
@@ -70,13 +76,13 @@ test('minutes DOCX is deterministic and its content is pinned to the template ve
   assert.deepEqual(createTrainingMinutesDocx(structuredClone(s)), first)
   // Changing the generated layout must bump trainingMinutesTemplate and this pin together.
   // The pin covers the uncompressed parts, so a zip library upgrade alone does not trip it.
-  assert.equal(trainingMinutesTemplate.label, 'training-minutes-v1')
+  assert.equal(trainingMinutesTemplate.label, 'training-minutes-v2')
   const hash = createHash('sha256')
   for (const [name, content] of Object.entries(parts(first)).sort(([a], [b]) => (a < b ? -1 : 1)))
     hash.update(name + '\u0000').update(content)
   assert.equal(
     hash.digest('hex'),
-    'bbb6cbf74427d415ec07cdb3d87add67a230d3bcb3f2bca32e960c90e73de704',
+    '4cc6049334bbace3da4701d6a192c42d4d1bca5e29ebee1c9fccc61aab0119be',
     'layout changed: bump trainingMinutesTemplate.version and update this pin',
   )
 })

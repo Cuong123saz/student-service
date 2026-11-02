@@ -3,7 +3,12 @@ import { LibreOfficePdfConverter, type PdfConverter } from '../submissions/submi
 import { SubmissionError, type SubmissionActor } from '../submissions/submission.types.js'
 import type { TrainingReviewRepository } from './training-review.repository.js'
 import type { TrainingExportSnapshot } from './training-export.types.js'
-import { createTrainingExportWorkbook, trainingXlsxMime } from './training-export.xlsx.js'
+import {
+  createTrainingClassSheet,
+  createTrainingExportWorkbook,
+  trainingClassSheetTemplate,
+  trainingXlsxMime,
+} from './training-export.xlsx.js'
 import {
   createTrainingMinutesDocx,
   trainingDocxMime,
@@ -40,6 +45,7 @@ export interface TrainingExportUseCase {
     format: TrainingMinutesFormat,
   ): Promise<TrainingExportFile>
   downloadZip(actor: SubmissionActor, periodId: string): Promise<TrainingExportFile>
+  downloadClassSheet(actor: SubmissionActor, periodId: string): Promise<TrainingExportFile>
 }
 const MiB = 1024 * 1024
 const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
@@ -137,12 +143,18 @@ export class TrainingExportService implements TrainingExportUseCase {
       const snapshot = await this.capture(actor.userId, periodId)
       const id = snapshot.snapshotId
       const xlsx = await this.workbook(snapshot)
+      const classSheet = this.classSheet(snapshot)
       const docx = await this.minutes(snapshot)
       const pdf = await this.pdf(docx)
       const bundle = createTrainingExportBundle(
         snapshot,
         {
           xlsx: { name: `training-points-${id}.xlsx`, mimeType: trainingXlsxMime, bytes: xlsx },
+          classSheet: {
+            name: `training-class-sheet-${id}.xlsx`,
+            mimeType: trainingXlsxMime,
+            bytes: classSheet,
+          },
           docx: { name: `training-minutes-${id}.docx`, mimeType: trainingDocxMime, bytes: docx },
           pdf: { name: `training-minutes-${id}.pdf`, mimeType: 'application/pdf', bytes: pdf },
         },
@@ -169,6 +181,35 @@ export class TrainingExportService implements TrainingExportUseCase {
         manifestSha256: bundle.manifestSha256,
       }
     })
+  }
+  /** ADR 0026: school-format class sheet; same authorization, snapshot and audit flow as XLSX. */
+  downloadClassSheet(actor: SubmissionActor, periodId: string): Promise<TrainingExportFile> {
+    return this.exclusive(actor, async () => {
+      const snapshot = await this.capture(actor.userId, periodId)
+      const bytes = this.classSheet(snapshot)
+      const digest = sha256(bytes)
+      await this.repository.recordExport(actor, periodId, {
+        format: 'CLASS_SHEET',
+        snapshotId: snapshot.snapshotId,
+        rowCount: snapshot.rows.length,
+        sha256: digest,
+        size: bytes.length,
+        templateVersion: trainingClassSheetTemplate.label,
+      })
+      return {
+        bytes,
+        mimeType: trainingXlsxMime,
+        name: `training-class-sheet-${snapshot.snapshotId}.xlsx`,
+        snapshotId: snapshot.snapshotId,
+        sha256: digest,
+        templateVersion: trainingClassSheetTemplate.label,
+      }
+    })
+  }
+  private classSheet(snapshot: TrainingExportSnapshot) {
+    const bytes = createTrainingClassSheet(snapshot)
+    if (bytes.length > 8 * MiB) throw tooLarge('8 MiB')
+    return bytes
   }
   private async workbook(snapshot: TrainingExportSnapshot) {
     const bytes = await this.render(snapshot)

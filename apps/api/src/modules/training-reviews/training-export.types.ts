@@ -1,4 +1,5 @@
 import type { Answers, Criterion } from '../training-points/training-points.types.js'
+import type { TrainingClassificationInfo } from './training-classification.js'
 import type { ReviewDecision, ReviewDetail, ReviewSummary } from './training-review.types.js'
 
 export const trainingExportMaxRows = 1000
@@ -8,6 +9,7 @@ export const trainingExportAuditActions = Object.freeze({
   DOCX: 'training.export.docx.prepared',
   PDF: 'training.export.pdf.prepared',
   ZIP: 'training.export.zip.prepared',
+  CLASS_SHEET: 'training.export.class-sheet.prepared',
 } as const)
 export type TrainingExportAuditFormat = keyof typeof trainingExportAuditActions
 export interface TrainingExportAuditReceipt {
@@ -58,7 +60,8 @@ export interface TrainingExportSnapshot {
   }
   summary: ReviewSummary
   rows: TrainingExportRow[]
-  classification: 'NOT_ASSIGNED'
+  /** ADR 0026: provisional bands; per-row classification is derived from approvedPoints. */
+  classification: TrainingClassificationInfo
   technicalSignatureStatus: 'NOT_VERIFIED'
   legalEffect: false
   notice: string

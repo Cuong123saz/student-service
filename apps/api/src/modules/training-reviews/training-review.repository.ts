@@ -6,6 +6,7 @@ import {
   type TrainingExportRow,
 } from './training-export.types.js'
 import { randomUUID } from 'node:crypto'
+import { provisionalClassification } from './training-classification.js'
 import type { Sql, TransactionSql } from 'postgres'
 import { databaseClient } from '../../db/client.js'
 import { SubmissionError, type SubmissionActor } from '../submissions/submission.types.js'
@@ -270,7 +271,7 @@ export class TrainingReviewRepository {
         ...context,
         summary,
         rows: Array.from(rows),
-        classification: 'NOT_ASSIGNED',
+        classification: provisionalClassification,
         technicalSignatureStatus: 'NOT_VERIFIED',
         legalEffect: false,
         notice: 'DỮ LIỆU THỬ NGHIỆM — CHƯA PHẢI BIỂU MẪU CHÍNH THỨC',

@@ -4,6 +4,7 @@ import { databaseClient } from '../../db/client.js'
 import { SubmissionError } from '../submissions/submission.types.js'
 import { validatePeriod, validateAnswers } from './training-points.validation.js'
 import type { PeriodInput, Criterion, Answers, Group } from './training-points.types.js'
+import { academyCriteria, academyCriteriaPreset } from './training-points.types.js'
 type Tx = TransactionSql
 interface Period {
   id: string
@@ -228,7 +229,12 @@ export class TrainingPointRepository {
       const classes = await tx<
         { id: string; name: string; code: string; facultyName: string }[]
       >`SELECT c.id,c.name,c.code,f.name AS "facultyName" FROM academic_classes c JOIN faculties f ON f.id=c.faculty_id WHERE training_can_manage(${user}::uuid,c.id) ORDER BY c.code LIMIT 501`
-      return { classes: classes.slice(0, 500), truncated: classes.length > 500 }
+      return {
+        classes: classes.slice(0, 500),
+        truncated: classes.length > 500,
+        // ADR 0026: the form defaults to the Học viện assessment form instead of fake criteria.
+        criteriaPresets: [{ ...academyCriteriaPreset, criteria: academyCriteria() }],
+      }
     })
   }
   async periods(user: string, admin = false) {

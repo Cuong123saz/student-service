@@ -77,4 +77,7 @@ export async function trainingExportRoutes(
     service.downloadMinutes(actor, id, 'pdf'),
   )
   route('export.zip', 'training-export.zip', (actor, id) => service.downloadZip(actor, id))
+  route('class-sheet.xlsx', 'bang-diem-ren-luyen-lop.xlsx', (actor, id) =>
+    service.downloadClassSheet(actor, id),
+  )
 }
