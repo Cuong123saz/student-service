@@ -2,7 +2,7 @@
 
 Cập nhật bối cảnh ngày **02/11/2026**, sau khi đóng Sprint 10 (LOCAL_TECHNICAL) và hồ sơ sprint trong repo. Đây là điểm bắt đầu để AI tiếp tục dự án khi không có lịch sử chat hoặc tệp Word local. Đọc tình trạng thực tế bằng Git và code trước khi sửa; ngày cập nhật tài liệu không có nghĩa kiểm thử đã được chạy lại trong ngày đó.
 
-**Điểm tiếp tục: Sprint 10 đã CLOSED LOCAL_TECHNICAL ngày 02/11/2026 ([hồ sơ đóng](docs/sprint-10-closure.md)); công việc tiếp theo là lập kế hoạch Sprint 11 — hoạt động ngoại khóa, chỉ sau khi chủ dự án chốt phạm vi.** Production vẫn NOT_READY.
+**Điểm tiếp tục: Sprint 10 đã CLOSED LOCAL_TECHNICAL ngày 02/11/2026 ([hồ sơ đóng](docs/sprint-10-closure.md)); Sprint 11 đã có [kế hoạch đề xuất](docs/sprint-11-plan.md) và [ADR 0025 — khóa sinh viên](docs/adr/0025-student-cohort.md) (Proposed); công việc tiếp theo là 11.0 sau khi chủ dự án duyệt plan/ADR.** Production vẫn NOT_READY.
 
 ## 1. Dự án và cách cộng tác
 
@@ -66,7 +66,7 @@ Mục tiêu lấy từ roadmap hợp nhất; trạng thái đối chiếu README
 | 8 | Đợt, tiêu chí A–E, kê khai/minh chứng, snapshot và lịch sử | CLOSED LOCAL_TECHNICAL ngày 15/10 |
 | 9 | Cố vấn xác nhận, khoa trả về/duyệt, lịch sử vòng xét duyệt và tổng hợp lớp | CLOSED LOCAL_TECHNICAL ngày 23/10 |
 | 10 | Excel tổng hợp, biên bản Word/PDF, ZIP | CLOSED LOCAL_TECHNICAL ngày 02/11 |
-| 11 | Hoạt động ngoại khóa: đăng ký, giới hạn, điểm danh, đề xuất minh chứng | PLANNED theo roadmap; chưa có module nghiệp vụ tương ứng trong cây modules hiện tại |
+| 11 | Hoạt động ngoại khóa, CLB, đăng ký/danh sách chờ, điểm danh QR + ảnh, chứng nhận tham gia, gợi ý điểm | PLANNED; [plan](docs/sprint-11-plan.md) chờ duyệt, chưa có code |
 | 12 | Nghiên cứu khoa học: đề tài, nhóm, giảng viên hướng dẫn, xét duyệt | PLANNED theo roadmap; chưa có module nghiệp vụ tương ứng trong cây modules hiện tại |
 | 13 | Hardening/UAT: bảo mật, backup, hiệu năng, accessibility, nghiệm thu local | PLANNED; chưa được coi đã hoàn tất nhờ có test hoặc demo của sprint trước |
 
@@ -104,9 +104,9 @@ Chi tiết tại [hướng dẫn Excel](docs/sprint-10-xlsx.md), [ADR 0021](docs
 
 ### Bắt đầu Sprint 11 khi người dùng yêu cầu tiếp tục
 
-1. Đọc lại Git: PR 10.5 đã merge chưa; không xếp chồng Sprint 11 lên nhánh chưa merge nếu tránh được.
-2. Chưa viết code. Lập `docs/sprint-11-plan.md` dạng đề xuất và hỏi chủ dự án chốt: actor/scope (ai tạo hoạt động, ai điểm danh), sức chứa và danh sách chờ, trạng thái đăng ký/hủy/điểm danh và tranh chấp, quan hệ với minh chứng điểm rèn luyện. Không tự cộng điểm từ hoạt động khi chưa có quy tắc.
-3. Sau khi chốt: ADR trước schema/migration, theo gate hiện có.
+1. Đọc lại Git và trạng thái PR của 10.5 và plan Sprint 11. Đọc [plan](docs/sprint-11-plan.md): bảng actor, quy tắc đã chốt, mục “chờ xác nhận” và rủi ro đã chấp nhận. Không tự đổi quyết định của chủ dự án; mâu thuẫn thì nêu và hỏi.
+2. Chỉ làm 11.0 khi ADR 0025 được duyệt (đổi `status` sang Accepted). Theo ADR: cột `cohort_year` nullable trên `student_profiles`, import thêm cột “Khóa học” (không nhận alias `khoa` vì trùng “Khoa” sau bỏ dấu), audit, thêm ánh xạ vào ADR gate.
+3. Mỗi increment sau (11.1–11.6) lập ADR trước schema/quyền. Chứng nhận tham gia không phải văn bằng/chữ ký số; gợi ý điểm không sửa bản đã nộp hay điểm đã duyệt; “Giấy xác nhận sinh viên” vẫn OFFLINE.
 
 Chạy lại diễn tập Sprint 10 theo runbook khi đổi code xuất; nhớ đặt `WORKFLOW_PLAYWRIGHT_MODULE`/`WORKFLOW_CHROMIUM_EXECUTABLE`.
 
