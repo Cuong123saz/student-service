@@ -239,6 +239,13 @@
       "when": 1793660000000,
       "tag": "0033_activity_registrations",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793670000000,
+      "tag": "0034_activity_attendance",
+      "breakpoints": true
     }
   ]
 }

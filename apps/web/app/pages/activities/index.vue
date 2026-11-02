@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type {
+  Certificate,
   RegistrationHistoryItem,
   StudentActivity,
   StudentRegistrationView,
@@ -15,6 +16,7 @@ definePageMeta({ middleware: 'user-auth' })
 const api = useActivities(),
   items = ref<StudentActivity[] | null>(null),
   history = ref<RegistrationHistoryItem[]>([]),
+  certificates = ref<Certificate[]>([]),
   truncated = ref(false),
   busy = ref(false),
   error = ref<TrainingError | null>(null),
@@ -38,10 +40,11 @@ async function run(fn: () => Promise<void>, done = '') {
 }
 const load = () =>
   run(async () => {
-    const [r, h] = await Promise.all([api.available(), api.history()])
+    const [r, h, c] = await Promise.all([api.available(), api.history(), api.certificates()])
     items.value = r.items
     truncated.value = r.truncated
     history.value = h.items
+    certificates.value = c.items
   })
 function merge(id: string, v: StudentRegistrationView) {
   const a = items.value?.find((x) => x.id === id)
@@ -171,6 +174,28 @@ onMounted(load)
             <strong>{{ h.title }}</strong> · {{ formatActivityTime(h.startsAt) }} · {{ outcome(h)
             }}<span v-if="h.excused"> · có lý do được chấp nhận</span>
           </p>
+        </li>
+      </ul>
+    </section>
+    <section
+      v-if="items && certificates.length"
+      class="tp-panel"
+      aria-labelledby="certificates-title"
+    >
+      <h2 id="certificates-title">Chứng nhận tham gia</h2>
+      <p class="tp-muted">
+        Chứng nhận do hệ thống cấp khi lượt tham gia được duyệt; không phải văn bằng, chứng chỉ và
+        chưa có chữ ký số.
+      </p>
+      <ul class="tp-files">
+        <li v-for="c in certificates" :key="c.id">
+          <p>
+            <strong>{{ c.code }}</strong> · {{ c.activityTitle }} ·
+            {{ formatActivityTime(c.activityStartsAt) }} ·
+            {{ c.status === 'ISSUED' ? 'Hiệu lực' : 'Đã thu hồi' }}
+          </p>
+          <p v-if="c.revokeReason" class="tp-muted">Lý do thu hồi: {{ c.revokeReason }}</p>
+          <p class="tp-muted">Mã kiểm tra: {{ c.payloadSha256 }}</p>
         </li>
       </ul>
     </section>

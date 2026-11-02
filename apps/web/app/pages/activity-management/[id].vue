@@ -231,7 +231,14 @@ onBeforeUnmount(() => {
           >
         </div>
       </section>
+      <ActivityCheckinPanel
+        v-if="activity.status === 'PUBLISHED' && activity.canReview"
+        :activity="activity"
+        :owner="activity.canConfigureCheckin"
+        @changed="set"
+      />
       <ActivityRosterPanel v-if="activity.status !== 'DRAFT'" :activity-id="activity.id" />
+      <ActivityAttendancePanel v-if="activity.status !== 'DRAFT'" :activity-id="activity.id" />
       <section class="tp-panel" aria-labelledby="activity-history-title">
         <h2 id="activity-history-title">Lịch sử</h2>
         <ul class="tp-files">

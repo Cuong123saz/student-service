@@ -48,6 +48,8 @@ function activity(over: Partial<ActivityDetail> = {}): ActivityDetail {
     canDelegate: true,
     canSuspend: false,
     canResume: false,
+    canReview: true,
+    canConfigureCheckin: true,
     events: [
       {
         id: 'e1',
@@ -91,6 +93,22 @@ function mockApi() {
     acknowledgePromotion: vi.fn(),
     roster: vi.fn().mockResolvedValue(roster()),
     decide: vi.fn(),
+    certificates: vi.fn().mockResolvedValue({ items: [] }),
+    attendance: vi.fn(),
+    scan: vi.fn(),
+    submitPhoto: vi.fn(),
+    attendanceQueue: vi.fn().mockResolvedValue({
+      canReview: true,
+      canRevoke: false,
+      summary: { pending: 0, approved: 0, rejected: 0 },
+      items: [],
+      truncated: false,
+    }),
+    attendancePhoto: vi.fn(),
+    review: vi.fn(),
+    revokeCertificate: vi.fn(),
+    checkinQr: vi.fn().mockResolvedValue(new Blob(['<svg/>'], { type: 'image/svg+xml' })),
+    configureCheckin: vi.fn(),
   }
 }
 const view = (over: Partial<StudentRegistrationView> = {}): StudentRegistrationView => ({

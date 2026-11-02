@@ -29,7 +29,7 @@ export interface RosterEntry {
   fullName: string
   classCode: string
   status: RegistrationStatus
-  /** Derived (ADR 0031): ended activity, seat held, no approved attendance yet (11.4). */
+  /** Derived (ADR 0031/0032): ended activity, seat held, no approved attendance. */
   absent: boolean
   queuedAt: string
   waitlistPosition: number | null
@@ -190,7 +190,7 @@ export class ActivityRegistrationRepository {
           excused: boolean
         })[]
       >`SELECT a.id AS "activityId",a.title,a.kind,a.status AS "activityStatus",${tx.unsafe(iso('a.starts_at'))} AS "startsAt",${tx.unsafe(iso('a.ends_at'))} AS "endsAt",
-          ${tx.unsafe(registrationView)},(a.ends_at<=clock_timestamp() AND r.status IN ('REGISTERED')) AS absent,
+          ${tx.unsafe(registrationView)},(a.ends_at<=clock_timestamp() AND r.status IN ('REGISTERED') AND NOT EXISTS(SELECT 1 FROM activity_attendances t WHERE t.activity_id=r.activity_id AND t.student_user_id=r.student_user_id AND t.status='APPROVED')) AS absent,
           (r.excused OR (r.status='CANCEL_REQUESTED' AND a.starts_at<=clock_timestamp())) AS excused
         FROM activity_registrations r JOIN activities a ON a.id=r.activity_id
         WHERE r.student_user_id=${user} ORDER BY a.starts_at DESC,a.id LIMIT 201`
@@ -214,7 +214,7 @@ export class ActivityRegistrationRepository {
       const items = await tx<RosterEntry[]>`
         SELECT r.id,r.student_user_id AS "studentUserId",sp.student_code AS "studentCode",u.full_name AS "fullName",c.code AS "classCode",
           CASE WHEN r.status='CANCEL_REQUESTED' AND a.starts_at<=clock_timestamp() THEN 'CANCELLED' ELSE r.status END AS status,
-          (a.ends_at<=clock_timestamp() AND r.status='REGISTERED') AS absent,
+          (a.ends_at<=clock_timestamp() AND r.status IN ('REGISTERED') AND NOT EXISTS(SELECT 1 FROM activity_attendances t WHERE t.activity_id=r.activity_id AND t.student_user_id=r.student_user_id AND t.status='APPROVED')) AS absent,
           ${tx.unsafe(iso('r.queued_at'))} AS "queuedAt",
           CASE WHEN r.status='WAITLISTED' THEN (SELECT count(*)::integer+1 FROM activity_registrations x WHERE x.activity_id=r.activity_id AND x.status='WAITLISTED' AND (x.queued_at,x.id)<(r.queued_at,r.id)) END AS "waitlistPosition",
           r.cancel_reason AS "cancelReason",CASE WHEN r.cancel_requested_at IS NULL THEN NULL ELSE ${tx.unsafe(iso('r.cancel_requested_at'))} END AS "cancelRequestedAt",
