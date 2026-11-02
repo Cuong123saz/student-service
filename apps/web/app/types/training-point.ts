@@ -46,9 +46,17 @@ export interface TrainingDeclaration {
   historyTruncated: boolean
   scoreStatus: 'SELF_DECLARED_NOT_REVIEWED'
 }
+export interface TrainingCriteriaPreset {
+  id: string
+  name: string
+  policyLabel: string
+  criteria: TrainingCriterion[]
+}
 export interface TrainingCatalog {
   classes: { id: string; name: string; code: string; facultyName: string }[]
   truncated: boolean
+  /** ADR 0026: bộ tiêu chí mẫu, phần tử đầu là phiếu đánh giá của Học viện. */
+  criteriaPresets?: TrainingCriteriaPreset[]
 }
 export interface TrainingError {
   status?: number

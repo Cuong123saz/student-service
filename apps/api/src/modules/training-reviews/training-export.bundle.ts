@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { strToU8, zipSync } from 'fflate'
 import type { TrainingExportSnapshot } from './training-export.types.js'
+import type { TrainingClassificationInfo } from './training-classification.js'
 
 export const trainingZipMime = 'application/zip'
 
@@ -21,7 +22,7 @@ export interface TrainingBundleManifest {
   files: { name: string; mimeType: string; size: number; sha256: string }[]
   /** The PDF was converted from exactly this DOCX file of the same bundle. */
   pdfSourceDocx: string
-  classification: 'NOT_ASSIGNED'
+  classification: TrainingClassificationInfo
   technicalSignatureStatus: 'NOT_VERIFIED'
   legalEffect: false
   notice: string
@@ -34,10 +35,15 @@ const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest(
  */
 export function createTrainingExportBundle(
   snapshot: TrainingExportSnapshot,
-  entries: { xlsx: TrainingBundleEntry; docx: TrainingBundleEntry; pdf: TrainingBundleEntry },
+  entries: {
+    xlsx: TrainingBundleEntry
+    classSheet: TrainingBundleEntry
+    docx: TrainingBundleEntry
+    pdf: TrainingBundleEntry
+  },
   templateVersion: string,
 ): { bytes: Buffer; manifest: TrainingBundleManifest; manifestSha256: string } {
-  const files = [entries.xlsx, entries.docx, entries.pdf]
+  const files = [entries.xlsx, entries.classSheet, entries.docx, entries.pdf]
   const names = new Set(files.map((f) => f.name))
   if (names.size !== files.length || names.has('manifest.json'))
     throw new Error('INVALID_EXPORT_BUNDLE')

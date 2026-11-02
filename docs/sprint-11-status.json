@@ -63,5 +63,35 @@
     }
   },
   "productionReadiness": "NOT_READY",
-  "nextIncrement": "11.1 — clubs and roles"
+  "nextIncrement": "11.1 — clubs and roles (D: date of birth, 11.L: class monitor pending owner order)",
+  "academyTemplates": {
+    "status": "COMPLETE_LOCAL",
+    "adr": "docs/adr/0026-academy-criteria-classification-templates.md",
+    "items": {
+      "A": "criteria preset academy-assessment-form-v1",
+      "B": "classification-standard-v1 (provisional)",
+      "C": "class-sheet-v1, training-minutes-v2",
+      "D": "PENDING (date of birth)",
+      "E": "PLANNED as 11.L (class monitor)"
+    },
+    "apiUnit": {
+      "passed": 219,
+      "skipped": 2,
+      "failed": 0
+    },
+    "apiIntegration": {
+      "passed": 360,
+      "failed": 0
+    },
+    "storageRecoveryBundleGuards": {
+      "passed": 315,
+      "failed": 0
+    },
+    "web": {
+      "passed": 157,
+      "failed": 0
+    },
+    "browserRehearsal": "rehearse:sprint10 PASS, 5 formats",
+    "microsoftOfficeDesktop": "NOT_RUN"
+  }
 }

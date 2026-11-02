@@ -1,5 +1,7 @@
 # Sprint 10.3 — Biên bản Word/PDF điểm rèn luyện
 
+> **Ghi chú 02/11/2026:** nội dung biên bản đã được thay bằng mẫu họp lớp của Học viện `training-minutes-v2` theo [ADR 0026](adr/0026-academy-criteria-classification-templates.md). Phần dưới mô tả `training-minutes-v1` và kiểm chứng tại thời điểm Sprint 10.3, giữ để truy vết.
+
 **COMPLETE_LOCAL ngày 02/11/2026.** Quyết định thiết kế: [ADR 0023](adr/0023-training-minutes-docx-pdf.md). Tiền đề: [snapshot ADR 0021](adr/0021-training-point-export-snapshot.md), [Excel ADR 0022](adr/0022-training-point-xlsx-download.md). Chưa có nút tải trên UI, chưa có ZIP; Sprint 10 chưa đóng; production NOT_READY.
 
 ## Sử dụng

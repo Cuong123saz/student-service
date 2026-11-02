@@ -44,22 +44,18 @@ CLB bị tạm dừng/giải thể không mở hoạt động mới; chứng nh�
 
 **Chứng nhận tham gia.** Bản ghi do hệ thống cấp khi lượt tham gia được duyệt: mã, hoạt động, sinh viên, người duyệt, thời điểm, hash. Thu hồi được kèm lý do, không xóa. **Không phải văn bằng/chứng chỉ, không có chữ ký số**: `technicalSignatureStatus=NOT_VERIFIED`, `legalEffect=false`. Không nhầm với “Giấy xác nhận sinh viên”, vốn vẫn OFFLINE tại CTSV.
 
-**Gợi ý điểm rèn luyện.** Trong khoảng thời gian tính của đợt (ví dụ học kỳ 1: tháng 8 → tháng 1), với mỗi sinh viên:
+**Gợi ý điểm rèn luyện** (cập nhật 02/11/2026 theo phiếu đánh giá của Học viện, [ADR 0026](adr/0026-academy-criteria-classification-templates.md)). Mỗi loại hoạt động gợi ý vào đúng mục của phiếu:
 
-- B = số hoạt động bắt buộc sinh viên thuộc đối tượng; b = số hoạt động bắt buộc có chứng nhận **hoặc** có yêu cầu hủy được chấp nhận; t = số hoạt động tự nguyện có chứng nhận.
+| Loại hoạt động | Mục phiếu | Quy tắc gợi ý (mặc định) |
+| --- | --- | --- |
+| Hoạt động do Học viện tổ chức/điều động (bắt buộc + tự chọn) | III.3.1 (nhóm C) | **Đầy đủ** = có chứng nhận đủ mọi hoạt động bắt buộc thuộc đối tượng → **+3**; **tích cực** = đầy đủ và thêm hoạt động tự chọn → **+5**; thiếu bắt buộc → 0 |
+| Câu lạc bộ, hoạt động học thuật/ngoại khóa | I.1.4a (nhóm A) | Tham gia → **+3**; thành viên ban tổ chức → **+2** |
+| Hiến máu, tình nguyện, công tác xã hội | IV.4.5 (nhóm D) | Tham gia → **+5** |
 
-| Điều kiện | Điểm gợi ý |
-| --- | --- |
-| b = B và t ≥ 2 | +5 |
-| b = B và t < 2 | +2 |
-| b < B | 0 |
-
-- Khi B = 0, theo quyết định của chủ dự án vẫn +2 dù t = 0. **Rủi ro đã ghi nhận:** mâu thuẫn với nguyên tắc “không tham gia → 0”. Làm thành cấu hình theo đợt (bật/tắt), mặc định bật.
-- **Thiết lập theo đợt, không viết cứng** (chủ dự án yêu cầu “setting để đổi mục khi cần”). Mỗi đợt điểm rèn luyện có một thiết lập ngoại khóa gồm: nhóm tiêu chí nhận điểm (mặc định **C**), điểm mức cao (mặc định 5), điểm mức cơ bản (mặc định 2), số hoạt động tự nguyện tối thiểu cho mức cao (mặc định 2), có cho mức cơ bản khi không có hoạt động bắt buộc hay không (mặc định có), và khoảng thời gian tính hoạt động.
-  - Người quản lý đợt (quyền `training_point.period.manage` hiện có) sửa trên trang quản trị đợt. Kiểm hợp lệ: nhóm phải có trong bộ tiêu chí của đợt, điểm không âm và không vượt điểm tối đa của nhóm, mức cao ≥ mức cơ bản.
-  - Mỗi lần đổi ghi audit (giá trị cũ → mới). Đổi thiết lập **không** sửa bản kê khai đã nộp: gợi ý điểm được chốt cùng bản nộp, giống snapshot Sprint 8.
-  - Giao diện ghi nhãn “giả định — cần đối chiếu quy chế điểm rèn luyện hiện hành của Học viện”. Bộ A–E hiện vẫn là dữ liệu giả.
-- Điểm chỉ là **gợi ý** và chứng nhận được đính kèm làm minh chứng khi sinh viên kê khai. Điểm tự khai, điểm gợi ý và điểm duyệt lưu riêng; cố vấn/khoa duyệt như Sprint 9. Thu hồi chứng nhận không sửa ngược bản đã nộp hay điểm đã duyệt; chỉ ảnh hưởng gợi ý của bản kê khai chưa nộp, và được hiển thị cho người duyệt.
+- Hủy có lý do được chủ hoạt động chấp nhận ở hoạt động bắt buộc được tính như đã tham gia. Kỳ không có hoạt động bắt buộc: có cho mức “đầy đủ” hay không là cấu hình theo đợt (mặc định có, quyết định của chủ dự án; mâu thuẫn với nguyên tắc “không tham gia → 0” đã ghi nhận).
+- **Thiết lập theo đợt, không viết cứng**: loại hoạt động → nhóm tiêu chí, mức điểm, số hoạt động tự chọn tối thiểu cho mức tích cực, khoảng thời gian tính. Người quản lý đợt sửa trên trang quản trị, có kiểm hợp lệ (nhóm có trong bộ tiêu chí, điểm không vượt tối đa của nhóm) và audit. Đổi thiết lập không sửa bản kê khai đã nộp.
+- Chỉ là **gợi ý** kèm chứng nhận làm minh chứng; cố vấn/khoa vẫn duyệt như Sprint 9. Thu hồi chứng nhận không sửa ngược bản đã nộp hay điểm đã duyệt.
+- Cột “do tập thể đánh giá” trên phiếu đã bị trường bỏ, không làm.
 
 ## Thứ tự thực hiện
 
@@ -71,6 +67,7 @@ CLB bị tạm dừng/giải thể không mở hoạt động mới; chứng nh�
 | 11.3 — Đăng ký | Đăng ký, danh sách chờ, yêu cầu hủy, vắng mặt, thông báo | Không vượt sức chứa khi đồng thời; danh sách chờ đúng thứ tự; hạn 24 giờ |
 | 11.4 — Điểm danh và chứng nhận | QR, chụp ảnh trong trang, xóa EXIF, hàng duyệt, cấp/thu hồi chứng nhận | Từ chối ngoài giờ/không đăng ký/không đối tượng; không tự duyệt; ảnh riêng tư |
 | 11.5 — Gợi ý điểm | Thiết lập ngoại khóa theo đợt (nhóm nhận điểm, mức điểm, ngưỡng, khoảng thời gian) có audit; tính b/B/t; đính kèm chứng nhận vào bản kê khai | Không sửa bản đã nộp/điểm đã duyệt; các ca biên (B=0, hủy được duyệt, thu hồi) |
+| 11.L — Lớp trưởng | ADR + quyền; lớp trưởng tổng hợp phiếu của lớp (giữ vai trò theo quyết định chủ dự án 02/11/2026); xác định chỗ đứng trong quy trình cố vấn → khoa | Không thay quyền cố vấn/khoa; đúng lớp, đúng nhiệm kỳ |
 | 11.6 — Giao diện, diễn tập, đóng | Trang CLB/CTSV/sinh viên, `rehearse:sprint11`, runbook, hồ sơ đóng | Diễn tập trình duyệt 375–1440 px với camera giả lập; rà ảnh |
 
 Mỗi increment có ADR trước khi đổi schema/quyền, test theo quy ước hiện có, và cập nhật status/AI_CONTEXT khi xong.
@@ -94,3 +91,15 @@ Theo [ADR 0025](adr/0025-student-cohort.md). Migration viết tay `0028_student_
 Import: cột tùy chọn “Niên khóa” (`K15`/`15`/năm vào học `2021`; `K2021` bị từ chối), tên khác `Khóa học`, `Năm nhập học`, `cohort`, `cohortYear`; cột “Khóa” bị từ chối với mã `IMPORT_AMBIGUOUS_COHORT_COLUMN`. Giá trị sai báo lỗi theo dòng. Tạo mới ghi niên khóa; `OVERWRITE` chỉ ghi khi có giá trị và ghi audit `STUDENT_COHORT_UPDATE` (trước/sau) khi thực sự đổi. Preview lưu trước nâng cấp vẫn đọc được. File mẫu có cột “Niên khóa”. Hồ sơ cá nhân và danh sách sinh viên quản trị hiển thị niên khóa.
 
 Kiểm chứng: typecheck/lint/format/build đạt; ADR gate 52 đạt và đạt so với nhánh có ADR Accepted (trượt đúng thiết kế nếu so với `main` chưa có ADR); unit API 212 đạt / 2 bỏ qua; integration API 360 đạt; storage/recovery/bundle/guard 315 đạt (trước sửa quy tắc K, không liên quan); web 156 đạt. Diễn tập migration trên database giả riêng: áp tới 0027, thêm sinh viên cũ, áp 0028 → dữ liệu cũ giữ nguyên, `cohort_year` = NULL, CHECK từ chối năm ngoài khoảng. Sửa đổi trước merge: quy tắc K = năm vào học − 2006 (chủ dự án chốt). Chưa có dữ liệu niên khóa thật; chưa chạy diễn tập trình duyệt riêng cho 11.0 (gộp vào 11.6). Bước kế tiếp 11.1 — CLB và vai trò.
+
+## Nhóm việc theo mẫu Học viện (A–C) — 02/11/2026
+
+Chủ dự án cung cấp phiếu đánh giá, bảng điểm lớp và biên bản họp lớp thực tế (có dữ liệu cá nhân thật, **không** đưa vào repo). Làm trước 11.1 theo yêu cầu “làm A, B, C trước”; quyết định ở [ADR 0026](adr/0026-academy-criteria-classification-templates.md):
+
+- **A** — Bộ tiêu chí 5 mục của phiếu (20/25/20/25/10) là mẫu mặc định khi tạo đợt; không cần migration. Chưa chấm theo mục con.
+- **B** — Xếp loại tạm tính 6 mức theo mốc chuẩn (`classification-standard-v1`), chưa hạ mức do kỷ luật. File Excel mẫu của trường thiếu mức Trung bình/Kém; hệ thống không sao chép lỗi đó.
+- **C** — Bảng điểm lớp theo mẫu trường (`class-sheet.xlsx`, `class-sheet-v1`) và biên bản họp lớp (`training-minutes-v2`, A4 dọc + phụ lục A4 ngang); ZIP có thêm bảng điểm lớp.
+- **D (chưa làm)** — Ngày sinh sinh viên cho cột “Ngày sinh” của bảng điểm lớp; cần ADR riêng về dữ liệu cá nhân.
+- **E** — Vai trò lớp trưởng: giữ, làm ở 11.L.
+
+Kiểm chứng: typecheck/lint/format/build đạt; unit API 219 đạt / 2 bỏ qua; integration API 360 đạt; storage/recovery/bundle/guard 315 đạt; web 157 đạt; ca PDF thật đạt; `rehearse:sprint10` PASS với 5 định dạng tải qua trình duyệt; đã xem ảnh render biên bản v2, phụ lục 120 dòng và bảng điểm lớp.

@@ -15,12 +15,17 @@ describe('training export helpers', () => {
     expect(trainingExportFileName('pdf', id)).toMatch(/^training-minutes-.*\.pdf$/)
     expect(trainingExportFileName('xlsx', '../../etc/passwd')).toBe('training-points.xlsx')
     expect(trainingExportFileName('docx', '')).toBe('training-minutes.docx')
+    // The class sheet key is not an extension: its file is still .xlsx.
+    expect(trainingExportFileName('class-sheet', id)).toBe(
+      'training-class-sheet-10000000-0000-4000-8000-00000000000a.xlsx',
+    )
   })
   it('maps every format to its POST endpoint suffix', () => {
     expect(
       Object.fromEntries(Object.entries(trainingExportFormats).map(([k, v]) => [k, v.path])),
     ).toEqual({
       xlsx: 'export.xlsx',
+      'class-sheet': 'class-sheet.xlsx',
       docx: 'minutes.docx',
       pdf: 'minutes.pdf',
       zip: 'export.zip',

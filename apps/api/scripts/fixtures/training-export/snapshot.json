@@ -13,5 +13,5 @@
       "advisor":{"id":"30000000-0000-4000-8000-000000000003","revision":1,"actor":{"userId":"40000000-0000-4000-8000-000000000001","username":"demo.covan","fullName":"Cố vấn thử nghiệm","roleCode":"ACADEMIC_ADVISOR"},"confirmedAt":"2026-10-22T03:00:00.000Z","payloadSha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"},
       "faculty":{"id":"30000000-0000-4000-8000-000000000004","revision":2,"actor":{"userId":"10000000-0000-4000-8000-000000000002","username":"demo.khoa","fullName":"Cán bộ khoa thử nghiệm","roleCode":"FACULTY_REVIEWER"},"confirmedAt":"2026-10-23T02:30:00.000Z","payloadSha256":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}}
   ],
-  "classification":"NOT_ASSIGNED","technicalSignatureStatus":"NOT_VERIFIED","legalEffect":false,"notice":"DỮ LIỆU THỬ NGHIỆM — CHƯA PHẢI BIỂU MẪU CHÍNH THỨC"
+  "classification":{"status":"PROVISIONAL","version":"classification-standard-v1"},"technicalSignatureStatus":"NOT_VERIFIED","legalEffect":false,"notice":"DỮ LIỆU THỬ NGHIỆM — CHƯA PHẢI BIỂU MẪU CHÍNH THỨC"
 }

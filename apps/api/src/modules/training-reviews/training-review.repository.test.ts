@@ -215,7 +215,10 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
         assert.equal(snapshot.summary.waitingAdvisor, 1)
         assert.equal(snapshot.summary.approved, 0)
         assert.deepEqual(snapshot.rows, [])
-        assert.equal(snapshot.classification, 'NOT_ASSIGNED')
+        assert.deepEqual(snapshot.classification, {
+          status: 'PROVISIONAL',
+          version: 'classification-standard-v1',
+        })
         assert.equal(snapshot.legalEffect, false)
         assert.equal(snapshot.exportedBy.userId, faculty)
         assert.match(snapshot.capturedAt, /^\d{4}-\d{2}-\d{2}T.*Z$/)
@@ -601,7 +604,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             docx.headers['content-disposition'] as string,
             /attachment; filename="training-minutes.docx"/,
           )
-          assert.equal(docx.headers['x-export-template-version'], 'training-minutes-v1')
+          assert.equal(docx.headers['x-export-template-version'], 'training-minutes-v2')
           assert.match(docx.headers['cache-control'] as string, /private.*no-store/)
           const word = strFromU8(unzipSync(docx.rawPayload)['word/document.xml']!)
           assert.ok(word.includes('S9001'))
@@ -627,7 +630,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             sha256: sha(docx.rawPayload),
             size: docx.rawPayload.length,
             snapshotId: docx.headers['x-export-snapshot-id'],
-            templateVersion: 'training-minutes-v1',
+            templateVersion: 'training-minutes-v2',
           })
           const [pdfAudit] = await audits('training.export.pdf.prepared')
           assert.deepEqual(pdfAudit!.metadata, {
@@ -636,7 +639,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             sha256: sha(pdf.rawPayload),
             size: pdf.rawPayload.length,
             snapshotId: pdf.headers['x-export-snapshot-id'],
-            templateVersion: 'training-minutes-v1',
+            templateVersion: 'training-minutes-v2',
             sourceDocxSha256: sha(converted!),
           })
 
@@ -732,7 +735,9 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
           assert.equal(res.headers['x-export-manifest-sha256'], sha(files['manifest.json']!))
           assert.equal(manifest.snapshotId, res.headers['x-export-snapshot-id'])
           assert.equal(manifest.approvedRows, 1)
-          assert.equal(manifest.files.length, 3)
+          // ADR 0026: the bundle also carries the school-format class sheet of the same snapshot.
+          assert.equal(manifest.files.length, 4)
+          assert.ok(manifest.files.some((f) => f.name.startsWith('training-class-sheet-')))
           for (const f of manifest.files) {
             assert.equal(sha(files[f.name]!), f.sha256, f.name)
             assert.equal(files[f.name]!.length, f.size, f.name)
@@ -757,8 +762,32 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             sha256: sha(res.rawPayload),
             size: res.rawPayload.length,
             snapshotId: manifest.snapshotId,
-            templateVersion: 'training-minutes-v1',
+            templateVersion: 'training-minutes-v2',
             manifestSha256: res.headers['x-export-manifest-sha256'],
+          })
+
+          const classSheet = await app.inject({
+            method: 'POST',
+            payload: {},
+            url: url.replace('/export.zip', '/class-sheet.xlsx'),
+            headers: { cookie: 'user_session=' + token, origin: env.corsOrigin },
+            remoteAddress: '127.0.5.' + ip++,
+          })
+          assert.equal(classSheet.statusCode, 200, classSheet.body)
+          assert.match(classSheet.headers['content-type'] as string, /spreadsheetml/)
+          assert.equal(classSheet.headers['x-export-template-version'], 'class-sheet-v1')
+          const sheet = await readSheet(classSheet.rawPayload, 'Bảng điểm lớp')
+          assert.ok(sheet.some((r) => r[1] === 'S9001' && r[4] !== null))
+          const [classAudit] = await db<
+            { metadata: Record<string, unknown> }[]
+          >`SELECT metadata FROM audit_logs WHERE action='training.export.class-sheet.prepared' AND resource_id=${p.id}`
+          assert.deepEqual(classAudit!.metadata, {
+            format: 'CLASS_SHEET',
+            rowCount: 1,
+            sha256: sha(classSheet.rawPayload),
+            size: classSheet.rawPayload.length,
+            snapshotId: classSheet.headers['x-export-snapshot-id'],
+            templateVersion: 'class-sheet-v1',
           })
 
           failConvert = true

@@ -1,6 +1,7 @@
 import { strToU8, zipSync } from 'fflate'
 import { groups } from '../training-points/training-points.types.js'
 import { assertTrainingExportSnapshot } from './training-export.integrity.js'
+import { classifyTrainingPoints, countTrainingClassifications } from './training-classification.js'
 import type { TrainingExportReceipt, TrainingExportSnapshot } from './training-export.types.js'
 
 export const trainingDocxMime =
@@ -12,8 +13,8 @@ export const trainingDocxMime =
  */
 export const trainingMinutesTemplate = Object.freeze({
   id: 'training-minutes',
-  version: 1,
-  label: 'training-minutes-v1',
+  version: 2,
+  label: 'training-minutes-v2',
 })
 
 const declaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -24,7 +25,23 @@ const relNs = 'http://schemas.openxmlformats.org/package/2006/relationships'
 const pageWidth = 16838,
   pageHeight = 11906,
   side = 850,
-  usable = pageWidth - side * 2
+  usable = pageWidth - side * 2,
+  // The class meeting minutes follow the Học viện sample: A4 portrait, 2 cm side margins.
+  portraitSide = 1134,
+  portraitUsable = pageHeight - portraitSide * 2
+
+/** Page setup shared by both sections; header/footer are repeated explicitly in each. */
+function sectionProperties(orientation: 'portrait' | 'landscape') {
+  const [w, h, margin] =
+    orientation === 'portrait'
+      ? [pageHeight, pageWidth, portraitSide]
+      : [pageWidth, pageHeight, side]
+  return (
+    '<w:sectPr><w:headerReference w:type="default" r:id="rId3"/><w:footerReference w:type="default" r:id="rId4"/>' +
+    `<w:pgSz w:w="${w}" w:h="${h}"${orientation === 'landscape' ? ' w:orient="landscape"' : ''}/>` +
+    `<w:pgMar w:top="1000" w:right="${margin}" w:bottom="1000" w:left="${margin}" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr>`
+  )
+}
 
 function escape(value: string) {
   return (
@@ -146,11 +163,11 @@ function table(widths: number[], rows: Cell[][], o: TableOptions = {}) {
 }
 
 /** Vietnam has no DST; a fixed offset keeps output independent of the host ICU/timezone data. */
-function vietnamTime(iso: string) {
+function vietnamTime(iso: string, zone = true) {
   const time = Date.parse(iso)
   if (!Number.isFinite(time)) throw new Error('INVALID_EXPORT_TIME')
   const v = new Date(time + 7 * 3600000).toISOString()
-  return `${v.slice(8, 10)}/${v.slice(5, 7)}/${v.slice(0, 4)} ${v.slice(11, 16)} (UTC+7)`
+  return `${v.slice(8, 10)}/${v.slice(5, 7)}/${v.slice(0, 4)} ${v.slice(11, 16)}${zone ? ' (UTC+7)' : ''}`
 }
 const average = (value: number | null) =>
   value === null ? 'Chưa có bản được duyệt' : value.toFixed(2).replace('.', ',')
@@ -182,10 +199,88 @@ function confirmers(s: TrainingExportSnapshot) {
   )
 }
 
+const semesterLabel: Record<string, string> = { '1': 'I', '2': 'II', SUMMER: 'hè' }
+const blank = '……………………'
+const shortBlank = '………'
+
+/** Two blank-signature columns; nothing is pre-filled (no signature, seal or name). */
+function signatures(left: string, right: string, width: number) {
+  const half = width / 2
+  return table(
+    [half, half],
+    [
+      [
+        { content: left, width: half, align: 'center', bold: true },
+        { content: right, width: half, align: 'center', bold: true },
+      ],
+      [
+        { content: '(Ký, ghi rõ họ tên)', width: half, align: 'center' },
+        { content: '(Ký, ghi rõ họ tên)', width: half, align: 'center' },
+      ],
+      [
+        { content: '', width: half },
+        { content: '', width: half },
+      ],
+    ],
+    // About 3 cm of blank space for a handwritten signature.
+    { borders: false, keepTogether: true, heights: { 2: 1700 } },
+  )
+}
+
+/**
+ * ADR 0026: the class meeting minutes of the Học viện (biên bản họp lớp). Meeting facts the
+ * system cannot know (time, place, attendance, chair, secretary) are dotted lines to fill by hand.
+ */
+function meetingMinutes(s: TrainingExportSnapshot) {
+  const semester = semesterLabel[s.period.semester] ?? s.period.semester
+  const pending = s.summary.submitted - s.summary.approved
+  const levels = countTrainingClassifications(s.rows.map((r) => r.approvedPoints))
+  const line = (value: string, p: ParagraphStyle = {}) => text(value, undefined, p)
+  return [
+    text(s.notice, { bold: true, color: 'B42318' }, { style: 'Notice', align: 'center' }),
+    text('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', { bold: true }, { align: 'center', after: 0 }),
+    text('Độc lập – Tự do – Hạnh phúc', { bold: true }, { align: 'center', after: 240 }),
+    text(`BIÊN BẢN HỌP LỚP ${s.period.classCode} KHOA ${s.period.facultyCode}`, undefined, {
+      style: 'Title',
+    }),
+    heading('1. Thời gian, địa điểm họp'),
+    line(`Thời gian: ${shortBlank} giờ, ngày ${shortBlank} tháng ${shortBlank} năm ${shortBlank}`),
+    line(`Địa điểm: ${blank}`),
+    heading('2. Thành phần tham dự'),
+    line(`Giảng viên cố vấn lớp: ${blank}`),
+    line(`Số sinh viên có mặt: ${blank} sinh viên.`),
+    heading('3. Chủ tọa, thư ký cuộc họp'),
+    line(`Chủ tọa: ${blank}`),
+    line(`Thư ký: ${blank}`),
+    heading('4. Nội dung cuộc họp'),
+    line(`Đánh giá điểm rèn luyện học kỳ ${semester} năm học ${s.period.academicYear}.`),
+    heading('5. Diễn biến cuộc họp'),
+    line('Lớp trưởng tổng hợp các phiếu đánh giá điểm rèn luyện của từng cá nhân trong lớp.'),
+    line(
+      `Số phiếu đánh giá đã nộp trên hệ thống: ${s.summary.submitted}; đã được khoa duyệt: ${s.summary.approved}; chưa duyệt: ${pending}.`,
+    ),
+    line(
+      'Kết quả xếp loại (tạm tính theo mốc chuẩn, từ điểm khoa đã duyệt; chưa áp dụng hạ mức do kỷ luật):',
+      { keepNext: true },
+    ),
+    ...levels.map((l) =>
+      line(`+ Xếp loại ${l.label.toLowerCase()}: ${l.count}`, { keepNext: true }),
+    ),
+    line(`Cuộc họp kết thúc vào hồi ${shortBlank} giờ, ngày ${blank}.`, {
+      before: 120,
+      after: 240,
+    }),
+    signatures('THƯ KÝ', 'GV CỐ VẤN HỌC TẬP', portraitUsable),
+  ]
+}
+
 function body(s: TrainingExportSnapshot) {
   const parts: string[] = [
-    text(s.notice, { bold: true, color: 'B42318' }, { style: 'Notice', align: 'center' }),
-    text('BIÊN BẢN TỔNG HỢP KẾT QUẢ ĐIỂM RÈN LUYỆN', undefined, { style: 'Title' }),
+    ...meetingMinutes(s),
+    // Section break: the minutes end as a portrait section; the appendix (13-column table) is
+    // landscape. It keeps the detailed figures in the same snapshot as the minutes above.
+    `<w:p><w:pPr>${sectionProperties('portrait')}</w:pPr></w:p>`,
+    text('PHỤ LỤC — KẾT QUẢ ĐIỂM RÈN LUYỆN ĐÃ ĐƯỢC KHOA DUYỆT', undefined, { style: 'Title' }),
     text(
       `${s.period.name} — Năm học ${s.period.academicYear}, học kỳ ${s.period.semester}`,
       { italic: true },
@@ -200,6 +295,7 @@ function body(s: TrainingExportSnapshot) {
     ['Khoa hiện tại', `${s.period.facultyCode} — ${s.period.facultyName}`],
     ['Trạng thái đợt', s.period.status],
     ['Bộ tiêu chí', s.period.policyLabel],
+    ['Xếp loại', `Tạm tính theo mốc chuẩn (${s.classification.version})`],
     ['Mã snapshot', s.snapshotId],
     ['Thời điểm chốt dữ liệu', vietnamTime(s.capturedAt)],
     ['Người xuất', `${s.exportedBy.fullName} (${s.exportedBy.username})`],
@@ -239,7 +335,7 @@ function body(s: TrainingExportSnapshot) {
       { italic: true },
       { style: 'Note' },
     ),
-    heading('III. Tiêu chí áp dụng (giả định)'),
+    heading('III. Tiêu chí áp dụng'),
     table(
       [1200, usable - 1200 - 1800 - 2200, 1800, 2200],
       [
@@ -262,7 +358,7 @@ function body(s: TrainingExportSnapshot) {
     ),
     heading('IV. Kết quả đã được khoa duyệt'),
   )
-  const widths = [600, 1500, 2538, 900, 700, 700, 700, 700, 700, 900, 2600, 2600]
+  const widths = [600, 1500, 2038, 900, 700, 700, 700, 700, 700, 900, 1100, 2300, 2300]
   const headers = [
     'STT',
     'Mã sinh viên',
@@ -270,8 +366,10 @@ function body(s: TrainingExportSnapshot) {
     'Điểm tự khai',
     ...groups.map((g) => `${g} duyệt`),
     'Tổng duyệt',
-    'Cố vấn xác nhận',
-    'Khoa duyệt',
+    'Xếp loại (tạm tính)',
+    // The timezone is stated once in the header so narrow cells do not wrap it.
+    'Cố vấn xác nhận (giờ UTC+7)',
+    'Khoa duyệt (giờ UTC+7)',
   ]
   const resultRows: Cell[][] = [
     headers.map((content, i) => ({ content, width: widths[i]!, align: 'center' })),
@@ -293,14 +391,15 @@ function body(s: TrainingExportSnapshot) {
       [String(row.selfPoints)],
       ...groups.map((g) => [String(row.approvedAnswers[g]!.points)]),
       [String(row.approvedPoints)],
-      [row.advisor.actor.fullName, vietnamTime(row.advisor.confirmedAt)],
-      [row.faculty.actor.fullName, vietnamTime(row.faculty.confirmedAt)],
+      [classifyTrainingPoints(row.approvedPoints).label],
+      [row.advisor.actor.fullName, vietnamTime(row.advisor.confirmedAt, false)],
+      [row.faculty.actor.fullName, vietnamTime(row.faculty.confirmedAt, false)],
     ]
     resultRows.push(
       values.map((content, i) => ({
         content,
         width: widths[i]!,
-        align: i === 2 || i >= 10 ? 'left' : i === 1 ? 'left' : 'center',
+        align: i === 2 || i >= 11 ? 'left' : i === 1 ? 'left' : 'center',
         bold: i === 9,
       })),
     )
@@ -344,40 +443,10 @@ function body(s: TrainingExportSnapshot) {
     `Dữ liệu lấy từ snapshot ${s.snapshotId}, chốt lúc ${vietnamTime(s.capturedAt)}; tệp Excel/Word/PDF chỉ cùng nội dung khi mang cùng mã snapshot.`,
     'Bảng kết quả chỉ gồm bản có quyết định cuối là khoa duyệt; điểm duyệt lấy từ quyết định khoa cuối cùng, điểm tự kê khai được giữ riêng.',
     'Tên sinh viên, lớp lúc nộp và người xác nhận là dữ liệu tại thời điểm thao tác, có thể khác thông tin hiện tại của lớp/khoa.',
-    'Chưa gán xếp loại chính thức. Bộ tiêu chí A–E là giả định, chưa phải quy chế chính thức của Học viện.',
-    'Xác nhận trong hệ thống là thao tác của tài khoản nghiệp vụ; chưa có chữ ký số được xác minh và văn bản không có giá trị pháp lý tự thân.',
+    `Xếp loại là tạm tính theo mốc chuẩn (${s.classification.version}), chưa áp dụng hạ mức do kỷ luật và cần đối chiếu quy chế điểm rèn luyện của Học viện.`,
+    'Xác nhận trong hệ thống là thao tác của tài khoản nghiệp vụ; chưa có chữ ký số được xác minh và văn bản không có giá trị pháp lý tự thân. Hệ thống không chèn chữ ký, con dấu hoặc họ tên người ký.',
   ])
     parts.push(text('• ' + note, undefined, { style: 'Note' }))
-  parts.push(
-    heading('VII. Xác nhận trên giấy'),
-    text(
-      'Vị trí ký để trống. Hệ thống không chèn chữ ký, con dấu hoặc họ tên người ký.',
-      { italic: true },
-      { style: 'Note', keepNext: true },
-    ),
-  )
-  const half = usable / 2
-  parts.push(
-    table(
-      [half, half],
-      [
-        [
-          { content: 'CỐ VẤN HỌC TẬP', width: half, align: 'center', bold: true },
-          { content: 'ĐẠI DIỆN KHOA', width: half, align: 'center', bold: true },
-        ],
-        [
-          { content: '(Ký, ghi rõ họ tên)', width: half, align: 'center' },
-          { content: '(Ký, ghi rõ họ tên)', width: half, align: 'center' },
-        ],
-        [
-          { content: '', width: half },
-          { content: '', width: half },
-        ],
-      ],
-      // About 3 cm of blank space for a handwritten signature; nothing is pre-filled.
-      { borders: false, keepTogether: true, heights: { 2: 1700 } },
-    ),
-  )
   return parts.join('')
 }
 
@@ -419,10 +488,7 @@ export function createTrainingMinutesDocx(s: TrainingExportSnapshot): Buffer {
       field('NUMPAGES', '1'),
     { style: 'Footer', align: 'center' },
   )
-  const section =
-    '<w:sectPr><w:headerReference w:type="default" r:id="rId3"/><w:footerReference w:type="default" r:id="rId4"/>' +
-    `<w:pgSz w:w="${pageWidth}" w:h="${pageHeight}" w:orient="landscape"/>` +
-    `<w:pgMar w:top="1000" w:right="${side}" w:bottom="1000" w:left="${side}" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr>`
+  const section = sectionProperties('landscape')
   const files: Record<string, string> = {
     '[Content_Types].xml':
       declaration +

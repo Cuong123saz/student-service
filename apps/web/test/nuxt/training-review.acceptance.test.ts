@@ -352,6 +352,23 @@ describe('training export panel', () => {
     expect(button(w, 'Tải Excel').attributes('disabled')).toBeUndefined()
     w.unmount()
   })
+  it('class sheet button requests the school-format class sheet', async () => {
+    api.queue.mockResolvedValue(exportQueue())
+    api.exportPeriod.mockResolvedValue({
+      name: 'training-class-sheet-x.xlsx',
+      size: 4096,
+      snapshotId: '10000000-0000-4000-8000-000000000001',
+      sha256: 'd'.repeat(64),
+      verified: true,
+    })
+    const w = await mountSuspended(List)
+    await flushPromises()
+    await button(w, 'Tải bảng điểm lớp').trigger('click')
+    await flushPromises()
+    expect(api.exportPeriod).toHaveBeenCalledWith('period', 'class-sheet')
+    expect(w.text()).toContain('Đã tải training-class-sheet-x.xlsx')
+    w.unmount()
+  })
   it('converter failures stay on the panel without clearing the class data', async () => {
     api.queue.mockResolvedValue(exportQueue())
     api.exportPeriod.mockRejectedValue({
