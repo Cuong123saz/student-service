@@ -35,6 +35,7 @@ function sendFile(reply: FastifyReply, file: TrainingExportFile, fallbackName: s
   reply.header('X-Export-Snapshot-Id', file.snapshotId).header('X-Export-Sha256', file.sha256)
   if (file.templateVersion) reply.header('X-Export-Template-Version', file.templateVersion)
   if (file.sourceDocxSha256) reply.header('X-Export-Source-Docx-Sha256', file.sourceDocxSha256)
+  if (file.manifestSha256) reply.header('X-Export-Manifest-Sha256', file.manifestSha256)
   return reply
     .type(file.mimeType)
     .header(
@@ -75,4 +76,5 @@ export async function trainingExportRoutes(
   route('minutes.pdf', 'training-minutes.pdf', (actor, id) =>
     service.downloadMinutes(actor, id, 'pdf'),
   )
+  route('export.zip', 'training-export.zip', (actor, id) => service.downloadZip(actor, id))
 }

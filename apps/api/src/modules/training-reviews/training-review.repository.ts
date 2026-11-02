@@ -213,7 +213,7 @@ export class TrainingReviewRepository {
       await tx`INSERT INTO audit_logs(actor_type,actor_user_id,actor_username,action,resource_type,resource_id,outcome,request_id,ip_address,user_agent,metadata)
         VALUES('USER',${actor.userId},${context.exportedBy.username},${action},'training_period',${periodId},'SUCCESS',${actor.requestId},${actor.ipAddress},${actor.userAgent},
           jsonb_strip_nulls(jsonb_build_object('snapshotId',${receipt.snapshotId}::text,'rowCount',${receipt.rowCount}::integer,'sha256',${receipt.sha256}::text,'size',${receipt.size}::integer,'format',${receipt.format}::text,
-            'templateVersion',${receipt.templateVersion ?? null}::text,'sourceDocxSha256',${receipt.sourceDocxSha256 ?? null}::text)))`
+            'templateVersion',${receipt.templateVersion ?? null}::text,'sourceDocxSha256',${receipt.sourceDocxSha256 ?? null}::text,'manifestSha256',${receipt.manifestSha256 ?? null}::text)))`
     })
   }
 

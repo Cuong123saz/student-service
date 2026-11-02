@@ -247,6 +247,15 @@ export function buildApp(options: BuildAppOptions = {}) {
     origin: env.corsOrigin,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true,
+    // Lets the web app verify downloaded exports; values are hashes/IDs, never private data.
+    exposedHeaders: [
+      'Content-Disposition',
+      'X-Export-Snapshot-Id',
+      'X-Export-Sha256',
+      'X-Export-Template-Version',
+      'X-Export-Source-Docx-Sha256',
+      'X-Export-Manifest-Sha256',
+    ],
   })
 
   app.register(helmet)

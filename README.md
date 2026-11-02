@@ -6,7 +6,7 @@ Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục, đượ
 
 > Baseline chức năng tại `ffa38f5`: P0.1–P0.5 của luồng import đã được triển khai và kiểm chứng trên môi trường local. Demo và sửa lỗi hồi quy được hoàn tất qua `777c3f9`; Sprint 3 được Phan Phương Cường tự xác nhận hoàn tất ngày 13/09/2026 trong phạm vi dự án cá nhân, không phải phê duyệt độc lập của bên thứ ba. Import API đạt local nhưng chưa production-ready/deployed.
 
-Hiện Sprint 8 đã đóng kỹ thuật local ngày 15/10/2026: [hồ sơ đóng nền tảng điểm rèn luyện](docs/sprint-8-closure.md). Sprint 9 đã [đóng kỹ thuật local ngày 23/10/2026](docs/sprint-9-closure.md). [Sprint 10 — xuất bảng và biên bản](docs/sprint-10-plan.md) đang IN_PROGRESS: increment 10.1–10.3 đã có snapshot theo quyền, [API POST tải Excel](docs/sprint-10-xlsx.md) và [biên bản Word/PDF](docs/sprint-10-minutes.md); UI tải và ZIP còn ở các increment sau. Roadmap hợp nhất xác định xét duyệt điểm rèn luyện ở Sprint 9 và xuất bảng/biên bản ở Sprint 10.
+Hiện Sprint 8 đã đóng kỹ thuật local ngày 15/10/2026: [hồ sơ đóng nền tảng điểm rèn luyện](docs/sprint-8-closure.md). Sprint 9 đã [đóng kỹ thuật local ngày 23/10/2026](docs/sprint-9-closure.md). [Sprint 10 — xuất bảng và biên bản](docs/sprint-10-plan.md) đang IN_PROGRESS: increment 10.1–10.4 đã có snapshot theo quyền, [API POST tải Excel](docs/sprint-10-xlsx.md), [biên bản Word/PDF](docs/sprint-10-minutes.md), [gói ZIP và giao diện tải](docs/sprint-10-export-ui.md); diễn tập trình duyệt và đóng sprint còn ở 10.5. Roadmap hợp nhất xác định xét duyệt điểm rèn luyện ở Sprint 9 và xuất bảng/biên bản ở Sprint 10.
 
 Quy ước mở rộng module, dependency injection và cách chạy kiểm tra: [hướng dẫn phát triển](docs/development-guidelines.md).
 

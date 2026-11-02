@@ -7,6 +7,33 @@ import type {
 } from '~/types/training-review'
 import type { TrainingAnswers } from '~/types/training-point'
 import { trainingFetchError } from '~/utils/training-point'
+import {
+  blobSha256,
+  isSha256,
+  trainingExportFileName,
+  trainingExportFormats,
+  type TrainingExportFormat,
+} from '~/utils/training-export'
+
+export interface TrainingExportResult {
+  name: string
+  size: number
+  snapshotId: string
+  sha256: string
+  /** true: browser hash matches the server; null: browser could not compute a hash. */
+  verified: boolean | null
+}
+function saveBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob)
+  try {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.click()
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+}
 export function useTrainingReviews() {
   const base = String(useRuntimeConfig().public.apiBase) + '/api/v1/user'
   async function request<T>(
@@ -39,17 +66,44 @@ export function useTrainingReviews() {
       }),
     download: async (id: string, file: { id: string; name: string }) => {
       const blob = await request<Blob>('/training-reviews/' + id + '/files/' + file.id, {
-          responseType: 'blob',
-        }),
-        url = URL.createObjectURL(blob)
+        responseType: 'blob',
+      })
+      saveBlob(blob, file.name)
+    },
+    /** POST-only export; the file is saved only after its SHA-256 matches the server header. */
+    exportPeriod: async (
+      periodId: string,
+      format: TrainingExportFormat,
+    ): Promise<TrainingExportResult> => {
+      let response
       try {
-        const a = document.createElement('a')
-        a.href = url
-        a.download = file.name
-        a.click()
-      } finally {
-        setTimeout(() => URL.revokeObjectURL(url), 1000)
+        response = await $fetch.raw<Blob>(
+          base + '/training-reviews/periods/' + periodId + '/' + trainingExportFormats[format].path,
+          { method: 'POST', body: {}, credentials: 'include', responseType: 'blob' },
+        )
+      } catch (e) {
+        throw await trainingFetchError(e)
       }
+      const blob = response._data,
+        snapshotId = response.headers.get('x-export-snapshot-id') ?? '',
+        expected = response.headers.get('x-export-sha256')
+      if (!(blob instanceof Blob) || !blob.size || !isSha256(expected))
+        throw {
+          status: response.status,
+          message: 'Phản hồi tải tệp không đầy đủ. Hãy thử tải lại.',
+          issues: [],
+        }
+      const actual = await blobSha256(blob)
+      if (actual !== null && actual !== expected)
+        throw {
+          status: response.status,
+          message:
+            'Tệp nhận được không khớp mã kiểm tra của máy chủ nên chưa được lưu. Hãy tải lại.',
+          issues: [],
+        }
+      const name = trainingExportFileName(format, snapshotId)
+      saveBlob(blob, name)
+      return { name, size: blob.size, snapshotId, sha256: expected, verified: actual !== null }
     },
   }
 }

@@ -1,8 +1,8 @@
 # Student Service Portal — Bối cảnh và lộ trình cho AI
 
-Cập nhật bối cảnh ngày **02/11/2026**, sau increment 10.3 trên nền `4034d89` và hồ sơ sprint trong repo. Đây là điểm bắt đầu để AI tiếp tục dự án khi không có lịch sử chat hoặc tệp Word local. Đọc tình trạng thực tế bằng Git và code trước khi sửa; ngày cập nhật tài liệu không có nghĩa kiểm thử đã được chạy lại trong ngày đó.
+Cập nhật bối cảnh ngày **02/11/2026**, sau increment 10.4 (nhánh xếp chồng trên 10.3, nền `main` `4034d89`) và hồ sơ sprint trong repo. Đây là điểm bắt đầu để AI tiếp tục dự án khi không có lịch sử chat hoặc tệp Word local. Đọc tình trạng thực tế bằng Git và code trước khi sửa; ngày cập nhật tài liệu không có nghĩa kiểm thử đã được chạy lại trong ngày đó.
 
-**Điểm tiếp tục: Sprint 10 đang IN_PROGRESS, increment 10.1–10.3 đã COMPLETE_LOCAL; công việc tiếp theo là 10.4 — giao diện tải và ZIP một snapshot.** Diễn tập trình duyệt và nghiệm thu cuối Sprint 10 (10.5) còn chưa làm. Production vẫn NOT_READY.
+**Điểm tiếp tục: Sprint 10 đang IN_PROGRESS, increment 10.1–10.4 đã COMPLETE_LOCAL; công việc tiếp theo là 10.5 — diễn tập trình duyệt, rà tệp và hồ sơ đóng Sprint 10.** Production vẫn NOT_READY.
 
 ## 1. Dự án và cách cộng tác
 
@@ -10,7 +10,7 @@ Dự án Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục
 
 Chủ dự án muốn được phản biện như intern được senior hướng dẫn: chỉ ra giả định sai, lỗi và hệ quả bằng bằng chứng; giải thích quyết định quan trọng, tránh khen chung chung. Trả lời bằng tiếng Việt. Phân biệt yêu cầu hướng dẫn với yêu cầu thực hiện; tiếp tục phần đã được người dùng cho phép, không hỏi lại cùng một xác nhận.
 
-Repo: [Cuong123saz/student-service](https://github.com/Cuong123saz/student-service). Tại lúc cập nhật: 10.3 làm trên nhánh `feat/sprint-10-3-training-minutes` tách từ `main` `4034d89`. Tên nhánh và trạng thái dirty phải đọc lại từ Git, không coi các giá trị trong tài liệu là thông tin live. Đường dẫn máy hiện tại là `D:\student-service`; trên máy khác dùng root checkout thực tế, không hard-code đường dẫn này trong sản phẩm.
+Repo: [Cuong123saz/student-service](https://github.com/Cuong123saz/student-service). Tại lúc cập nhật: 10.3 nằm ở nhánh `feat/sprint-10-3-training-minutes` ([PR 2](https://github.com/Cuong123saz/student-service/pull/2) vào `main`), 10.4 ở nhánh `feat/sprint-10-4-export-ui-zip` tách từ nhánh 10.3. Tên nhánh và trạng thái dirty phải đọc lại từ Git, không coi các giá trị trong tài liệu là thông tin live. Đường dẫn máy hiện tại là `D:\student-service`; trên máy khác dùng root checkout thực tế, không hard-code đường dẫn này trong sản phẩm.
 
 ## 2. Thứ tự đọc và nguồn đối chiếu
 
@@ -65,7 +65,7 @@ Mục tiêu lấy từ roadmap hợp nhất; trạng thái đối chiếu README
 | 7 | Digital signature MVP: mock signer, hash, workflow, verify và audit | CLOSED LOCAL_TECHNICAL ngày 14/10; chữ ký vẫn mô phỏng/NOT_VERIFIED |
 | 8 | Đợt, tiêu chí A–E, kê khai/minh chứng, snapshot và lịch sử | CLOSED LOCAL_TECHNICAL ngày 15/10 |
 | 9 | Cố vấn xác nhận, khoa trả về/duyệt, lịch sử vòng xét duyệt và tổng hợp lớp | CLOSED LOCAL_TECHNICAL ngày 23/10 |
-| 10 | Excel tổng hợp, biên bản Word/PDF, ZIP | IN_PROGRESS; 10.1–10.3 đạt local, còn 10.4–10.5 |
+| 10 | Excel tổng hợp, biên bản Word/PDF, ZIP | IN_PROGRESS; 10.1–10.4 đạt local, còn 10.5 |
 | 11 | Hoạt động ngoại khóa: đăng ký, giới hạn, điểm danh, đề xuất minh chứng | PLANNED theo roadmap; chưa có module nghiệp vụ tương ứng trong cây modules hiện tại |
 | 12 | Nghiên cứu khoa học: đề tài, nhóm, giảng viên hướng dẫn, xét duyệt | PLANNED theo roadmap; chưa có module nghiệp vụ tương ứng trong cây modules hiện tại |
 | 13 | Hardening/UAT: bảo mật, backup, hiệu năng, accessibility, nghiệm thu local | PLANNED; chưa được coi đã hoàn tất nhờ có test hoặc demo của sprint trước |
@@ -81,7 +81,7 @@ Hồ sơ đóng và trạng thái: `docs/sprint-status.json` cho 2+3; từ 4 đ�
 | 10.1 — COMPLETE_LOCAL | ADR 0021; DTO export snapshot; REPEATABLE READ READ ONLY; đúng scope; kiểm quyền lại ở transaction mới |
 | 10.2 — COMPLETE_LOCAL | ADR 0022; bộ sinh XLSX, API tải POST, audit sau render và kiểm chứng tệp thật |
 | 10.3 — COMPLETE_LOCAL | ADR 0023; biên bản `training-minutes-v1` DOCX/PDF, PDF từ đúng DOCX, audit sau render, rà PDF thật nhiều trang ([chi tiết](docs/sprint-10-minutes.md)) |
-| 10.4 — PENDING | Xem phạm vi/số lượng trước tải, nút tải UI, thông báo lỗi, tải từng định dạng và ZIP dùng cùng snapshot/manifest |
+| 10.4 — COMPLETE_LOCAL | ADR 0024; ZIP một snapshot + manifest, CORS expose header, panel tải trên `/training-reviews` ([chi tiết](docs/sprint-10-export-ui.md)) |
 | 10.5 — PENDING | Test hồi quy/quyền/đồng thời, diễn tập browser dữ liệu giả, rà tệp/ảnh, runbook và hồ sơ đóng khi đủ tiêu chí |
 
 ### Hợp đồng Excel hiện có cần giữ
@@ -91,7 +91,7 @@ Hồ sơ đóng và trạng thái: `docs/sprint-status.json` cho 2+3; từ 4 đ�
 - Chỉ xuất bản APPROVED. Điểm lấy từ quyết định khoa cuối và cố vấn parent tương ứng, giữ riêng điểm tự khai. Ví dụ đã diễn tập: tự khai 15, khoa duyệt 14. Bản chưa duyệt không được biến thành hàng điểm 0; điểm được duyệt bằng 0 vẫn là dữ liệu hợp lệ.
 - Giới hạn 1.000 bản duyệt, 8 MiB tệp, hai tác vụ/service instance, một tác vụ/tài khoản, rate limit 5 yêu cầu/phút/IP. Không cắt âm thầm.
 - Sau render: kiểm lại quyền và ghi `training.export.xlsx.prepared` trong cùng transaction ngắn có khóa SHARE. Lỗi quyền/audit chặn trả byte. Audit SUCCESS chứng minh tệp được chuẩn bị/cho phép trả, không chứng minh trình duyệt đã nhận đủ.
-- `private, no-store` kể cả lỗi; phản hồi thành công có `X-Export-Snapshot-Id` và `X-Export-Sha256`. Phần sử dụng header qua CORS trên UI còn thuộc 10.4.
+- `private, no-store` kể cả lỗi; phản hồi thành công có `X-Export-Snapshot-Id` và `X-Export-Sha256`. Từ 10.4 các header `X-Export-*` được expose qua CORS và UI đối chiếu SHA-256 trước khi lưu tệp (ADR 0024).
 
 Chi tiết tại [hướng dẫn Excel](docs/sprint-10-xlsx.md), [ADR 0021](docs/adr/0021-training-point-export-snapshot.md), [ADR 0022](docs/adr/0022-training-point-xlsx-download.md). Tên lớp/sinh viên/actor đã chốt phải giữ theo snapshot; metadata lớp/khoa hiện tại và tên tại lúc nộp là hai nguồn có thời điểm khác nhau.
 
@@ -102,13 +102,12 @@ Chi tiết tại [hướng dẫn Excel](docs/sprint-10-xlsx.md), [ADR 0021](docs
 - PDF luôn chuyển từ đúng buffer DOCX trong cùng request qua `LibreOfficePdfConverter`. Lỗi converter trả 503 `TRAINING_EXPORT_PDF_*`, không audit. Không render hay chạy converter khi giữ khóa DB.
 - Excel/Word dùng chung `assertTrainingExportSnapshot`. Microsoft Word desktop chưa kiểm; CI không có LibreOffice nên ca PDF thật là opt-in `TRAINING_MINUTES_REAL_PDF=true`.
 
-### Bắt đầu 10.4 khi người dùng yêu cầu tiếp tục
+### Bắt đầu 10.5 khi người dùng yêu cầu tiếp tục
 
-1. Lập ADR chốt cách tạo ZIP: bundle trong một request từ một snapshot (Excel + DOCX + PDF + manifest SHA-256) hay lưu snapshot. Ưu tiên bundle trong một request, không thêm bảng nếu không cần.
-2. Expose các header `X-Export-*` qua CORS nếu UI cần đọc; kiểm tra cấu hình CORS hiện tại trước.
-3. UI: xem phạm vi/số lượng trước khi tải, nút tải từng định dạng và ZIP dùng thành phần chung, trạng thái đang tải/lỗi, 401/403 xóa dữ liệu. Test web và acceptance.
-
-Khi làm 10.4, ZIP phải lấy một snapshot chung cho Excel/Word/PDF và manifest SHA-256. Không gọi ba API tạo ba snapshot khác nhau rồi gắn cùng nhãn. Việc lưu snapshot bền vững hay tạo bundle trong một request phải được chốt bằng ADR theo nhu cầu thực tế.
+1. Merge hoặc rebase theo trạng thái PR 10.3/10.4 thực tế trên GitHub; đọc lại Git trước khi làm.
+2. Diễn tập trình duyệt thật bằng dữ liệu giả riêng: API + web + PostgreSQL test, tài khoản cố vấn/khoa giả, tải đủ bốn định dạng; kiểm CORS thật, Web Crypto, tên tệp, 401/403 giữa chừng, và ảnh chụp 375/768/1024/1440 px. Tham khảo các script `rehearse`/`workflow-demo` của Sprint 9.
+3. Rà trực tiếp XLSX/DOCX/PDF/ZIP thu được; nếu có máy Windows/Microsoft Office thì ghi kết quả, nếu không thì ghi NOT_RUN.
+4. Viết runbook, `docs/sprint-10-closure.md`, cập nhật status/README; chỉ đóng khi mọi tiêu chí trong plan đạt, nêu rõ giới hạn.
 
 ## 6. Bất biến nghiệp vụ
 

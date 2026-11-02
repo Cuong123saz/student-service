@@ -87,6 +87,7 @@ function mockApi() {
       truncated: false,
     }),
     queue: vi.fn(),
+    exportPeriod: vi.fn(),
   }
 }
 let api = mockApi()
@@ -285,6 +286,103 @@ describe('training advisor/faculty workflow', () => {
     await button(w, 'Kiểm tra xác nhận cố vấn').trigger('click')
     await w.get('#review-confirm input').setValue(true)
     expect(button(w, 'Xác nhận cố vấn').attributes('disabled')).toBeUndefined()
+    w.unmount()
+  })
+})
+
+function exportQueue(): ReviewQueue {
+  return {
+    period: {
+      id: 'period',
+      name: 'Đợt giả',
+      classCode: 'GIA',
+      academicYear: '2026-2027',
+      semester: '1',
+      status: 'OPEN',
+    },
+    summary: {
+      submitted: 3,
+      waitingAdvisor: 1,
+      waitingFaculty: 1,
+      returnedToAdvisor: 0,
+      approved: 1,
+      approvedTotalPoints: 8,
+      approvedAveragePoints: 8,
+    },
+    items: [
+      {
+        id,
+        student: sample().student,
+        selfPoints: 10,
+        reviewPoints: 8,
+        revision: 2,
+        state: 'APPROVED',
+      },
+    ],
+    nextCursor: null,
+  }
+}
+describe('training export panel', () => {
+  it('previews scope and counts, blocks double clicks and reports the snapshot and hash', async () => {
+    api.queue.mockResolvedValue(exportQueue())
+    let resolve!: (v: unknown) => void
+    api.exportPeriod.mockReturnValue(new Promise((r) => (resolve = r)))
+    const w = await mountSuspended(List)
+    await flushPromises()
+    expect(w.text()).toContain('Sẽ xuất 1 bản khoa đã duyệt.')
+    expect(w.text()).toContain('2 bản chưa duyệt chỉ được đếm trong thống kê')
+    await button(w, 'Tải gói ZIP').trigger('click')
+    await flushPromises()
+    expect(api.exportPeriod).toHaveBeenCalledWith('period', 'zip')
+    expect(button(w, 'Tải Excel').attributes('disabled')).toBeDefined()
+    await button(w, 'Tải PDF').trigger('click')
+    expect(api.exportPeriod).toHaveBeenCalledTimes(1)
+    resolve({
+      name: 'training-export-x.zip',
+      size: 2048,
+      snapshotId: '10000000-0000-4000-8000-000000000001',
+      sha256: 'c'.repeat(64),
+      verified: true,
+    })
+    await flushPromises()
+    expect(w.text()).toContain('Đã tải training-export-x.zip (2 KB)')
+    expect(w.text()).toContain('10000000-0000-4000-8000-000000000001')
+    expect(w.text()).toContain('đã đối chiếu trên trình duyệt')
+    expect(w.text()).toContain('không phải chữ ký số')
+    expect(button(w, 'Tải Excel').attributes('disabled')).toBeUndefined()
+    w.unmount()
+  })
+  it('converter failures stay on the panel without clearing the class data', async () => {
+    api.queue.mockResolvedValue(exportQueue())
+    api.exportPeriod.mockRejectedValue({
+      status: 503,
+      message: 'Chưa tạo được PDF biên bản. Bạn vẫn có thể tải bản Word.',
+      issues: [],
+    })
+    const w = await mountSuspended(List)
+    await flushPromises()
+    await button(w, 'Tải PDF').trigger('click')
+    await flushPromises()
+    expect(w.get('#training-export-error').text()).toContain('vẫn có thể tải bản Word')
+    expect(w.text()).toContain('Sinh viên giả')
+    w.unmount()
+  })
+  it('lost rights during export clear every private row and the period list', async () => {
+    api.queue.mockResolvedValue(exportQueue())
+    api.exportPeriod.mockRejectedValue({
+      status: 403,
+      message: 'Tài khoản hiện không có quyền sử dụng chức năng trong phạm vi này.',
+      issues: [],
+    })
+    const w = await mountSuspended(List)
+    await flushPromises()
+    expect(w.text()).toContain('Sinh viên giả')
+    await button(w, 'Tải Excel').trigger('click')
+    await flushPromises()
+    expect(w.text()).not.toContain('Sinh viên giả')
+    expect(w.text()).not.toContain('Sẽ xuất')
+    expect(w.find('#review-period option[value="period"]').exists()).toBe(false)
+    expect(w.text()).toContain('không có quyền')
     w.unmount()
   })
 })

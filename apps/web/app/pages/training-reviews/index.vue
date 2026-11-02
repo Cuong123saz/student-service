@@ -38,6 +38,15 @@ async function load(initial = false, cursor?: string) {
     if (g === generation) busy.value = false
   }
 }
+function lostAccess(e: TrainingError) {
+  // Rights changed while exporting: drop every private row of this class from the screen.
+  generation++
+  busy.value = false
+  error.value = e
+  queue.value = null
+  periods.value = []
+  periodId.value = ''
+}
 onMounted(() => load(true))
 onBeforeUnmount(() => {
   generation++
@@ -122,6 +131,12 @@ onBeforeUnmount(() => {
           chưa suy xếp loại từ bộ tiêu chí giả.
         </p>
       </section>
+      <TrainingExportPanel
+        :key="queue.period.id"
+        :period="queue.period"
+        :summary="queue.summary"
+        @lost-access="lostAccess"
+      />
       <section class="tp-panel">
         <h2>Bản kê khai đã nộp</h2>
         <p v-if="!queue.items.length">Chưa có bản phù hợp bộ lọc.</p>

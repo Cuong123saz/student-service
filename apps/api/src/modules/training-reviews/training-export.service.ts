@@ -9,6 +9,7 @@ import {
   trainingDocxMime,
   trainingMinutesTemplate,
 } from './training-export.docx.js'
+import { createTrainingExportBundle, trainingZipMime } from './training-export.bundle.js'
 
 export type TrainingExportStore = Pick<
   TrainingReviewRepository,
@@ -28,6 +29,8 @@ export interface TrainingExportFile {
   templateVersion?: string
   /** For PDF: SHA-256 of the exact DOCX bytes the PDF was converted from. */
   sourceDocxSha256?: string
+  /** For ZIP: SHA-256 of manifest.json inside the bundle. */
+  manifestSha256?: string
 }
 export interface TrainingExportUseCase {
   downloadXlsx(actor: SubmissionActor, periodId: string): Promise<TrainingExportFile>
@@ -36,6 +39,7 @@ export interface TrainingExportUseCase {
     periodId: string,
     format: TrainingMinutesFormat,
   ): Promise<TrainingExportFile>
+  downloadZip(actor: SubmissionActor, periodId: string): Promise<TrainingExportFile>
 }
 const MiB = 1024 * 1024
 const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
@@ -73,8 +77,7 @@ export class TrainingExportService implements TrainingExportUseCase {
   downloadXlsx(actor: SubmissionActor, periodId: string): Promise<TrainingExportFile> {
     return this.exclusive(actor, async () => {
       const snapshot = await this.capture(actor.userId, periodId)
-      const bytes = await this.render(snapshot)
-      if (bytes.length > 8 * MiB) throw tooLarge('8 MiB')
+      const bytes = await this.workbook(snapshot)
       const digest = sha256(bytes)
       // Final authorization and audit share one short transaction, after all rendering.
       await this.repository.recordExport(actor, periodId, {
@@ -101,11 +104,9 @@ export class TrainingExportService implements TrainingExportUseCase {
     return this.exclusive(actor, async () => {
       const snapshot = await this.capture(actor.userId, periodId)
       // No database lock or transaction is open while the DOCX is built or LibreOffice runs.
-      const docx = await this.renderMinutes(snapshot)
-      if (docx.length > 8 * MiB) throw tooLarge('8 MiB')
+      const docx = await this.minutes(snapshot)
       const docxSha256 = sha256(docx)
-      const bytes = format === 'docx' ? docx : await this.convert(docx)
-      if (bytes.length > 16 * MiB) throw tooLarge('16 MiB')
+      const bytes = format === 'docx' ? docx : await this.pdf(docx)
       const digest = format === 'docx' ? docxSha256 : sha256(bytes)
       await this.repository.recordExport(actor, periodId, {
         format: format === 'docx' ? 'DOCX' : 'PDF',
@@ -126,6 +127,63 @@ export class TrainingExportService implements TrainingExportUseCase {
         ...(format === 'pdf' ? { sourceDocxSha256: docxSha256 } : {}),
       }
     })
+  }
+  /**
+   * One snapshot, three renderings, one bundle. A failure in any part (including PDF) fails the
+   * whole ZIP: a bundle never silently omits a format.
+   */
+  downloadZip(actor: SubmissionActor, periodId: string): Promise<TrainingExportFile> {
+    return this.exclusive(actor, async () => {
+      const snapshot = await this.capture(actor.userId, periodId)
+      const id = snapshot.snapshotId
+      const xlsx = await this.workbook(snapshot)
+      const docx = await this.minutes(snapshot)
+      const pdf = await this.pdf(docx)
+      const bundle = createTrainingExportBundle(
+        snapshot,
+        {
+          xlsx: { name: `training-points-${id}.xlsx`, mimeType: trainingXlsxMime, bytes: xlsx },
+          docx: { name: `training-minutes-${id}.docx`, mimeType: trainingDocxMime, bytes: docx },
+          pdf: { name: `training-minutes-${id}.pdf`, mimeType: 'application/pdf', bytes: pdf },
+        },
+        trainingMinutesTemplate.label,
+      )
+      if (bundle.bytes.length > 32 * MiB) throw tooLarge('32 MiB')
+      const digest = sha256(bundle.bytes)
+      await this.repository.recordExport(actor, periodId, {
+        format: 'ZIP',
+        snapshotId: id,
+        rowCount: snapshot.rows.length,
+        sha256: digest,
+        size: bundle.bytes.length,
+        templateVersion: trainingMinutesTemplate.label,
+        manifestSha256: bundle.manifestSha256,
+      })
+      return {
+        bytes: bundle.bytes,
+        mimeType: trainingZipMime,
+        name: `training-export-${id}.zip`,
+        snapshotId: id,
+        sha256: digest,
+        templateVersion: trainingMinutesTemplate.label,
+        manifestSha256: bundle.manifestSha256,
+      }
+    })
+  }
+  private async workbook(snapshot: TrainingExportSnapshot) {
+    const bytes = await this.render(snapshot)
+    if (bytes.length > 8 * MiB) throw tooLarge('8 MiB')
+    return bytes
+  }
+  private async minutes(snapshot: TrainingExportSnapshot) {
+    const bytes = await this.renderMinutes(snapshot)
+    if (bytes.length > 8 * MiB) throw tooLarge('8 MiB')
+    return bytes
+  }
+  private async pdf(docx: Buffer) {
+    const bytes = await this.convert(docx)
+    if (bytes.length > 16 * MiB) throw tooLarge('16 MiB')
+    return bytes
   }
   /** Converter failures never fall back to an empty or partial PDF. */
   private async convert(docx: Buffer): Promise<Buffer> {

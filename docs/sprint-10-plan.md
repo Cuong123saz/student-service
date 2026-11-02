@@ -1,6 +1,6 @@
 # Sprint 10 — Xuất bảng điểm rèn luyện và biên bản
 
-**IN_PROGRESS, cập nhật 02/11/2026**. [Trạng thái chi tiết](sprint-10-status.json). Tiền đề: [Sprint 9 CLOSED kỹ thuật local](sprint-9-closure.md). Increment 10.1–10.3 đã hoàn thành kỹ thuật local: snapshot theo quyền, API POST tải Excel và biên bản Word/PDF. ZIP và giao diện tải còn ở các increment sau; chưa nghiệm thu mẫu chính thức của Học viện.
+**IN_PROGRESS, cập nhật 02/11/2026**. [Trạng thái chi tiết](sprint-10-status.json). Tiền đề: [Sprint 9 CLOSED kỹ thuật local](sprint-9-closure.md). Increment 10.1–10.4 đã hoàn thành kỹ thuật local: snapshot theo quyền, API POST tải Excel, biên bản Word/PDF, gói ZIP một snapshot và giao diện tải. Diễn tập trình duyệt và đóng sprint còn ở 10.5; chưa nghiệm thu mẫu chính thức của Học viện.
 
 ## Mục tiêu và hợp đồng dữ liệu đề xuất
 
@@ -20,7 +20,7 @@ Cố vấn/cán bộ khoa đủ quyền hiện tại xuất bảng Excel và bi�
 | 10.1 — COMPLETE_LOCAL | ADR 0021, DTO snapshot, truy vấn có scope và kiểm lại quyền | Chốt quyền xuất; đọc cùng snapshot; giữ lớp của đợt và điểm đã duyệt; kiểm tra dữ liệu trống/chưa duyệt |
 | 10.2 — COMPLETE_LOCAL | Bộ sinh XLSX và API POST tải, [hướng dẫn/kiểm chứng](sprint-10-xlsx.md) | Số hàng/tổng/trung bình khớp snapshot; mã sinh viên giữ dạng text; chuỗi không trở thành công thức; đọc lại tệp thực tế để đối chiếu |
 | 10.3 — COMPLETE_LOCAL | Mẫu có phiên bản, sinh DOCX và chuyển PDF, [hướng dẫn/kiểm chứng](sprint-10-minutes.md) | Tiếng Việt/font đúng; bảng dài lặp tiêu đề; không cắt hàng/chữ; tên dài và nhiều trang đọc được; rà trang đã render |
-| 10.4 — Giao diện và ZIP | Xem phạm vi/số lượng trước tải, tải từng định dạng và gói | Trạng thái tải/lỗi rõ; nút dùng thành phần chung; 401/403 xóa dữ liệu; kiểm ZIP/hash và tính nhất quán giữa các tệp |
+| 10.4 — COMPLETE_LOCAL | Xem phạm vi/số lượng trước tải, tải từng định dạng và gói, [hướng dẫn/kiểm chứng](sprint-10-export-ui.md) | Trạng thái tải/lỗi rõ; nút dùng thành phần chung; 401/403 xóa dữ liệu; kiểm ZIP/hash và tính nhất quán giữa các tệp |
 | 10.5 — Diễn tập và đóng | Kiểm thử, runbook, báo cáo/ảnh/tệp mẫu, hồ sơ đóng | Kiểm thử quyền/đồng thời/audit và trình duyệt; trực tiếp rà Excel/Word/PDF; bảo toàn Sprint 8/9; chỉ đóng khi toàn bộ tiêu chí đạt |
 
 Không đặt thời lượng sprint khi chưa có ước lượng và năng lực thực hiện. Làm xong, kiểm chứng từng increment trước khi mở increment tiếp theo.
@@ -66,3 +66,9 @@ Bằng chứng: `C:/Users/Personal/Documents/ChatGPT/New project/sprint10-1/veri
 [ADR 0023](adr/0023-training-minutes-docx-pdf.md). Có POST `.../periods/:id/minutes.docx` và `.../minutes.pdf`, body `{}`. DOCX sinh bằng OpenXML trong code, mẫu `training-minutes-v1` được ghim bằng hash nội dung, A4 ngang, nhãn thử nghiệm mọi trang, bảng lặp tiêu đề và không tách hàng, khối ký trên giấy để trống. PDF chuyển từ đúng byte DOCX qua `LibreOfficePdfConverter`; audit và header ghi SHA-256 DOCX nguồn. Lỗi converter trả 503 riêng, không audit, không trả PDF hỏng. Excel và Word dùng chung kiểm toàn vẹn snapshot. Kiểm lại quyền và ghi audit sau render/chuyển đổi như 10.2.
 
 Kiểm chứng: unit 10 ca mới (1 ca PDF thật opt-in, đã chạy đạt), 1 ca HTTP/SQL mới; toàn bộ unit/integration API, typecheck, lint, format đạt. Đã render PDF thật 3 trang (fixture) và 14 trang (120 dòng), rà ảnh trang và trích text. Microsoft Word desktop chưa kiểm. [Chi tiết](sprint-10-minutes.md). Bước kế tiếp 10.4: UI tải, CORS expose header, ZIP một snapshot kèm manifest.
+
+## Kết quả increment 10.4 — 02/11/2026
+
+[ADR 0024](adr/0024-training-export-bundle-and-download-ui.md): ZIP tạo trong một request từ một snapshot, không lưu snapshot hay thêm schema. `POST .../periods/:id/export.zip` trả Excel + Word + PDF (từ đúng Word trong gói) + `manifest.json` với SHA-256 từng tệp; PDF lỗi thì cả gói 503, không audit. Audit `training.export.zip.prepared` có `manifestSha256`. CORS expose các header `X-Export-*` và `Content-Disposition`. Web có panel `TrainingExportPanel` trên `/training-reviews`: xem trước phạm vi/số bản đã duyệt, bốn nút `BaseButton`, một tác vụ mỗi lúc, kiểm SHA-256 phía trình duyệt trước khi lưu, 401/403/404 xóa dữ liệu lớp.
+
+Kiểm chứng: unit API 207 đạt / 2 bỏ qua (opt-in), integration API 358 đạt, web 154 đạt, typecheck/lint/format/build đạt; ZIP thật với LibreOffice đối chiếu bằng `unzip`/`sha256sum`. Chưa diễn tập trình duyệt thật. [Chi tiết](sprint-10-export-ui.md). Bước kế tiếp 10.5: diễn tập trình duyệt dữ liệu giả, rà tệp/ảnh, runbook và hồ sơ đóng.
