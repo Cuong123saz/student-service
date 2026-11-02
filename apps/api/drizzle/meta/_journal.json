@@ -232,6 +232,13 @@
       "when": 1793650000000,
       "tag": "0032_activities",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793660000000,
+      "tag": "0033_activity_registrations",
+      "breakpoints": true
     }
   ]
 }

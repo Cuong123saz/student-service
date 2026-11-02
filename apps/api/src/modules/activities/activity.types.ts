@@ -95,3 +95,15 @@ export const trackedFields = [
   'capacity',
   'eligibility',
 ] as const
+
+/** ADR 0031: registration states; REGISTERED and CANCEL_REQUESTED hold a seat. */
+export const registrationStatuses = [
+  'REGISTERED',
+  'WAITLISTED',
+  'CANCEL_REQUESTED',
+  'CANCELLED',
+  'WITHDRAWN',
+] as const
+export type RegistrationStatus = (typeof registrationStatuses)[number]
+/** Cancellation requests must be sent at least this long before the start. */
+export const cancelNoticeMs = 24 * 3600 * 1000

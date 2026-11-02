@@ -173,7 +173,46 @@
       ]
     },
     "11.3": {
-      "status": "PENDING"
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0031_REGISTRATION_CAPACITY_WAITLIST_CANCELLATION_ABSENCE",
+      "adr": "docs/adr/0031-activity-registration-waitlist.md",
+      "migration": "apps/api/drizzle/0033_activity_registrations.sql",
+      "quality": {
+        "check": "PASS",
+        "lint": "PASS",
+        "formatCheck": "PASS",
+        "build": "PASS",
+        "adrGate": "PASS (52)"
+      },
+      "apiUnit": {
+        "passed": 228,
+        "failed": 0
+      },
+      "apiIntegration": {
+        "passed": 391,
+        "failed": 0
+      },
+      "storageRecoveryBundleGuards": {
+        "passed": 82,
+        "failed": 0
+      },
+      "web": {
+        "passed": 183,
+        "failed": 0
+      },
+      "decisions": [
+        "One row per student per activity; REGISTERED and CANCEL_REQUESTED hold a seat",
+        "Capacity guarded by a DB trigger that locks the activity row; 10 concurrent registrations for 3 seats tested",
+        "Waitlist promoted in queue order on accepted cancellation and capacity increase, only before start",
+        "Cancellation request at least 24 h before start with a reason; pending at start = auto-accepted (activity_settle)",
+        "Absence derived (ended, seat held, no approved attendance); excused flag for 11.5",
+        "No one decides their own request; owner unit or owner/delegated club leader decides"
+      ],
+      "limitations": [
+        "Promotion notice shown on the activity page only; not in the submission-bound notification centre",
+        "Absence becomes final only once attendance exists (11.4)",
+        "No dedicated browser rehearsal yet; folded into 11.6"
+      ]
     },
     "11.4": {
       "status": "PENDING"
@@ -186,7 +225,7 @@
     }
   },
   "productionReadiness": "NOT_READY",
-  "nextIncrement": "11.3 — registration, waitlist and cancellation",
+  "nextIncrement": "11.4 — attendance and certificates",
   "academyTemplates": {
     "status": "COMPLETE_LOCAL",
     "adr": "docs/adr/0026-academy-criteria-classification-templates.md",

@@ -13,6 +13,7 @@ import {
   type ClubRef,
   type Eligibility,
   type MandatoryOwner,
+  type RegistrationStatus,
 } from './activity.types.js'
 
 type Tx = TransactionSql
@@ -39,7 +40,23 @@ const from = `activities a
   LEFT JOIN clubs oc ON oc.id=a.owner_club_id LEFT JOIN organizational_units ocu ON ocu.id=oc.organizational_unit_id
   LEFT JOIN clubs dc ON dc.id=a.delegated_club_id LEFT JOIN organizational_units dcu ON dcu.id=dc.organizational_unit_id`
 
-interface Access {
+/** ADR 0031: the student's view of its own registration on an activity row aliased `a`/`r`. */
+export const registrationView = `r.id AS "registrationId",
+  CASE WHEN r.status='CANCEL_REQUESTED' AND a.starts_at<=clock_timestamp() THEN 'CANCELLED' ELSE r.status END AS "myStatus",
+  (SELECT count(*)::integer FROM activity_registrations x WHERE x.activity_id=a.id AND x.status IN ('REGISTERED','CANCEL_REQUESTED')) AS "seatsTaken",
+  CASE WHEN r.status='WAITLISTED' THEN (SELECT count(*)::integer+1 FROM activity_registrations x WHERE x.activity_id=a.id AND x.status='WAITLISTED' AND (x.queued_at,x.id)<(r.queued_at,r.id)) END AS "waitlistPosition",
+  (r.promoted_at IS NOT NULL AND r.promotion_seen_at IS NULL AND r.status='REGISTERED') AS "promotionNotice",
+  ${iso("(a.starts_at - interval '24 hours')")} AS "cancelDeadline"`
+export interface StudentRegistrationView {
+  registrationId: string | null
+  myStatus: RegistrationStatus | null
+  seatsTaken: number
+  waitlistPosition: number | null
+  promotionNotice: boolean
+  cancelDeadline: string
+}
+
+export interface Access {
   read: boolean
   moderate: boolean
   /** Mandatory owners the actor may act for; Phòng ĐT may be limited to faculties. */
@@ -56,7 +73,8 @@ interface Row extends Activity {
 export class ActivityRepository {
   constructor(private readonly db: Sql = databaseClient) {}
 
-  private async access(tx: Tx, user: string): Promise<Access> {
+  /** @internal shared with ActivityRegistrationRepository. */
+  async access(tx: Tx, user: string): Promise<Access> {
     const [flags] = await tx<
       { read: boolean; moderate: boolean }[]
     >`SELECT club_staff_allowed(${user}::uuid,'activity.read') AS read,club_staff_allowed(${user}::uuid,'activity.moderate') AS moderate`
@@ -82,7 +100,8 @@ export class ActivityRepository {
       leaderClubs: clubs.map((c) => c.id),
     }
   }
-  private async lockRights(tx: Tx) {
+  /** @internal shared with ActivityRegistrationRepository. */
+  async lockRights(tx: Tx) {
     await tx`LOCK TABLE users,roles,user_roles,role_permissions,permissions,user_role_scopes,authorization_scopes,club_leader_assignments IN SHARE MODE`
   }
   private withinTraining(access: Access, e: Eligibility) {
@@ -91,12 +110,14 @@ export class ActivityRepository {
     return e.facultyIds.length > 0 && e.facultyIds.every((f) => own.has(f))
   }
   /** The owner manages; a delegated club never edits mandatory activities. */
-  private owns(access: Access, a: Pick<Activity, 'ownerType' | 'ownerClub' | 'eligibility'>) {
+  /** @internal shared with ActivityRegistrationRepository. */
+  owns(access: Access, a: Pick<Activity, 'ownerType' | 'ownerClub' | 'eligibility'>) {
     if (a.ownerType === 'CLUB') return !!a.ownerClub && access.leaderClubs.includes(a.ownerClub.id)
     if (a.ownerType === 'STUDENT_AFFAIRS') return access.owners.STUDENT_AFFAIRS
     return access.owners.TRAINING_OFFICE && this.withinTraining(access, a.eligibility)
   }
-  private visible(access: Access, a: Activity) {
+  /** @internal shared with ActivityRegistrationRepository. */
+  visible(access: Access, a: Activity) {
     return (
       access.read ||
       this.owns(access, a) ||
@@ -118,7 +139,8 @@ export class ActivityRepository {
       canResume: access.moderate && a.status === 'SUSPENDED' && now < a.endsMs,
     }
   }
-  private async row(tx: Tx, id: string, lock = false) {
+  /** @internal shared with ActivityRegistrationRepository. */
+  async row(tx: Tx, id: string, lock = false) {
     const [a] = await tx<Row[]>`
       SELECT ${tx.unsafe(columns)},(extract(epoch from a.starts_at)*1000)::float8 AS "startsMs",(extract(epoch from a.ends_at)*1000)::float8 AS "endsMs"
       FROM ${tx.unsafe(from)} WHERE a.id=${id} ${lock ? tx`FOR UPDATE OF a` : tx``}`
@@ -312,10 +334,19 @@ export class ActivityRepository {
           after[f] = next[f]
         }
       if (!Object.keys(after).length) return this.detail(actor.userId, id, tx)
+      // ADR 0031: capacity never drops below the seats already held.
+      if (next.capacity !== null) {
+        const [held] = await tx<
+          { n: number }[]
+        >`SELECT count(*)::integer AS n FROM activity_registrations WHERE activity_id=${id} AND status IN ('REGISTERED','CANCEL_REQUESTED')`
+        if (held!.n > next.capacity)
+          throw invalid('Sức chứa không được nhỏ hơn ' + held!.n + ' chỗ đã có người đăng ký.')
+      }
       await tx`UPDATE activities SET category=${next.category},title=${next.title},description=${next.description},location=${next.location},
         starts_at=${next.startsAt},ends_at=${next.endsAt},capacity=${next.capacity},eligibility=${tx.json(next.eligibility)},
         revision=revision+1,updated_at=clock_timestamp() WHERE id=${id}`
       await this.record(tx, actor, id, a.revision + 1, 'UPDATED', { before, after })
+      await tx`SELECT activity_promote(${id}::uuid)`
       return this.detail(actor.userId, id, tx)
     })
   }
@@ -360,6 +391,7 @@ export class ActivityRepository {
         before: { status: a.status },
         after: { status },
       })
+      if (status === 'PUBLISHED') await tx`SELECT activity_promote(${id}::uuid)`
       return this.detail(actor.userId, id, tx)
     })
   }
@@ -402,8 +434,11 @@ export class ActivityRepository {
   /** Student view: published, not ended and eligible (server-side rule shared with 11.3–11.4). */
   async available(user: string) {
     return this.db.begin('isolation level repeatable read, read only', async (tx) => {
-      const rows = await tx<Activity[]>`
-        SELECT ${tx.unsafe(columns)} FROM ${tx.unsafe(from)}
+      // ADR 0031: the student's own registration, seats taken and queue position. A pending
+      // cancellation already past the start is shown as accepted (activity_settle applies it on write).
+      const rows = await tx<(Activity & StudentRegistrationView)[]>`
+        SELECT ${tx.unsafe(columns)},${tx.unsafe(registrationView)}
+        FROM ${tx.unsafe(from)} LEFT JOIN activity_registrations r ON r.activity_id=a.id AND r.student_user_id=${user}
         WHERE a.status='PUBLISHED' AND a.ends_at>clock_timestamp() AND activity_student_eligible(${user}::uuid,a.id)
         ORDER BY a.starts_at,a.id LIMIT 201`
       return {

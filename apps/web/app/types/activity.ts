@@ -34,7 +34,66 @@ export interface Activity {
   publishedAt: string | null
   createdAt: string
 }
-export type StudentActivity = Omit<Activity, 'eligibility' | 'statusReason'>
+/** ADR 0031: REGISTERED and CANCEL_REQUESTED hold a seat. */
+export type RegistrationStatus =
+  'REGISTERED' | 'WAITLISTED' | 'CANCEL_REQUESTED' | 'CANCELLED' | 'WITHDRAWN'
+export interface StudentRegistrationView {
+  registrationId: string | null
+  myStatus: RegistrationStatus | null
+  seatsTaken: number
+  waitlistPosition: number | null
+  promotionNotice: boolean
+  cancelDeadline: string
+}
+export type StudentActivity = Omit<Activity, 'eligibility' | 'statusReason'> &
+  StudentRegistrationView
+export interface RegistrationHistoryItem extends StudentRegistrationView {
+  activityId: string
+  title: string
+  kind: ActivityKind
+  startsAt: string
+  endsAt: string
+  activityStatus: ActivityStatus
+  absent: boolean
+  excused: boolean
+}
+export interface RosterEntry {
+  id: string
+  studentUserId: string
+  studentCode: string
+  fullName: string
+  classCode: string
+  status: RegistrationStatus
+  absent: boolean
+  queuedAt: string
+  waitlistPosition: number | null
+  cancelReason: string | null
+  cancelRequestedAt: string | null
+  decisionNote: string | null
+  autoAccepted: boolean
+  excused: boolean
+  revision: number
+}
+export interface ActivityRoster {
+  activity: { id: string; title: string; capacity: number | null; startsAt: string; endsAt: string }
+  canDecide: boolean
+  summary: {
+    seats: number
+    waitlisted: number
+    pendingCancellations: number
+    cancelled: number
+    absent: number
+  }
+  items: RosterEntry[]
+  truncated: boolean
+}
+export const registrationStatusLabels: Record<RegistrationStatus, string> = {
+  REGISTERED: 'Đã đăng ký',
+  WAITLISTED: 'Danh sách chờ',
+  CANCEL_REQUESTED: 'Chờ duyệt hủy',
+  CANCELLED: 'Đã hủy (được chấp nhận)',
+  WITHDRAWN: 'Đã rút khỏi danh sách chờ',
+}
 export interface ActivityEvent {
   id: string
   revision: number
