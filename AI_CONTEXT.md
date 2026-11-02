@@ -105,7 +105,7 @@ Chi tiết tại [hướng dẫn Excel](docs/sprint-10-xlsx.md), [ADR 0021](docs
 ### Bắt đầu Sprint 11 khi người dùng yêu cầu tiếp tục
 
 1. Đọc lại Git và trạng thái PR của 10.5 và plan Sprint 11. Đọc [plan](docs/sprint-11-plan.md): bảng actor, quy tắc đã chốt, mục “chờ xác nhận” và rủi ro đã chấp nhận. Không tự đổi quyết định của chủ dự án; mâu thuẫn thì nêu và hỏi.
-2. 11.0 đã xong theo ADR 0025 (giữ nguyên các quyết định sau): cột `cohort_year` nullable trên `student_profiles`, import thêm cột “Niên khóa” (không nhận alias `khoa` vì trùng “Khoa” sau bỏ dấu), audit, thêm ánh xạ vào ADR gate.
+2. 11.0 đã xong theo ADR 0025 — **niên khóa K = năm vào học − 2006**, DB lưu năm vào học (giữ nguyên các quyết định sau): cột `cohort_year` nullable trên `student_profiles`, import thêm cột “Niên khóa” (không nhận alias `khoa` vì trùng “Khoa” sau bỏ dấu), audit, thêm ánh xạ vào ADR gate.
 3. **Migration mới phải viết tay** và thêm entry journal như 0025–0028; không dùng `drizzle-kit generate` (snapshot chỉ tới 0024, lệnh sẽ sinh lại các bảng Sprint 7–9). Mỗi increment sau (11.1–11.6) lập ADR trước schema/quyền. Chứng nhận tham gia không phải văn bằng/chữ ký số; gợi ý điểm không sửa bản đã nộp hay điểm đã duyệt; “Giấy xác nhận sinh viên” vẫn OFFLINE.
 
 Chạy lại diễn tập Sprint 10 theo runbook khi đổi code xuất; nhớ đặt `WORKFLOW_PLAYWRIGHT_MODULE`/`WORKFLOW_CHROMIUM_EXECUTABLE`.

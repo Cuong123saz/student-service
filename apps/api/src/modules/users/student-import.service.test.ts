@@ -371,7 +371,7 @@ test('confirm OVERWRITE dùng bản ghi cuối khi trùng trong file', async () 
   assert.equal(repository.committed?.previewTotalRows, 2)
 })
 
-test('niên khóa nhận 2022, K2022 hoặc ô trống; giá trị sai báo lỗi theo dòng', async () => {
+test('niên khóa nhận K15, 15 hoặc năm vào học; ô trống là chưa có; giá trị sai báo lỗi theo dòng', async () => {
   const row = (sourceRow: number, cohortYear: string | number | null | undefined) => ({
     sourceRow,
     values: {
@@ -386,16 +386,17 @@ test('niên khóa nhận 2022, K2022 hoặc ô trống; giá trị sai báo lỗ
     new FakeStudentImportRepository(),
     new InMemoryStudentImportPreviewStore(),
     createParser([
-      row(2, 'K2022'),
-      row(3, 2023),
-      row(4, ' k2024 '),
-      row(5, ''),
-      row(6, null),
-      row(7, undefined),
-      row(8, 'K22'),
-      row(9, '1999'),
-      row(10, 2022.5),
-      row(11, '2101'),
+      row(2, 'K15'),
+      row(3, 16),
+      row(4, ' k17 '),
+      row(5, '2021'),
+      row(6, ''),
+      row(7, null),
+      row(8, undefined),
+      row(9, 'K2021'),
+      row(10, '2006'),
+      row(11, 15.5),
+      row(12, 'K95'),
     ]),
     () => fixedNow,
   )
@@ -407,22 +408,23 @@ test('niên khóa nhận 2022, K2022 hoặc ô trống; giá trị sai báo lỗ
   assert.deepEqual(
     preview.validRecords.map((r) => [r.sourceRow, r.cohortYear]),
     [
-      [2, 2022],
-      [3, 2023],
-      [4, 2024],
-      [5, null],
+      [2, 2021],
+      [3, 2022],
+      [4, 2023],
+      [5, 2021],
       [6, null],
       [7, null],
+      [8, null],
     ],
   )
   assert.deepEqual(
     preview.errorRecords.map((r) => [r.sourceRow, r.issues.map((i) => `${i.field}:${i.code}`)]),
     [
-      [8, ['cohortYear:INVALID_FORMAT']],
       [9, ['cohortYear:INVALID_FORMAT']],
       [10, ['cohortYear:INVALID_FORMAT']],
       [11, ['cohortYear:INVALID_FORMAT']],
+      [12, ['cohortYear:INVALID_FORMAT']],
     ],
   )
-  assert.deepEqual(preview.errorRecords[0]?.values.cohortYear, { kind: 'TEXT', text: 'K22' })
+  assert.deepEqual(preview.errorRecords[0]?.values.cohortYear, { kind: 'TEXT', text: 'K2021' })
 })

@@ -282,7 +282,7 @@ test('tải file Excel mẫu đúng cấu trúc import', async (context) => {
     fullName: 'Nguyễn Văn A',
     email: '00123456@example.edu.vn',
     classCode: 'K15A',
-    cohortYear: 'K2022',
+    cohortYear: 'K15',
   })
 })
 
@@ -760,7 +760,7 @@ test('niên khóa: tạo mới, đổi có audit, ô trống không xóa giá tr
     await db.insert(userRoles).values({ userId: user.id, roleId: studentRole.id })
     await db
       .insert(studentProfiles)
-      .values({ userId: user.id, studentCode: code, classId: academicClass.id, cohortYear: 2021 })
+      .values({ userId: user.id, studentCode: code, classId: academicClass.id, cohortYear: 2020 })
     existing[code] = user.id
   }
 
@@ -770,9 +770,9 @@ test('niên khóa: tạo mới, đổi có audit, ô trống không xóa giá tr
   const upload = multipartCsv(
     [
       'Mã sinh viên,Họ và tên,Email,Mã lớp,Niên khóa',
-      '300,Sinh viên 300,sv300@example.edu.vn,K15A,K2022',
+      '300,Sinh viên 300,sv300@example.edu.vn,K15A,K15',
       '301,Sinh viên 301,sv301@example.edu.vn,K15A,',
-      '302,Sinh viên 302,sv302@example.edu.vn,K15A,2023',
+      '302,Sinh viên 302,sv302@example.edu.vn,K15A,2022',
     ].join('\n'),
   )
   const preview = (await uploadAndProcessPreview(app, jobService, cookie, upload)) as {
@@ -786,9 +786,9 @@ test('niên khóa: tạo mới, đổi có audit, ô trống không xóa giá tr
       .map((r) => [r.studentCode, r.cohortYear])
       .sort(),
     [
-      ['300', 2022],
+      ['300', 2021],
       ['301', null],
-      ['302', 2023],
+      ['302', 2022],
     ],
   )
 
@@ -806,9 +806,9 @@ test('niên khóa: tạo mới, đổi có audit, ô trống không xóa giá tr
     .from(studentProfiles)
     .where(inArray(studentProfiles.studentCode, ['300', '301', '302']))
   assert.deepEqual(Object.fromEntries(cohorts.map((r) => [r.code, r.cohortYear])), {
-    '300': 2022,
-    '301': 2021,
-    '302': 2023,
+    '300': 2021,
+    '301': 2020,
+    '302': 2022,
   })
 
   const audits = await db
@@ -823,14 +823,14 @@ test('niên khóa: tạo mới, đổi có audit, ô trống không xóa giá tr
   assert.deepEqual(audits, [
     {
       resourceId: existing['300'],
-      before: { cohortYear: 2021 },
-      after: { cohortYear: 2022 },
+      before: { cohortYear: 2020 },
+      after: { cohortYear: 2021 },
       actorUserId: actor.id,
     },
   ])
 
   await assert.rejects(
-    db.execute(sql`UPDATE student_profiles SET cohort_year = 1999 WHERE student_code = '300'`),
+    db.execute(sql`UPDATE student_profiles SET cohort_year = 2006 WHERE student_code = '300'`),
     (error: { cause?: { constraint_name?: string } }) =>
       error.cause?.constraint_name === 'student_profiles_cohort_year_check',
   )

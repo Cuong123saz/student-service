@@ -187,7 +187,7 @@ export function createStudentImportTemplateWorkbook(): Buffer {
     // "Niên khóa" is optional (ADR 0025); the empty cell shows it may be left blank.
     headers: ['Mã sinh viên', 'Họ và tên', 'Email', 'Mã lớp', 'Niên khóa'],
     rows: [
-      ['00123456', 'Nguyễn Văn A', '00123456@example.edu.vn', 'K15A', 'K2022'],
+      ['00123456', 'Nguyễn Văn A', '00123456@example.edu.vn', 'K15A', 'K15'],
       ['00123457', 'Trần Thị B', '00123457@example.edu.vn', 'K15A', ''],
     ],
     columnsXml: `

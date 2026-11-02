@@ -10,7 +10,7 @@ export interface StudentProfile {
   fullName: string
   email: string | null
   studentCode: string
-  /** Niên khóa (năm bắt đầu), null khi chưa có. */
+  /** Niên khóa (lưu năm vào học; hiển thị K = năm − 2006), null khi chưa có. */
   cohortYear: number | null
   class: StudentIdentity
   faculty: StudentIdentity

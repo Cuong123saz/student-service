@@ -13,7 +13,7 @@ export interface StudentImportRecord {
   fullName: string
   email: string
   classCode: string
-  /** Niên khóa (năm bắt đầu); vắng hoặc null là chưa có. Preview cũ không có trường này. */
+  /** Niên khóa (lưu năm vào học; hiển thị K = năm − 2006); vắng hoặc null là chưa có. Preview cũ không có trường này. */
   cohortYear?: number | null
 }
 

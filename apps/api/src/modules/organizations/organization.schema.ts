@@ -153,7 +153,7 @@ export const studentProfiles = pgTable(
         onDelete: 'restrict',
       }),
 
-    // ADR 0025: start year of the student's cohort (niên khóa), e.g. 2022 = K2022.
+    // ADR 0025: admission year of the student's niên khóa; K = year - 2006 (2021 = K15).
     // NULL means unknown; it is never inferred from student or class codes.
     cohortYear: smallint('cohort_year'),
 
@@ -176,7 +176,7 @@ export const studentProfiles = pgTable(
 
     check(
       'student_profiles_cohort_year_check',
-      sql`${table.cohortYear} IS NULL OR ${table.cohortYear} BETWEEN 2000 AND 2100`,
+      sql`${table.cohortYear} IS NULL OR ${table.cohortYear} BETWEEN 2007 AND 2100`,
     ),
   ],
 )

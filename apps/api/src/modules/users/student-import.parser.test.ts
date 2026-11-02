@@ -138,7 +138,7 @@ test('parse worksheet đầu tiên của file XLSX', async () => {
       fullName: 'Nguyễn Văn A',
       email: '00123456@example.edu.vn',
       classCode: 'K15A',
-      cohortYear: 'K2022',
+      cohortYear: 'K15',
     },
   })
   // The template's second row leaves the optional cohort blank.
@@ -164,11 +164,11 @@ test('cột Niên khóa là tùy chọn và nhận các tên cột không thể 
   for (const header of ['Niên khóa', 'Khóa học', 'Năm nhập học', 'cohortYear']) {
     const csv = [
       `Mã sinh viên,Họ và tên,Email,Mã lớp,${header}`,
-      'SV001,Nguyễn Văn A,sv001@example.edu.vn,K15A,K2022',
+      'SV001,Nguyễn Văn A,sv001@example.edu.vn,K15A,K15',
       'SV002,Trần Thị B,sv002@example.edu.vn,K15A,',
     ].join('\n')
     const result = await parseStudentImportFile('students.csv', Buffer.from(csv))
-    assert.equal(result.rows[0]?.values.cohortYear, 'K2022', header)
+    assert.equal(result.rows[0]?.values.cohortYear, 'K15', header)
     assert.equal(result.rows[1]?.values.cohortYear, '', header)
   }
   const withoutCohort = await parseStudentImportFile(

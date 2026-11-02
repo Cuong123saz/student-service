@@ -18,7 +18,7 @@
         "adrGate": "PASS (52)"
       },
       "apiUnit": {
-        "passed": 210,
+        "passed": 212,
         "skipped": 2,
         "failed": 0
       },
@@ -28,18 +28,20 @@
       },
       "storageRecoveryBundleGuards": {
         "passed": 315,
-        "failed": 0
+        "failed": 0,
+        "note": "run before the K-rule revision; unaffected files"
       },
       "web": {
         "passed": 156,
         "failed": 0
       },
-      "migrationPreservationRehearsal": "PASS (fake DB: existing row unchanged, cohort_year NULL, CHECK rejects 1999)",
+      "migrationPreservationRehearsal": "PASS (fake DB: existing row unchanged, cohort_year NULL, CHECK rejects 2006)",
       "limitations": [
         "No real cohort data imported yet",
         "No dedicated browser rehearsal for 11.0 (folded into 11.6)",
         "Manual cohort edit outside import not provided"
-      ]
+      ],
+      "cohortRule": "K = admission year - 2006 (owner decision 02/11/2026); DB stores admission year, CHECK 2007-2100"
     },
     "11.1": {
       "status": "PENDING"

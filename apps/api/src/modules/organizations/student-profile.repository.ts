@@ -15,7 +15,7 @@ export interface StudentProfileView {
   fullName: string
   email: string | null
   studentCode: string
-  /** ADR 0025: cohort start year (2022 = K2022), null when unknown. */
+  /** ADR 0025: admission year; niên khóa K = year - 2006 (2021 = K15). Null when unknown. */
   cohortYear: number | null
   class: {
     id: string

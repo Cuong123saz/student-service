@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { parseCohortValue } from '../organizations/student-cohort.js'
 import {
   parseStudentImportFile,
   type ParsedStudentImportFile,
@@ -296,7 +297,7 @@ type StudentImportParser = (filename: string, buffer: Buffer) => Promise<ParsedS
 
 type Clock = () => Date
 
-/** Accepts 2022, "2022" or "K2022"; an empty cell means unknown, never a guess. */
+/** Accepts K15, 15 or 2021 (see student-cohort.ts); an empty cell means unknown, never a guess. */
 function optionalCohortYear(
   row: StudentImportSourceRow,
   issues: StudentImportRowIssue[],
@@ -304,16 +305,12 @@ function optionalCohortYear(
   const value: StudentImportSourceCellValue | null = row.values.cohortYear ?? null
   if (value === null || (typeof value === 'string' && value.trim() === '')) return null
   const year =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string' && /^[Kk]?\d{4}$/.test(value.trim())
-        ? Number(value.trim().replace(/^[Kk]/, ''))
-        : Number.NaN
-  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    typeof value === 'number' || typeof value === 'string' ? parseCohortValue(value) : null
+  if (year === null) {
     issues.push({
       field: 'cohortYear',
       code: 'INVALID_FORMAT',
-      message: 'cohortYear must be a year from 2000 to 2100, e.g. 2022 or K2022',
+      message: 'cohortYear must be K1-K94 (e.g. K15) or an admission year 2007-2100 (e.g. 2021)',
     })
     return undefined
   }
