@@ -6,7 +6,7 @@ scope: Sprint 11.L class monitor (lớp trưởng) role, confirmation step and c
 
 # ADR 0028 — Vai trò lớp trưởng
 
-**Proposed ngày 02/11/2026.** Ghi các quyết định chủ dự án đã chốt; hai mục đánh dấu **[CHỜ]** cần chủ dự án xác nhận trước khi đổi sang Accepted và viết migration. Liên quan ADR 0020 (xét duyệt điểm rèn luyện), ADR 0027 (ngày sinh).
+**Proposed ngày 02/11/2026.** Ghi các quyết định chủ dự án đã chốt; các mục đánh dấu **[CHỜ]** cần chủ dự án xác nhận trước khi đổi sang Accepted và viết migration. Liên quan ADR 0020 (xét duyệt điểm rèn luyện), ADR 0027 (ngày sinh).
 
 ## Đã chốt
 
@@ -38,21 +38,25 @@ Câu trả lời “ban đầu sẽ bắt buộc và cố vấn có quyền thay
 
 Đề xuất: cho cả **(2)** và **(3)**. Như vậy lớp không bao giờ bị kẹt vì thiếu lớp trưởng, mà bước xác nhận vẫn mặc định bắt buộc.
 
-## [CHỜ] 2 — Phạm vi dữ liệu lớp trưởng được xem
+## Phạm vi dữ liệu và quyền xuất của lớp trưởng (đã chốt 02/11/2026)
 
-Chủ dự án muốn lớp trưởng **xem toàn bộ như cố vấn** để dễ liên lạc, có audit cố vấn xem được. Điều này **mâu thuẫn với ADR 0027 vừa được duyệt** (ngày sinh chỉ cho sinh viên đó, quản trị, cố vấn, khoa). Lớp trưởng là sinh viên ngang hàng; minh chứng có thể chứa giấy khám bệnh, hoàn cảnh gia đình.
+Chủ dự án quyết định lớp trưởng **xem được cả ngày sinh**, **in phiếu** và **tổng hợp bảng điểm** của lớp mình. Mục đích ghi nhận: lớp trưởng là người tổng hợp phiếu và lập bảng điểm lớp theo mẫu Học viện (bảng có cột Ngày sinh), đồng thời liên lạc với các bạn trong lớp.
 
-Đề xuất tách theo mục đích:
+| Dữ liệu / thao tác (chỉ lớp mình, trong nhiệm kỳ) | Lớp trưởng |
+| --- | --- |
+| Mã SV, họ tên, niên khóa, email, **ngày sinh**, trạng thái phiếu | Xem |
+| Điểm tự khai, giải trình từng mục, minh chứng | Xem/tải |
+| Phiếu đánh giá kết quả rèn luyện từng sinh viên | In (chức năng mới, xem dưới) |
+| Bảng điểm lớp | Tổng hợp/tải |
 
-| Dữ liệu | Lớp trưởng | Lý do |
-| --- | --- | --- |
-| Mã SV, họ tên, niên khóa, trạng thái phiếu | Xem | Tổng hợp phiếu |
-| Email (liên lạc) | Xem | Mục đích liên lạc chủ dự án nêu |
-| Điểm tự khai, giải trình từng mục | Xem | Cần để xác nhận phiếu |
-| Minh chứng (tệp) | Xem/tải, mỗi lần tải ghi audit cố vấn xem được | Cần để kiểm phiếu; audit răn đe lạm dụng |
-| Ngày sinh | **Không** | Không cần cho liên lạc hay xác nhận phiếu; giữ ADR 0027 |
+- **Sửa đổi ADR 0027:** danh sách người được xem ngày sinh thêm **lớp trưởng của lớp, trong nhiệm kỳ**, với mục đích trên. Khi ADR 0027 đã vào `main`, ghi chú sửa đổi được thêm vào ADR 0027 để hai tài liệu không mâu thuẫn.
+- **Bù lại bằng audit:** mọi lần lớp trưởng xem danh sách lớp, mở chi tiết phiếu, tải minh chứng, in phiếu hoặc tải bảng điểm đều ghi audit (không ghi giá trị ngày sinh hay nội dung phiếu). Cố vấn của lớp xem được các bản ghi này.
+- Lớp trưởng **không** xem lớp khác, không xem sau khi hết nhiệm kỳ, không có quyền ở cổng quản trị.
 
-Nếu chủ dự án vẫn muốn lớp trưởng xem cả ngày sinh, ADR 0027 phải được sửa và ghi rõ mục đích. Không làm ngầm.
+**Chức năng mới cần làm:**
+
+1. **In phiếu đánh giá kết quả rèn luyện từng sinh viên** theo mẫu Học viện (DOCX/PDF): thông tin sinh viên (gồm ngày sinh, niên khóa), điểm tự khai và điểm duyệt theo 5 mục, ô ký Cố vấn / Lớp trưởng / Sinh viên để trống, ghi chú các xác nhận trên hệ thống. Chỉ chấm theo 5 mục lớn (mục con chưa được mô hình hóa, ADR 0026). Cố vấn/khoa cũng in được.
+2. **Tổng hợp trước khi duyệt:** bảng điểm lớp hiện chỉ liệt kê bản **khoa đã duyệt** (ADR 0026). Lớp trưởng tổng hợp ở đầu quy trình nên cần **[CHỜ]** chốt: thêm bản “bảng tổng hợp điểm tự khai” (ghi rõ “chưa được duyệt”), hay lớp trưởng chỉ tải bảng điểm sau khi khoa duyệt.
 
 ## Phạm vi kỹ thuật dự kiến
 
