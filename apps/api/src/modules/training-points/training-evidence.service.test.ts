@@ -53,6 +53,8 @@ function fixture() {
     historyTruncated: false,
     canAdvisorSign: true,
     canFacultyDecide: false,
+    canMonitorConfirm: false,
+    canAdvisorBypass: false,
   }
   const points: TrainingPointStore = {
     catalog: unused,
@@ -83,6 +85,9 @@ function fixture() {
   const reviews: TrainingReviewStore = {
     periods: unused,
     queue: unused,
+    roster: unused,
+    appointMonitor: unused,
+    monitorAudit: unused,
     detail: async () => detail,
     file: async () => proof,
     act: async () => {

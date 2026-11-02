@@ -576,3 +576,7 @@ Quản trị tạo/sửa/mở/đóng đợt theo lớp, năm học/học kỳ v�
 Đã triển khai luồng đối chiếu điểm và minh chứng, cố vấn xác nhận từng bản, khoa duyệt/trả về và tổng hợp cấp lớp. Bản tự kê khai giữ nguyên; mỗi vòng xét duyệt có snapshot, người thực hiện, thời gian và mã đối chiếu riêng. Quyền/phạm vi/phân công hiện tại và tách hai người được kiểm tại máy chủ. Xác nhận bằng tài khoản chưa phải chữ ký số được xác minh; bộ tiêu chí vẫn giả định.
 
 [Hướng dẫn Sprint 9](docs/sprint-9-training-review.md) mô tả vai trò, cách sử dụng và API. Sprint 9 **CLOSED kỹ thuật local ngày 23/10/2026**; [hồ sơ đóng](docs/sprint-9-closure.md) ghi bằng chứng kiểm thử và diễn tập. Xuất Excel/biên bản thuộc [Sprint 10](docs/sprint-10-plan.md).
+
+### Sprint 11.L — Lớp trưởng
+
+Theo [ADR 0028](docs/adr/0028-class-monitor-role.md), cố vấn bổ nhiệm lớp trưởng theo nhiệm kỳ ngay trên trang xét duyệt. Phiếu nộp sẽ chờ lớp trưởng xác nhận trước khi đến cố vấn. Lớp trưởng không sửa điểm và không trả phiếu. Cố vấn có thể bỏ qua bước này cho từng phiếu, bắt buộc ghi lý do. Phiếu của chính lớp trưởng đi thẳng lên cố vấn. Lớp trưởng xem được danh sách lớp, gồm ngày sinh và email. Lớp trưởng tải được bảng điểm lớp và in phiếu từng sinh viên (mẫu `training-form-v1`, Word/PDF) sau khi khoa duyệt. Mọi lần lớp trưởng xem hoặc in đều ghi nhật ký và cố vấn xem được. Xác nhận của lớp trưởng là xác nhận bằng tài khoản, chưa phải chữ ký số.

@@ -10,8 +10,10 @@ import {
   trainingXlsxMime,
 } from './training-export.xlsx.js'
 import {
+  createTrainingFormDocx,
   createTrainingMinutesDocx,
   trainingDocxMime,
+  trainingFormTemplate,
   trainingMinutesTemplate,
 } from './training-export.docx.js'
 import { createTrainingExportBundle, trainingZipMime } from './training-export.bundle.js'
@@ -46,6 +48,12 @@ export interface TrainingExportUseCase {
   ): Promise<TrainingExportFile>
   downloadZip(actor: SubmissionActor, periodId: string): Promise<TrainingExportFile>
   downloadClassSheet(actor: SubmissionActor, periodId: string): Promise<TrainingExportFile>
+  downloadForm(
+    actor: SubmissionActor,
+    periodId: string,
+    declarationId: string,
+    format: TrainingMinutesFormat,
+  ): Promise<TrainingExportFile>
 }
 const MiB = 1024 * 1024
 const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
@@ -59,10 +67,15 @@ export class TrainingExportService implements TrainingExportUseCase {
     private readonly render: TrainingWorkbookRenderer = createTrainingExportWorkbook,
     private readonly renderMinutes: TrainingMinutesRenderer = createTrainingMinutesDocx,
     private readonly converter: PdfConverter = new LibreOfficePdfConverter(),
+    private readonly renderForm: (
+      snapshot: TrainingExportSnapshot,
+      declarationId: string,
+    ) => Buffer = createTrainingFormDocx,
   ) {}
-  async capture(user: string, periodId: string) {
-    const snapshot = await this.repository.exportSnapshot(user, periodId)
-    await this.repository.assertExportAccess(user, periodId)
+  /** ADR 0028: allowMonitor is true only for the class sheet and printed forms. */
+  async capture(user: string, periodId: string, allowMonitor = false) {
+    const snapshot = await this.repository.exportSnapshot(user, periodId, allowMonitor)
+    await this.repository.assertExportAccess(user, periodId, allowMonitor)
     return snapshot
   }
   /** One export task per account and two per service instance, released on every outcome. */
@@ -185,7 +198,7 @@ export class TrainingExportService implements TrainingExportUseCase {
   /** ADR 0026: school-format class sheet; same authorization, snapshot and audit flow as XLSX. */
   downloadClassSheet(actor: SubmissionActor, periodId: string): Promise<TrainingExportFile> {
     return this.exclusive(actor, async () => {
-      const snapshot = await this.capture(actor.userId, periodId)
+      const snapshot = await this.capture(actor.userId, periodId, true)
       const bytes = this.classSheet(snapshot)
       const digest = sha256(bytes)
       await this.repository.recordExport(actor, periodId, {
@@ -203,6 +216,47 @@ export class TrainingExportService implements TrainingExportUseCase {
         snapshotId: snapshot.snapshotId,
         sha256: digest,
         templateVersion: trainingClassSheetTemplate.label,
+      }
+    })
+  }
+  /** ADR 0028: printed assessment form of one faculty-approved declaration (DOCX or PDF). */
+  downloadForm(
+    actor: SubmissionActor,
+    periodId: string,
+    declarationId: string,
+    format: TrainingMinutesFormat,
+  ): Promise<TrainingExportFile> {
+    return this.exclusive(actor, async () => {
+      const snapshot = await this.capture(actor.userId, periodId, true)
+      if (!snapshot.rows.some((r) => r.declarationId === declarationId))
+        throw new SubmissionError(
+          404,
+          'TRAINING_FORM_NOT_APPROVED',
+          'Chỉ in được phiếu đã được khoa duyệt trong đợt này.',
+        )
+      const docx = this.renderForm(snapshot, declarationId)
+      if (docx.length > 8 * MiB) throw tooLarge('8 MiB')
+      const docxSha256 = sha256(docx)
+      const bytes = format === 'docx' ? docx : await this.pdf(docx)
+      const digest = format === 'docx' ? docxSha256 : sha256(bytes)
+      await this.repository.recordExport(actor, periodId, {
+        format: 'FORM',
+        snapshotId: snapshot.snapshotId,
+        rowCount: 1,
+        sha256: digest,
+        size: bytes.length,
+        templateVersion: trainingFormTemplate.label,
+        declarationId,
+        ...(format === 'pdf' ? { sourceDocxSha256: docxSha256 } : {}),
+      })
+      return {
+        bytes,
+        mimeType: format === 'docx' ? trainingDocxMime : 'application/pdf',
+        name: `training-form-${declarationId}.${format}`,
+        snapshotId: snapshot.snapshotId,
+        sha256: digest,
+        templateVersion: trainingFormTemplate.label,
+        ...(format === 'pdf' ? { sourceDocxSha256: docxSha256 } : {}),
       }
     })
   }

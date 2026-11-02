@@ -26,7 +26,7 @@ test('bundle stores the exact bytes with a manifest of one snapshot and SHA-256 
   const { bytes, manifest, manifestSha256 } = createTrainingExportBundle(
     s,
     entries(),
-    'training-minutes-v2',
+    'training-minutes-v3',
   )
   const files = unzipSync(bytes)
   assert.deepEqual(Object.keys(files).sort(), [
@@ -51,7 +51,7 @@ test('bundle stores the exact bytes with a manifest of one snapshot and SHA-256 
     Object.values(entries()).map((e) => [e.name, e.bytes.length, sha(e.bytes)]),
   )
   // Same inputs give the same bundle bytes.
-  assert.deepEqual(createTrainingExportBundle(s, entries(), 'training-minutes-v2').bytes, bytes)
+  assert.deepEqual(createTrainingExportBundle(s, entries(), 'training-minutes-v3').bytes, bytes)
 })
 
 test('bundle refuses duplicate names or a file that would shadow the manifest', async () => {

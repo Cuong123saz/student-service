@@ -1,4 +1,5 @@
-export type TrainingExportFormat = 'xlsx' | 'class-sheet' | 'docx' | 'pdf' | 'zip'
+export type TrainingExportFormat =
+  'xlsx' | 'class-sheet' | 'docx' | 'pdf' | 'zip' | 'form-docx' | 'form-pdf'
 
 export const trainingExportFormats: Record<
   TrainingExportFormat,
@@ -39,6 +40,31 @@ export const trainingExportFormats: Record<
     extension: 'zip',
     description: 'Hai bảng Excel, Word, PDF và manifest cùng một snapshot',
   },
+  // ADR 0028: printed assessment form of one approved declaration (path is per declaration).
+  'form-docx': {
+    label: 'In phiếu (Word)',
+    path: 'form.docx',
+    prefix: 'training-form',
+    extension: 'docx',
+    description: 'Phiếu đánh giá kết quả rèn luyện của một sinh viên',
+  },
+  'form-pdf': {
+    label: 'In phiếu (PDF)',
+    path: 'form.pdf',
+    prefix: 'training-form',
+    extension: 'pdf',
+    description: 'Phiếu đánh giá chuyển từ đúng bản Word',
+  },
+}
+
+/** ADR 0028: buttons offered on the class export panel for each viewer role. */
+export const panelExportFormats: Record<
+  'ADVISOR' | 'FACULTY' | 'MONITOR',
+  readonly TrainingExportFormat[]
+> = {
+  ADVISOR: ['xlsx', 'class-sheet', 'docx', 'pdf', 'zip'],
+  FACULTY: ['xlsx', 'class-sheet', 'docx', 'pdf', 'zip'],
+  MONITOR: ['class-sheet'],
 }
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

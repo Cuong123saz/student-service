@@ -6,7 +6,7 @@ import { flushPromises } from '@vue/test-utils'
 import Detail from '../../app/pages/training-reviews/[id].vue'
 import List from '../../app/pages/training-reviews/index.vue'
 import Result from '../../app/components/TrainingReviewResult.vue'
-import type { ReviewDetail, ReviewQueue } from '../../app/types/training-review'
+import type { ReviewDetail, ReviewQueue, ReviewRoster } from '../../app/types/training-review'
 const id = '00000000-0000-4000-8000-000000000001',
   route = reactive({ params: { id } })
 function sample(): ReviewDetail {
@@ -47,6 +47,8 @@ function sample(): ReviewDetail {
     historyTruncated: false,
     canAdvisorSign: true,
     canFacultyDecide: false,
+    canMonitorConfirm: false,
+    canAdvisorBypass: false,
   }
 }
 function decision(
@@ -88,6 +90,42 @@ function mockApi() {
     }),
     queue: vi.fn(),
     exportPeriod: vi.fn(),
+    roster: vi.fn().mockResolvedValue(roster('ADVISOR')),
+    appointMonitor: vi.fn(),
+    monitorAudit: vi.fn().mockResolvedValue({ items: [] }),
+  }
+}
+function roster(viewerRole: ReviewRoster['viewerRole']): ReviewRoster {
+  return {
+    period: { id: 'period', classCode: 'GIA', name: 'Đợt giả' },
+    canAppointMonitor: viewerRole === 'ADVISOR',
+    viewerRole,
+    monitor: null,
+    students: [
+      {
+        userId: '00000000-0000-4000-8000-000000000101',
+        studentCode: 'GIA001',
+        fullName: 'Sinh viên giả',
+        email: 'gia001@example.invalid',
+        cohortYear: 2021,
+        dateOfBirth: '2003-05-09',
+        declarationState: 'SUBMITTED',
+        declarationId: id,
+        isMonitor: false,
+      },
+      {
+        userId: '00000000-0000-4000-8000-000000000102',
+        studentCode: 'GIA002',
+        fullName: 'Sinh viên chưa khai',
+        email: null,
+        cohortYear: null,
+        dateOfBirth: null,
+        declarationState: 'NONE',
+        declarationId: null,
+        isMonitor: false,
+      },
+    ],
+    truncated: false,
   }
 }
 let api = mockApi()
@@ -210,6 +248,7 @@ describe('training advisor/faculty workflow', () => {
       },
       summary: {
         submitted: 2,
+        waitingMonitor: 0,
         waitingAdvisor: 1,
         waitingFaculty: 0,
         returnedToAdvisor: 0,
@@ -302,6 +341,7 @@ function exportQueue(): ReviewQueue {
     },
     summary: {
       submitted: 3,
+      waitingMonitor: 0,
       waitingAdvisor: 1,
       waitingFaculty: 1,
       returnedToAdvisor: 0,
@@ -400,6 +440,108 @@ describe('training export panel', () => {
     expect(w.text()).not.toContain('Sẽ xuất')
     expect(w.find('#review-period option[value="period"]').exists()).toBe(false)
     expect(w.text()).toContain('không có quyền')
+    w.unmount()
+  })
+})
+describe('class monitor (ADR 0028)', () => {
+  it('monitor confirms without sending scores and sees the self-declared total', async () => {
+    api.detail.mockResolvedValue({
+      ...sample(),
+      state: 'WAITING_MONITOR',
+      canAdvisorSign: false,
+      canMonitorConfirm: true,
+    })
+    api.act.mockResolvedValue({ ...sample(), canMonitorConfirm: false, canAdvisorSign: false })
+    const w = await mountSuspended(Detail)
+    await flushPromises()
+    expect(button(w, 'Kiểm tra xác nhận cố vấn')).toBeUndefined()
+    await w.get('#review-comment').setValue('Đã kiểm tra minh chứng')
+    await button(w, 'Kiểm tra xác nhận của lớp trưởng').trigger('click')
+    expect(w.get('#review-confirm').text()).toContain('Giữ nguyên điểm sinh viên tự khai: 10 / 100')
+    await w.get('#review-confirm input[type="checkbox"]').setValue(true)
+    await w.get('#review-confirm button').trigger('click')
+    await flushPromises()
+    expect(api.act).toHaveBeenCalledWith(
+      expect.objectContaining({ id }),
+      'monitor-confirm',
+      'Đã kiểm tra minh chứng',
+      expect.anything(),
+    )
+    w.unmount()
+  })
+  it('advisor may bypass a waiting monitor step only with a reason', async () => {
+    api.detail.mockResolvedValue({
+      ...sample(),
+      state: 'WAITING_MONITOR',
+      canAdvisorSign: false,
+      canAdvisorBypass: true,
+    })
+    const w = await mountSuspended(Detail)
+    await flushPromises()
+    await button(w, 'Bỏ qua bước lớp trưởng').trigger('click')
+    await w.get('#review-confirm input[type="checkbox"]').setValue(true)
+    expect(w.get('#review-confirm button').attributes('disabled')).toBeDefined()
+    expect(api.act).not.toHaveBeenCalled()
+    w.unmount()
+  })
+  it('monitor sees the roster with date of birth and only the class sheet export', async () => {
+    api.queue.mockResolvedValue(exportQueue())
+    api.roster.mockResolvedValue(roster('MONITOR'))
+    api.exportPeriod.mockResolvedValue({
+      name: 'training-form-x.docx',
+      size: 1024,
+      snapshotId: '10000000-0000-4000-8000-000000000001',
+      sha256: 'e'.repeat(64),
+      verified: true,
+    })
+    const w = await mountSuspended(List)
+    await flushPromises()
+    expect(w.text()).toContain('09/05/2003')
+    expect(w.text()).toContain('Chưa có')
+    expect(button(w, 'Tải bảng điểm lớp')).toBeDefined()
+    expect(button(w, 'Tải gói ZIP')).toBeUndefined()
+    expect(button(w, 'Tải Excel')).toBeUndefined()
+    expect(w.find('#monitor-candidate').exists()).toBe(false)
+    // Only the submitted declaration offers printing.
+    expect(w.findAll('button').filter((b) => b.text() === 'Word')).toHaveLength(1)
+    await button(w, 'Word').trigger('click')
+    await flushPromises()
+    expect(api.exportPeriod).toHaveBeenCalledWith('period', 'form-docx', id)
+    expect(w.text()).toContain('Đã tải training-form-x.docx.')
+    w.unmount()
+  })
+  it('advisor appoints a monitor and reads the monitor audit log', async () => {
+    api.queue.mockResolvedValue(exportQueue())
+    const appointed = roster('ADVISOR')
+    appointed.monitor = {
+      userId: appointed.students[0]!.userId,
+      fullName: 'Sinh viên giả',
+      validFrom: '2026-10-01T00:00:00Z',
+      validTo: null,
+    }
+    api.appointMonitor.mockResolvedValue(appointed)
+    api.monitorAudit.mockResolvedValue({
+      items: [
+        {
+          id: 'a1',
+          occurredAt: '2026-10-02T00:00:00Z',
+          actor: 'gia001',
+          action: 'training.monitor.declaration_viewed',
+          metadata: {},
+        },
+      ],
+    })
+    const w = await mountSuspended(List)
+    await flushPromises()
+    expect(w.text()).toContain('Chưa bổ nhiệm')
+    await w.get('#monitor-candidate').setValue(appointed.students[0]!.userId)
+    await button(w, 'Bổ nhiệm').trigger('click')
+    await flushPromises()
+    expect(api.appointMonitor).toHaveBeenCalledWith('period', appointed.students[0]!.userId)
+    expect(w.text()).toContain('Đã bổ nhiệm lớp trưởng.')
+    await button(w, 'Xem nhật ký lớp trưởng').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Xem phiếu')
     w.unmount()
   })
 })

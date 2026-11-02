@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   blobSha256,
   isSha256,
+  panelExportFormats,
   trainingExportFileName,
   trainingExportFormats,
 } from '../../app/utils/training-export'
@@ -29,7 +30,13 @@ describe('training export helpers', () => {
       docx: 'minutes.docx',
       pdf: 'minutes.pdf',
       zip: 'export.zip',
+      'form-docx': 'form.docx',
+      'form-pdf': 'form.pdf',
     })
+  })
+  it('lets the class monitor export only the class sheet from the panel', () => {
+    expect(panelExportFormats.MONITOR).toEqual(['class-sheet'])
+    expect(panelExportFormats.ADVISOR).not.toContain('form-docx')
   })
   it('accepts only lowercase 64-hex SHA-256 values', () => {
     expect(isSha256('a'.repeat(64))).toBe(true)

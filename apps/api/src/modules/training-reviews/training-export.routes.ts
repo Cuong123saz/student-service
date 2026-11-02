@@ -80,4 +80,35 @@ export async function trainingExportRoutes(
   route('class-sheet.xlsx', 'bang-diem-ren-luyen-lop.xlsx', (actor, id) =>
     service.downloadClassSheet(actor, id),
   )
+  // ADR 0028: printed assessment form of one approved declaration (advisor, faculty, monitor).
+  for (const format of ['docx', 'pdf'] as const)
+    app.post<{ Params: { id: string; declarationId: string } }>(
+      `/training-reviews/periods/:id/declarations/:declarationId/form.${format}`,
+      {
+        ...exportOptions,
+        schema: {
+          body: Type.Object({}, { additionalProperties: false }),
+          params: Type.Object(
+            {
+              id: Type.String({ format: 'uuid' }),
+              declarationId: Type.String({ format: 'uuid' }),
+            },
+            { additionalProperties: false },
+          ),
+        },
+      },
+      (request, reply) =>
+        executeSubmission(request, reply, async () =>
+          sendFile(
+            reply,
+            await service.downloadForm(
+              submissionActor(request),
+              request.params.id.toLowerCase(),
+              request.params.declarationId.toLowerCase(),
+              format,
+            ),
+            `phieu-danh-gia-ren-luyen.${format}`,
+          ),
+        ),
+    )
 }

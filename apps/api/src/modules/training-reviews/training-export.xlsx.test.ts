@@ -74,6 +74,7 @@ test('xlsx accepts the 1000-row boundary, rejects overflow and refuses corrupt t
   s.rows = Array.from({ length: 1000 }, () => structuredClone(zero))
   s.summary = {
     submitted: 1000,
+    waitingMonitor: 0,
     waitingAdvisor: 0,
     waitingFaculty: 0,
     returnedToAdvisor: 0,
@@ -113,6 +114,7 @@ test('average rounding agrees with PostgreSQL for 201 points across 200 approved
   s.rows[2]!.approvedPoints = 1
   s.summary = {
     submitted: 200,
+    waitingMonitor: 0,
     waitingAdvisor: 0,
     waitingFaculty: 0,
     returnedToAdvisor: 0,

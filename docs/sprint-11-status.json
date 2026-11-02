@@ -43,6 +43,49 @@
       ],
       "cohortRule": "K = admission year - 2006 (owner decision 02/11/2026); DB stores admission year, CHECK 2007-2100"
     },
+    "11.L": {
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0028_CLASS_MONITOR_CONFIRM_BYPASS_ROSTER_FORM_PRINT_AUDIT",
+      "adr": "docs/adr/0028-class-monitor-role.md",
+      "migration": "apps/api/drizzle/0030_class_monitor.sql",
+      "quality": {
+        "check": "PASS",
+        "lint": "PASS",
+        "formatCheck": "PASS",
+        "build": "PASS",
+        "adrGate": "PASS (52)"
+      },
+      "apiUnit": {
+        "passed": 226,
+        "failed": 0
+      },
+      "apiIntegration": {
+        "passed": 367,
+        "failed": 0
+      },
+      "storageRecoveryBundleGuards": {
+        "passed": 82,
+        "failed": 0
+      },
+      "web": {
+        "passed": 164,
+        "failed": 0
+      },
+      "browserRehearsal": "rehearse:sprint9 PASS, rehearse:sprint10 PASS (advisor bypasses the monitor step with a reason)",
+      "templates": "training-form-v1 (new), training-minutes-v3",
+      "decisions": [
+        "Monitor confirms without changing points; advisor signs next",
+        "Advisor may bypass the monitor step per declaration, reason required",
+        "A declaration of the monitor goes straight to the advisor",
+        "Monitor sees roster incl. date of birth and email; every monitor read is audited for the advisor",
+        "Monitor prints the per-student form only after faculty approval; exports only the class sheet"
+      ],
+      "limitations": [
+        "Monitor confirmation is an account confirmation, not a verified digital signature",
+        "No dedicated browser rehearsal of the monitor UI yet; folded into 11.6",
+        "Microsoft Office desktop rendering of training-form-v1 NOT_RUN"
+      ]
+    },
     "11.1": {
       "status": "PENDING"
     },
@@ -63,7 +106,7 @@
     }
   },
   "productionReadiness": "NOT_READY",
-  "nextIncrement": "11.1 — clubs and roles, with 11.L class monitor",
+  "nextIncrement": "11.1 — clubs and roles",
   "academyTemplates": {
     "status": "COMPLETE_LOCAL",
     "adr": "docs/adr/0026-academy-criteria-classification-templates.md",
@@ -72,7 +115,7 @@
       "B": "classification-standard-v1 (provisional)",
       "C": "class-sheet-v1, training-minutes-v2",
       "D": "COMPLETE_LOCAL — ADR 0027, migration 0029, class-sheet-v2, procedure autofill",
-      "E": "PLANNED as 11.L (class monitor)"
+      "E": "COMPLETE_LOCAL as 11.L — ADR 0028, migration 0030, training-form-v1"
     },
     "apiUnit": {
       "passed": 219,

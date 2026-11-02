@@ -10,6 +10,7 @@ export const trainingExportAuditActions = Object.freeze({
   PDF: 'training.export.pdf.prepared',
   ZIP: 'training.export.zip.prepared',
   CLASS_SHEET: 'training.export.class-sheet.prepared',
+  FORM: 'training.export.form.prepared',
 } as const)
 export type TrainingExportAuditFormat = keyof typeof trainingExportAuditActions
 export interface TrainingExportAuditReceipt {
@@ -21,6 +22,8 @@ export interface TrainingExportAuditReceipt {
   templateVersion?: string
   sourceDocxSha256?: string
   manifestSha256?: string
+  /** FORM only: the printed declaration. */
+  declarationId?: string
 }
 export interface TrainingExportReceipt {
   id: string
@@ -43,6 +46,10 @@ export interface TrainingExportRow {
    * the class sheet prints it. Absent in snapshots that predate it.
    */
   dateOfBirth?: string | null
+  /** ADR 0028: student's own per-section answers, admission year and the monitor step. */
+  selfAnswers?: Answers
+  cohortYear?: number | null
+  monitor?: (TrainingExportReceipt & { action: 'MONITOR_CONFIRMED' | 'MONITOR_BYPASSED' }) | null
 }
 export interface TrainingExportSnapshot {
   schemaVersion: 1

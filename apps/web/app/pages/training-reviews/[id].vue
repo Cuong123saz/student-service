@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ReviewDetail, ReviewAction } from '~/types/training-review'
 import type { TrainingAnswers, TrainingError } from '~/types/training-point'
-import { reviewLabels, reviewActions } from '~/utils/training-review'
+import { reviewLabels, reviewActions, reviewActionLabels } from '~/utils/training-review'
 import { trainingDate } from '~/utils/training-point'
 definePageMeta({
   middleware: 'user-auth',
@@ -30,11 +30,11 @@ const total = computed(() =>
   ),
   dirty = computed(() => !!comment.value || JSON.stringify(answers.value) !== baseline.value),
   actionLabel = computed(() =>
-    pending.value === 'advisor-sign'
-      ? 'Xác nhận cố vấn'
-      : pending.value === 'faculty-approve'
-        ? 'Duyệt của khoa'
-        : 'Trả về cố vấn',
+    pending.value ? reviewActionLabels[pending.value].label : 'Trả về cố vấn',
+  ),
+  // ADR 0028: monitor confirmation and bypass never send scores.
+  monitorStep = computed(
+    () => pending.value === 'monitor-confirm' || pending.value === 'monitor-bypass',
   )
 function setPoints(code: string, event: Event) {
   const value = (event.target as HTMLInputElement).value
@@ -111,14 +111,7 @@ async function submit() {
     const next = await api.act(d, action, comment.value, answers.value)
     if (g !== generation) return
     set(next)
-    message.value =
-      'Đã ghi nhận ' +
-      (action === 'advisor-sign'
-        ? 'xác nhận cố vấn'
-        : action === 'faculty-approve'
-          ? 'duyệt của khoa'
-          : 'trả về cố vấn') +
-      '.'
+    message.value = 'Đã ghi nhận ' + reviewActionLabels[action].done + '.'
   })
 }
 async function download(f: ReviewDetail['files'][number]) {
@@ -249,7 +242,15 @@ onBeforeUnmount(() => {
           </ul></template
         >
       </section>
-      <section v-if="row.canAdvisorSign || row.canFacultyDecide" class="tp-panel">
+      <section
+        v-if="
+          row.canAdvisorSign ||
+          row.canFacultyDecide ||
+          row.canMonitorConfirm ||
+          row.canAdvisorBypass
+        "
+        class="tp-panel"
+      >
         <h2>Nhận xét và xử lý</h2>
         <label class="tp-field" for="review-comment"
           >Nhận xét xử lý (bắt buộc)<textarea
@@ -264,8 +265,29 @@ onBeforeUnmount(() => {
           Khi điều chỉnh điểm, giải trình ở đúng nhóm. Khoa trả về để cố vấn xác nhận lại; khoa
           không sửa trực tiếp điểm.
         </p>
+        <p v-if="row.canMonitorConfirm" class="tp-muted">
+          Lớp trưởng kiểm tra phiếu và minh chứng rồi xác nhận, có thể ghi chú cho cố vấn. Lớp
+          trưởng không sửa điểm và không trả phiếu; cần trả lại thì ghi chú để cố vấn xử lý.
+        </p>
+        <p v-if="row.canAdvisorBypass" class="tp-muted">
+          Phiếu đang chờ lớp trưởng. Cố vấn có thể bỏ qua bước này khi cần, bắt buộc ghi lý do; thao
+          tác được lưu vào lịch sử và nhật ký.
+        </p>
         <div class="tp-actions">
           <BaseButton
+            v-if="row.canMonitorConfirm"
+            :disabled="busy || stale"
+            @click="prepare('monitor-confirm')"
+          >
+            Kiểm tra xác nhận của lớp trưởng</BaseButton
+          ><BaseButton
+            v-if="row.canAdvisorBypass"
+            variant="secondary"
+            :disabled="busy || stale"
+            @click="prepare('monitor-bypass')"
+          >
+            Bỏ qua bước lớp trưởng</BaseButton
+          ><BaseButton
             v-if="row.canAdvisorSign"
             :disabled="busy || stale"
             @click="prepare('advisor-sign')"
@@ -286,8 +308,17 @@ onBeforeUnmount(() => {
         <div v-if="pending" id="review-confirm" class="tp-confirm" tabindex="-1">
           <h2>{{ actionLabel }}</h2>
           <p>{{ row.student.fullName }} · {{ row.student.studentCode }}</p>
-          <p>Điểm xét duyệt: {{ total }} / 100 · {{ comment || 'Chưa nhập nhận xét xử lý.' }}</p>
-          <p v-if="Object.values(answers).some((a) => a.points === null)" class="tp-error">
+          <p v-if="monitorStep">
+            Giữ nguyên điểm sinh viên tự khai: {{ row.totalPoints }} / 100 ·
+            {{ comment || 'Chưa nhập ghi chú/lý do.' }}
+          </p>
+          <p v-else>
+            Điểm xét duyệt: {{ total }} / 100 · {{ comment || 'Chưa nhập nhận xét xử lý.' }}
+          </p>
+          <p
+            v-if="!monitorStep && Object.values(answers).some((a) => a.points === null)"
+            class="tp-error"
+          >
             Chưa nhập đủ điểm xét duyệt A–E. Quay lại đối chiếu để điền các ô trống.
           </p>
           <p>Thao tác ghi lịch sử cố định. Duyệt của khoa kết thúc quy trình của bản này.</p>
@@ -301,7 +332,7 @@ onBeforeUnmount(() => {
                 busy ||
                 !accepted ||
                 !comment.trim() ||
-                Object.values(answers).some((a) => a.points === null)
+                (!monitorStep && Object.values(answers).some((a) => a.points === null))
               "
               @click="submit"
             >

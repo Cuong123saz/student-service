@@ -141,7 +141,7 @@ test('PDF minutes are converted from the exact DOCX bytes and the audit links bo
   const word = await service.downloadMinutes(actor, 'period', 'docx')
   assert.equal(word.sha256, sha(docx))
   assert.equal(word.name, `training-minutes-${snapshot.snapshotId}.docx`)
-  assert.equal(word.templateVersion, 'training-minutes-v2')
+  assert.equal(word.templateVersion, 'training-minutes-v3')
   assert.equal(word.sourceDocxSha256, undefined)
   const pdf = await service.downloadMinutes(actor, 'period', 'pdf')
   assert.equal(converted, docx)
@@ -155,7 +155,7 @@ test('PDF minutes are converted from the exact DOCX bytes and the audit links bo
       rowCount: snapshot.rows.length,
       sha256: sha(docx),
       size: docx.length,
-      templateVersion: 'training-minutes-v2',
+      templateVersion: 'training-minutes-v3',
     },
     {
       format: 'PDF',
@@ -163,7 +163,7 @@ test('PDF minutes are converted from the exact DOCX bytes and the audit links bo
       rowCount: snapshot.rows.length,
       sha256: pdf.sha256,
       size: pdf.bytes.length,
-      templateVersion: 'training-minutes-v2',
+      templateVersion: 'training-minutes-v3',
       sourceDocxSha256: sha(docx),
     },
   ])

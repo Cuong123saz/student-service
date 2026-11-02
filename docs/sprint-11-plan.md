@@ -100,7 +100,7 @@ Chủ dự án cung cấp phiếu đánh giá, bảng điểm lớp và biên b�
 - **B** — Xếp loại tạm tính 6 mức theo mốc chuẩn (`classification-standard-v1`), chưa hạ mức do kỷ luật. File Excel mẫu của trường thiếu mức Trung bình/Kém; hệ thống không sao chép lỗi đó.
 - **C** — Bảng điểm lớp theo mẫu trường (`class-sheet.xlsx`, `class-sheet-v1`) và biên bản họp lớp (`training-minutes-v2`, A4 dọc + phụ lục A4 ngang); ZIP có thêm bảng điểm lớp.
 - **D — COMPLETE_LOCAL** — Ngày sinh ([ADR 0027](adr/0027-student-date-of-birth.md)): migration `0029`, import cột “Ngày sinh”, hồ sơ/quản trị, bảng điểm lớp `class-sheet-v2`, tự điền trường ngày của biểu mẫu thủ tục; ảnh chụp bản nộp chỉ chứa ngày sinh khi biểu mẫu dùng nó; audit không ghi giá trị.
-- **E** — Vai trò lớp trưởng: giữ, làm ở 11.L.
+- **E** — Vai trò lớp trưởng: giữ, làm ở 11.L — **COMPLETE_LOCAL 02/11/2026** theo ADR 0028.
 
 Kiểm chứng: typecheck/lint/format/build đạt; unit API 219 đạt / 2 bỏ qua; integration API 360 đạt; storage/recovery/bundle/guard 315 đạt; web 157 đạt; ca PDF thật đạt; `rehearse:sprint10` PASS với 5 định dạng tải qua trình duyệt; đã xem ảnh render biên bản v2, phụ lục 120 dòng và bảng điểm lớp.
 

@@ -2,6 +2,8 @@ import { strToU8, zipSync } from 'fflate'
 import { groups } from '../training-points/training-points.types.js'
 import { assertTrainingExportSnapshot } from './training-export.integrity.js'
 import { classifyTrainingPoints, countTrainingClassifications } from './training-classification.js'
+import { formatDateOfBirth } from '../organizations/student-date-of-birth.js'
+import { cohortLabel } from '../organizations/student-cohort.js'
 import type { TrainingExportReceipt, TrainingExportSnapshot } from './training-export.types.js'
 
 export const trainingDocxMime =
@@ -13,8 +15,8 @@ export const trainingDocxMime =
  */
 export const trainingMinutesTemplate = Object.freeze({
   id: 'training-minutes',
-  version: 2,
-  label: 'training-minutes-v2',
+  version: 3,
+  label: 'training-minutes-v3',
 })
 
 const declaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -313,6 +315,7 @@ function body(s: TrainingExportSnapshot) {
   )
   const stats: [string, string][] = [
     ['Bản đã nộp', String(s.summary.submitted)],
+    ['Chờ lớp trưởng xác nhận', String(s.summary.waitingMonitor)],
     ['Chờ cố vấn xác nhận', String(s.summary.waitingAdvisor)],
     ['Chờ khoa duyệt', String(s.summary.waitingFaculty)],
     ['Khoa trả về cố vấn', String(s.summary.returnedToAdvisor)],
@@ -471,8 +474,12 @@ const part = (root: string, content: string) =>
   declaration + `<w:${root} xmlns:w="${w}" xmlns:r="${r}">${content}</w:${root}>`
 
 /** Builds a deterministic DOCX: the same snapshot always yields the same bytes. */
-export function createTrainingMinutesDocx(s: TrainingExportSnapshot): Buffer {
-  assertTrainingExportSnapshot(s)
+/** Shared OpenXML package: trial-label header, snapshot footer with page numbers, fixed mtime. */
+function packageDocx(
+  bodyXml: string,
+  orientation: 'portrait' | 'landscape',
+  footerLabel: string,
+): Buffer {
   const header = paragraph(
     run('DỮ LIỆU THỬ NGHIỆM — CHƯA PHẢI BIỂU MẪU CHÍNH THỨC', {
       bold: true,
@@ -482,13 +489,10 @@ export function createTrainingMinutesDocx(s: TrainingExportSnapshot): Buffer {
     { style: 'Footer', align: 'right' },
   )
   const footer = paragraph(
-    run(`Snapshot ${s.snapshotId} · ${trainingMinutesTemplate.label} · Trang `) +
-      field('PAGE', '1') +
-      run(' / ') +
-      field('NUMPAGES', '1'),
+    run(`${footerLabel} · Trang `) + field('PAGE', '1') + run(' / ') + field('NUMPAGES', '1'),
     { style: 'Footer', align: 'center' },
   )
-  const section = sectionProperties('landscape')
+  const section = sectionProperties(orientation)
   const files: Record<string, string> = {
     '[Content_Types].xml':
       declaration +
@@ -517,12 +521,148 @@ export function createTrainingMinutesDocx(s: TrainingExportSnapshot): Buffer {
     ),
     'word/header1.xml': part('hdr', header),
     'word/footer1.xml': part('ftr', footer),
-    'word/document.xml': part('document', `<w:body>${body(s)}${section}</w:body>`),
+    'word/document.xml': part('document', `<w:body>${bodyXml}${section}</w:body>`),
   }
   return Buffer.from(
     zipSync(
       Object.fromEntries(Object.entries(files).map(([key, value]) => [key, strToU8(value)])),
       { level: 6, mtime: new Date('1980-01-01T00:00:00Z') },
     ),
+  )
+}
+
+/** Builds a deterministic DOCX: the same snapshot always yields the same bytes. */
+export function createTrainingMinutesDocx(s: TrainingExportSnapshot): Buffer {
+  assertTrainingExportSnapshot(s)
+  return packageDocx(
+    body(s),
+    'landscape',
+    `Snapshot ${s.snapshotId} · ${trainingMinutesTemplate.label}`,
+  )
+}
+
+/**
+ * ADR 0028: printed assessment form (phiếu đánh giá kết quả rèn luyện) of one approved
+ * declaration, following the Học viện sample at section level (sub-items are not modelled).
+ * Signature boxes stay empty; system confirmations are listed as NOT_VERIFIED facts.
+ */
+export const trainingFormTemplate = Object.freeze({
+  id: 'training-form',
+  version: 1,
+  label: 'training-form-v1',
+})
+const roman = ['I', 'II', 'III', 'IV', 'V']
+
+export function createTrainingFormDocx(s: TrainingExportSnapshot, declarationId: string): Buffer {
+  assertTrainingExportSnapshot(s)
+  const row = s.rows.find((r) => r.declarationId === declarationId)
+  if (!row) throw new Error('TRAINING_FORM_ROW_MISSING')
+  const semester = semesterLabel[s.period.semester] ?? s.period.semester
+  const width = portraitUsable
+  const info = (label: string, value: string) =>
+    run(label + ': ', { bold: true }) + run(value || shortBlank)
+  const parts: string[] = [
+    text(s.notice, { bold: true, color: 'B42318' }, { style: 'Notice', align: 'center' }),
+    text('PHIẾU ĐÁNH GIÁ KẾT QUẢ RÈN LUYỆN CHO SINH VIÊN', undefined, { style: 'Title' }),
+    paragraph(
+      info('Họ tên', row.student.fullName) +
+        run('    ') +
+        info('Ngày sinh', formatDateOfBirth(row.dateOfBirth)) +
+        run('    ') +
+        info('Mã số SV', row.student.studentCode),
+    ),
+    paragraph(
+      info('Lớp', row.student.classCode) +
+        run('    ') +
+        info('Khoa', s.period.facultyName) +
+        run('    ') +
+        info('Khoá', typeof row.cohortYear === 'number' ? cohortLabel(row.cohortYear) : ''),
+    ),
+    paragraph(info('Học kỳ', semester) + run('    ') + info('Năm học', s.period.academicYear), {
+      after: 200,
+    }),
+  ]
+  const widths = [700, width - 700 - 1500 - 1700 - 1700, 1500, 1700, 1700]
+  const rows: Cell[][] = [
+    ['TT', 'NỘI DUNG ĐÁNH GIÁ', 'THANG ĐIỂM', 'SV TỰ ĐÁNH GIÁ', 'ĐIỂM ĐƯỢC DUYỆT'].map(
+      (content, i) => ({ content, width: widths[i]!, align: 'center' as const }),
+    ),
+  ]
+  s.period.criteria.forEach((c, i) => {
+    rows.push(
+      [
+        roman[i] ?? c.code,
+        c.label.replace(/^[IVX]+\.\s*/, ''),
+        `0 ÷ ${c.maxPoints} điểm`,
+        String(row.selfAnswers?.[c.code]?.points ?? ''),
+        String(row.approvedAnswers[c.code]?.points ?? ''),
+      ].map((content, j) => ({
+        content,
+        width: widths[j]!,
+        align: j === 1 ? ('left' as const) : ('center' as const),
+      })),
+    )
+  })
+  rows.push([
+    {
+      content: 'TỔNG CỘNG',
+      width: widths[0]! + widths[1]! + widths[2]!,
+      span: 3,
+      bold: true,
+      align: 'center',
+    },
+    { content: String(row.selfPoints), width: widths[3]!, bold: true, align: 'center' },
+    { content: String(row.approvedPoints), width: widths[4]!, bold: true, align: 'center' },
+  ])
+  parts.push(
+    table(widths, rows, { header: true, keepTogether: true }),
+    paragraph(
+      info(
+        'Xếp loại (tạm tính)',
+        `${classifyTrainingPoints(row.approvedPoints).label} — mốc chuẩn ${s.classification.version}, chưa áp dụng hạ mức do kỷ luật`,
+      ),
+      { before: 160 },
+    ),
+    heading('Xác nhận trên hệ thống (chưa phải chữ ký số)'),
+  )
+  const confirmations: string[] = []
+  if (row.monitor)
+    confirmations.push(
+      row.monitor.action === 'MONITOR_CONFIRMED'
+        ? `Lớp trưởng ${row.monitor.actor.fullName} đã xác nhận lúc ${vietnamTime(row.monitor.confirmedAt)}.`
+        : `Cố vấn ${row.monitor.actor.fullName} cho phép bỏ qua bước lớp trưởng lúc ${vietnamTime(row.monitor.confirmedAt)}.`,
+    )
+  else confirmations.push('Không có bước lớp trưởng (phiếu của lớp trưởng hoặc trước khi áp dụng).')
+  confirmations.push(
+    `Cố vấn học tập ${row.advisor.actor.fullName} xác nhận lúc ${vietnamTime(row.advisor.confirmedAt)}.`,
+    `Khoa ${row.faculty.actor.fullName} duyệt lúc ${vietnamTime(row.faculty.confirmedAt)}.`,
+  )
+  for (const line of confirmations) parts.push(text('• ' + line, undefined, { style: 'Note' }))
+  const third = Math.floor(width / 3)
+  parts.push(
+    text('', undefined, { after: 120 }),
+    table(
+      [third, third, width - third * 2],
+      [
+        ['CỐ VẤN HỌC TẬP', 'LỚP TRƯỞNG', 'SINH VIÊN'].map((content, i) => ({
+          content,
+          width: i < 2 ? third : width - third * 2,
+          align: 'center' as const,
+          bold: true,
+        })),
+        [0, 1, 2].map((i) => ({
+          content: '(Ký, ghi rõ họ tên)',
+          width: i < 2 ? third : width - third * 2,
+          align: 'center' as const,
+        })),
+        [0, 1, 2].map((i) => ({ content: '', width: i < 2 ? third : width - third * 2 })),
+      ],
+      { borders: false, keepTogether: true, heights: { 2: 1700 } },
+    ),
+  )
+  return packageDocx(
+    parts.join(''),
+    'portrait',
+    `Snapshot ${s.snapshotId} · ${trainingFormTemplate.label} · ${row.student.studentCode}`,
   )
 }

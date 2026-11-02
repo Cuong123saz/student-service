@@ -228,6 +228,16 @@ try {
     },
   })
   report.checks.scopedQueueAndNoStageBypass = true
+  // ADR 0028: the demo class has no monitor, so the advisor bypasses that step with a reason.
+  await request(advisor, 'user', path + '/monitor-bypass', 200, {
+    method: 'POST',
+    data: {
+      expectedRevision: 0,
+      requestId: crypto.randomUUID(),
+      confirmed: true,
+      comment: 'Lớp giả định chưa bổ nhiệm lớp trưởng',
+    },
+  })
   phase = 'advisor-queue'
   await advisor.page.goto(state.webUrl + '/training-reviews')
   await advisor.page.getByText('Đã nộp:', { exact: false }).waitFor()
@@ -305,17 +315,18 @@ try {
     faculty.page.getByRole('button', { name: 'Duyệt của khoa', exact: true }).click(),
   )
   assert.equal(final.state, 'APPROVED')
-  assert.equal(final.revision, 4)
-  assert.equal(final.decisions.length, 4)
-  assert.equal(final.decisions[3].totalPoints, 14)
+  assert.equal(final.revision, 5)
+  assert.equal(final.decisions.length, 5)
+  assert.equal(final.decisions[0].action, 'MONITOR_BYPASSED')
+  assert.equal(final.decisions[4].totalPoints, 14)
   assert.equal(final.declarationSha256, initial.declarationSha256)
   assert.deepEqual(final.answers, initial.answers)
   assert.equal(final.totalPoints, 15)
-  assert.equal(final.decisions[3].legalEffect, false)
-  assert.equal(final.decisions[3].technicalSignatureStatus, 'NOT_VERIFIED')
+  assert.equal(final.decisions[4].legalEffect, false)
+  assert.equal(final.decisions[4].technicalSignatureStatus, 'NOT_VERIFIED')
   report.checks.approvedResultAndOriginalRemainSeparate = true
   await responsive(faculty.page, 'faculty-approved-history')
-  const receipt = final.decisions[3]
+  const receipt = final.decisions[4]
   await request(faculty, 'user', path + '/faculty-approve', 200, {
     method: 'POST',
     data: {
@@ -328,11 +339,11 @@ try {
   await request(advisor, 'user', path + '/advisor-sign', 409, {
     method: 'POST',
     data: {
-      expectedRevision: 4,
+      expectedRevision: 5,
       requestId: crypto.randomUUID(),
       confirmed: true,
       comment: 'Không được mở lại',
-      answers: final.decisions[2].answers,
+      answers: final.decisions[3].answers,
     },
   })
   report.checks.idempotentApprovalAndFinality = true
