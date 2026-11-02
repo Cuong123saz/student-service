@@ -7,8 +7,15 @@ export function validateProcedureConfig(config: ProcedureConfig): ValidationIssu
     if (!field.label.trim()) add('fields.' + i + '.label', 'Tên trường không được để trống.')
     if (fieldKeys.has(field.key)) add('fields.' + i + '.key', 'Mã trường đã tồn tại.')
     fieldKeys.add(field.key)
-    if (field.source === 'PROFILE' && (!field.profileKey || field.type !== 'TEXT')) {
-      add('fields.' + i + '.source', 'Trường hồ sơ phải chọn dữ liệu tự điền và kiểu văn bản.')
+    // ADR 0027: date of birth autofills a DATE field; other profile data stays TEXT.
+    const profileType = field.profileKey === 'dateOfBirth' ? 'DATE' : 'TEXT'
+    if (field.source === 'PROFILE' && (!field.profileKey || field.type !== profileType)) {
+      add(
+        'fields.' + i + '.source',
+        profileType === 'DATE'
+          ? 'Trường ngày sinh tự điền phải là kiểu ngày.'
+          : 'Trường hồ sơ phải chọn dữ liệu tự điền và kiểu văn bản.',
+      )
     }
     if (field.source === 'STUDENT_INPUT' && field.profileKey !== null) {
       add('fields.' + i + '.source', 'Trường sinh viên khai không được gắn dữ liệu hồ sơ.')

@@ -18,6 +18,7 @@ const importFieldLabels: Record<StudentImportColumn, string> = {
   email: 'Email',
   classCode: 'Mã lớp',
   cohortYear: 'Niên khóa',
+  dateOfBirth: 'Ngày sinh',
 }
 
 // Mirror giới hạn phía client của composable (MAX_IMPORT_FILE_BYTES nội bộ
@@ -334,6 +335,7 @@ function startAnotherImport() {
                 <th>Email</th>
                 <th>Mã lớp</th>
                 <th>Niên khóa</th>
+                <th>Ngày sinh</th>
                 <th>Lỗi cần sửa</th>
               </tr>
             </thead>
@@ -348,6 +350,13 @@ function startAnotherImport() {
                 <td>
                   {{
                     record.values.cohortYear ? formatErrorCell(record.values.cohortYear) : 'Chưa có'
+                  }}
+                </td>
+                <td>
+                  {{
+                    record.values.dateOfBirth
+                      ? formatErrorCell(record.values.dateOfBirth)
+                      : 'Chưa có'
                   }}
                 </td>
                 <td>
@@ -390,6 +399,7 @@ function startAnotherImport() {
                 <th>Email</th>
                 <th>Mã lớp</th>
                 <th>Niên khóa</th>
+                <th>Ngày sinh</th>
                 <th>Phát hiện trùng</th>
               </tr>
             </thead>
@@ -402,6 +412,7 @@ function startAnotherImport() {
                 <td>{{ item.record.email }}</td>
                 <td>{{ item.record.classCode }}</td>
                 <td>{{ formatCohort(item.record.cohortYear) }}</td>
+                <td>{{ formatDateOfBirth(item.record.dateOfBirth) }}</td>
                 <td>
                   <ul class="student-import__issue-list">
                     <li

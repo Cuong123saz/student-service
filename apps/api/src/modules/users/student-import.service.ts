@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { parseCohortValue } from '../organizations/student-cohort.js'
+import { parseDateOfBirth } from '../organizations/student-date-of-birth.js'
 import {
   parseStudentImportFile,
   type ParsedStudentImportFile,
@@ -24,6 +25,8 @@ export interface StudentImportRecord {
   classCode: string
   /** ADR 0025: start year of the cohort (niên khóa); null when the file gives none. */
   cohortYear: number | null
+  /** ADR 0027: ISO date (yyyy-mm-dd) or null when the file gives none. Personal data. */
+  dateOfBirth?: string | null
 }
 
 export interface StudentImportRowIssue {
@@ -44,6 +47,7 @@ export type StudentImportErrorValues = Record<
   StudentImportErrorCell
 > & {
   cohortYear?: StudentImportErrorCell
+  dateOfBirth?: StudentImportErrorCell
 }
 
 export interface StudentImportErrorRecord {
@@ -317,6 +321,28 @@ function optionalCohortYear(
   return year
 }
 
+/** Day-first dates or Excel date cells (see student-date-of-birth.ts); empty means unknown. */
+function optionalDateOfBirth(
+  row: StudentImportSourceRow,
+  issues: StudentImportRowIssue[],
+): string | null | undefined {
+  const value: StudentImportSourceCellValue | null = row.values.dateOfBirth ?? null
+  if (value === null || (typeof value === 'string' && value.trim() === '')) return null
+  const date =
+    value instanceof Date || typeof value === 'string' || typeof value === 'number'
+      ? parseDateOfBirth(value)
+      : null
+  if (date === null) {
+    issues.push({
+      field: 'dateOfBirth',
+      code: 'INVALID_FORMAT',
+      message: 'dateOfBirth must be a real date dd/mm/yyyy (day first) from 1940 to today',
+    })
+    return undefined
+  }
+  return date
+}
+
 function requiredString(
   row: StudentImportSourceRow,
   field: StudentImportRequiredColumn,
@@ -420,6 +446,9 @@ function createErrorValues(row: StudentImportSourceRow): StudentImportErrorValue
     ...('cohortYear' in row.values
       ? { cohortYear: createErrorCell(row.values.cohortYear ?? null) }
       : {}),
+    ...('dateOfBirth' in row.values
+      ? { dateOfBirth: createErrorCell(row.values.dateOfBirth ?? null) }
+      : {}),
   }
 }
 
@@ -433,6 +462,7 @@ function validateRow(row: StudentImportSourceRow): {
   const email = requiredString(row, 'email', issues)?.toLowerCase()
   const classCode = requiredString(row, 'classCode', issues)?.toUpperCase()
   const cohortYear = optionalCohortYear(row, issues)
+  const dateOfBirth = optionalDateOfBirth(row, issues)
 
   if (studentCode && (studentCode.length > 50 || !/^\d+$/.test(studentCode))) {
     issues.push({
@@ -472,7 +502,8 @@ function validateRow(row: StudentImportSourceRow): {
     !fullName ||
     !email ||
     !classCode ||
-    cohortYear === undefined
+    cohortYear === undefined ||
+    dateOfBirth === undefined
   ) {
     return {
       error: {
@@ -492,6 +523,7 @@ function validateRow(row: StudentImportSourceRow): {
       email,
       classCode,
       cohortYear,
+      ...(dateOfBirth !== null ? { dateOfBirth } : {}),
     },
   }
 }

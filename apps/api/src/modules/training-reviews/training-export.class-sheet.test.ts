@@ -34,22 +34,26 @@ test('bảng điểm lớp theo mẫu trường: tiêu đề, cột, xếp loạ
     'STT',
     'Mã sinh viên',
     'Họ và tên',
+    'Ngày sinh',
     'Tổng điểm',
     'Xếp loại',
     'Ghi chú',
   ])
-  // Student code keeps its leading zero as text; total is a number; classification is text.
-  assert.deepEqual(data[header + 1]!.slice(0, 5), [
+  // Student code keeps its leading zero as text; date of birth is dd/mm/yyyy text (empty when
+  // unknown); total is a number; classification is text.
+  assert.deepEqual(data[header + 1]!.slice(0, 6), [
     1,
     '001234',
     'Nguyễn Minh An (giả định)',
+    '10/02/2003',
     14,
     'Kém',
   ])
-  assert.deepEqual(data[header + 2]!.slice(0, 5), [
+  assert.deepEqual(data[header + 2]!.slice(0, 6), [
     2,
     '001235',
     'Trần Thị Bình (giả định)',
+    null,
     0,
     'Kém',
   ])
@@ -64,7 +68,6 @@ test('bảng điểm lớp theo mẫu trường: tiêu đề, cột, xếp loạ
   )
   const xml = strFromU8(unzipSync(bytes)['xl/worksheets/sheet1.xml']!)
   assert.doesNotMatch(xml, /<f>|<f |hyperlink/i, 'values only, never formulas or links')
-  assert.doesNotMatch(xml, /Ngày sinh/, 'no date-of-birth column until the system stores it')
   assert.match(xml, /orientation="portrait"/)
 })
 

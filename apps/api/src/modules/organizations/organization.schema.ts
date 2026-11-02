@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import {
   check,
+  date,
   index,
   pgTable,
   smallint,
@@ -157,6 +158,9 @@ export const studentProfiles = pgTable(
     // NULL means unknown; it is never inferred from student or class codes.
     cohortYear: smallint('cohort_year'),
 
+    // ADR 0027: personal data. Never logged or written into audit values.
+    dateOfBirth: date('date_of_birth', { mode: 'string' }),
+
     createdAt: timestamp('created_at', {
       withTimezone: true,
     })
@@ -173,6 +177,11 @@ export const studentProfiles = pgTable(
     uniqueIndex('student_profiles_student_code_unique').on(table.studentCode),
 
     index('student_profiles_class_id_idx').on(table.classId),
+
+    check(
+      'student_profiles_date_of_birth_check',
+      sql`${table.dateOfBirth} IS NULL OR ${table.dateOfBirth} BETWEEN '1900-01-01' AND '2099-12-31'`,
+    ),
 
     check(
       'student_profiles_cohort_year_check',

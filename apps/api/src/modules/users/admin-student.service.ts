@@ -17,6 +17,8 @@ export interface StudentDirectoryItem {
   studentCode: string
   /** ADR 0025: admission year (niên khóa K = year - 2006), null when unknown. */
   cohortYear: number | null
+  /** ADR 0027: ISO date or null (personal data). */
+  dateOfBirth: string | null
   academicClass: {
     id: string
     code: string

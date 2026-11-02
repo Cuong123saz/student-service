@@ -63,7 +63,7 @@
     }
   },
   "productionReadiness": "NOT_READY",
-  "nextIncrement": "11.1 — clubs and roles (D: date of birth, 11.L: class monitor pending owner order)",
+  "nextIncrement": "11.1 — clubs and roles, with 11.L class monitor",
   "academyTemplates": {
     "status": "COMPLETE_LOCAL",
     "adr": "docs/adr/0026-academy-criteria-classification-templates.md",
@@ -71,7 +71,7 @@
       "A": "criteria preset academy-assessment-form-v1",
       "B": "classification-standard-v1 (provisional)",
       "C": "class-sheet-v1, training-minutes-v2",
-      "D": "PENDING (date of birth)",
+      "D": "COMPLETE_LOCAL — ADR 0027, migration 0029, class-sheet-v2, procedure autofill",
       "E": "PLANNED as 11.L (class monitor)"
     },
     "apiUnit": {
@@ -93,5 +93,33 @@
     },
     "browserRehearsal": "rehearse:sprint10 PASS, 5 formats",
     "microsoftOfficeDesktop": "NOT_RUN"
+  },
+  "dateOfBirth": {
+    "status": "COMPLETE_LOCAL",
+    "adr": "docs/adr/0027-student-date-of-birth.md",
+    "migration": "apps/api/drizzle/0029_student_date_of_birth.sql",
+    "apiUnit": {
+      "passed": 224,
+      "skipped": 2,
+      "failed": 0
+    },
+    "apiIntegration": {
+      "passed": 362,
+      "failed": 0
+    },
+    "storageRecoveryBundleGuards": {
+      "passed": 315,
+      "failed": 0
+    },
+    "web": {
+      "passed": 159,
+      "failed": 0
+    },
+    "migrationPreservationRehearsal": "PASS (existing row incl. cohort unchanged, date_of_birth NULL, CHECK rejects 1899-12-31)",
+    "limitations": [
+      "No real date-of-birth data imported yet",
+      "Students cannot correct their own date of birth (admin import only)",
+      "Browser rehearsal for profile/procedure autofill not run; folded into 11.6"
+    ]
   }
 }

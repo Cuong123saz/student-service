@@ -2,7 +2,8 @@
 
 export type StudentImportFormat = 'CSV' | 'XLSX'
 
-export type StudentImportColumn = 'studentCode' | 'fullName' | 'email' | 'classCode' | 'cohortYear'
+export type StudentImportColumn =
+  'studentCode' | 'fullName' | 'email' | 'classCode' | 'cohortYear' | 'dateOfBirth'
 
 export type StudentImportDuplicateStrategy = 'SKIP' | 'OVERWRITE' | 'FAIL'
 
@@ -15,6 +16,8 @@ export interface StudentImportRecord {
   classCode: string
   /** Niên khóa (lưu năm vào học; hiển thị K = năm − 2006); vắng hoặc null là chưa có. Preview cũ không có trường này. */
   cohortYear?: number | null
+  /** Ngày sinh yyyy-mm-dd; vắng hoặc null là chưa có. */
+  dateOfBirth?: string | null
 }
 
 export interface StudentImportRowIssue {
@@ -31,11 +34,13 @@ export interface StudentImportErrorCell {
 }
 
 export type StudentImportErrorValues = Record<
-  Exclude<StudentImportColumn, 'cohortYear'>,
+  Exclude<StudentImportColumn, 'cohortYear' | 'dateOfBirth'>,
   StudentImportErrorCell
 > & {
   /** Chỉ có khi file có cột Niên khóa. */
   cohortYear?: StudentImportErrorCell
+  /** Chỉ có khi file có cột Ngày sinh. */
+  dateOfBirth?: StudentImportErrorCell
 }
 
 /**

@@ -338,6 +338,7 @@ export class DrizzleStudentImportRepository implements StudentImportRepository {
               .select({
                 classId: studentProfiles.classId,
                 cohortYear: studentProfiles.cohortYear,
+                dateOfBirth: studentProfiles.dateOfBirth,
               })
               .from(studentProfiles)
               .where(eq(studentProfiles.userId, existingUserId))
@@ -365,6 +366,9 @@ export class DrizzleStudentImportRepository implements StudentImportRepository {
             // Previews stored before the cohort column existed carry no value.
             const cohortYear = row.cohortYear ?? null
             const cohortChanged = cohortYear !== null && cohortYear !== profile.cohortYear
+            // ADR 0027: same rule for date of birth; its value never goes into the audit.
+            const dateOfBirth = row.dateOfBirth ?? null
+            const dateOfBirthChanged = dateOfBirth !== null && dateOfBirth !== profile.dateOfBirth
 
             await transaction
               .update(studentProfiles)
@@ -372,9 +376,27 @@ export class DrizzleStudentImportRepository implements StudentImportRepository {
                 studentCode: row.studentCode,
                 classId: academicClass.id,
                 ...(cohortChanged ? { cohortYear } : {}),
+                ...(dateOfBirthChanged ? { dateOfBirth } : {}),
                 updatedAt: input.occurredAt,
               })
               .where(eq(studentProfiles.userId, existingUserId))
+
+            if (dateOfBirthChanged) {
+              await transaction.insert(auditLogs).values({
+                occurredAt: input.occurredAt,
+                actorType: 'USER',
+                actorUserId: input.actorUserId,
+                actorUsername: input.actorUsername,
+                action: 'STUDENT_DOB_UPDATE',
+                resourceType: 'STUDENT_PROFILE',
+                resourceId: existingUserId,
+                outcome: 'SUCCESS',
+                ...input.audit,
+                metadata: { source: 'STUDENT_IMPORT', previewId: input.previewId },
+                before: { dateOfBirthSet: profile.dateOfBirth !== null },
+                after: { dateOfBirthSet: true },
+              })
+            }
 
             if (cohortChanged) {
               await transaction.insert(auditLogs).values({
@@ -438,6 +460,7 @@ export class DrizzleStudentImportRepository implements StudentImportRepository {
             studentCode: row.studentCode,
             classId: academicClass.id,
             cohortYear: row.cohortYear ?? null,
+            dateOfBirth: row.dateOfBirth ?? null,
             createdAt: input.occurredAt,
             updatedAt: input.occurredAt,
           })

@@ -428,3 +428,50 @@ test('niên khóa nhận K15, 15 hoặc năm vào học; ô trống là chưa c�
   )
   assert.deepEqual(preview.errorRecords[0]?.values.cohortYear, { kind: 'TEXT', text: 'K2021' })
 })
+
+test('ngày sinh theo quy ước ngày/tháng; ngày sai báo lỗi theo dòng; ô trống là chưa có', async () => {
+  const row = (sourceRow: number, dateOfBirth: string | number | Date | null) => ({
+    sourceRow,
+    values: {
+      studentCode: String(200 + sourceRow),
+      fullName: 'Sinh viên giả ' + sourceRow,
+      email: `dob${sourceRow}@example.edu.vn`,
+      classCode: 'K15A',
+      dateOfBirth,
+    },
+  })
+  const service = new StudentImportService(
+    new FakeStudentImportRepository(),
+    new InMemoryStudentImportPreviewStore(),
+    createParser([
+      row(2, '10/02/2003'),
+      row(3, new Date(Date.UTC(2003, 5, 24))),
+      row(4, ''),
+      row(5, '30/02/2003'),
+      row(6, 37662),
+      row(7, '2003/02/10'),
+    ]),
+    () => fixedNow,
+  )
+  const preview = await service.previewImport({
+    actorUserId: 'actor-1',
+    fileName: 'students.csv',
+    fileBuffer: Buffer.from('ignored'),
+  })
+  assert.deepEqual(
+    preview.validRecords.map((r) => [r.sourceRow, r.dateOfBirth ?? null]),
+    [
+      [2, '2003-02-10'],
+      [3, '2003-06-24'],
+      [4, null],
+    ],
+  )
+  assert.deepEqual(
+    preview.errorRecords.map((r) => [r.sourceRow, r.issues.map((i) => `${i.field}:${i.code}`)]),
+    [
+      [5, ['dateOfBirth:INVALID_FORMAT']],
+      [6, ['dateOfBirth:INVALID_FORMAT']],
+      [7, ['dateOfBirth:INVALID_FORMAT']],
+    ],
+  )
+})

@@ -63,6 +63,7 @@ const recordSchema = Type.Object({
   classCode: Type.String(),
   // Optional: previews stored before ADR 0025 have no cohort field.
   cohortYear: Type.Optional(Type.Union([Type.Integer(), Type.Null()])),
+  dateOfBirth: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
 })
 
 const duplicateReasonSchema = Type.Object({
@@ -90,6 +91,7 @@ const importErrorValuesSchema = Type.Object({
   email: importErrorCellSchema,
   classCode: importErrorCellSchema,
   cohortYear: Type.Optional(importErrorCellSchema),
+  dateOfBirth: Type.Optional(importErrorCellSchema),
 })
 
 const previewResponseSchema = Type.Object({

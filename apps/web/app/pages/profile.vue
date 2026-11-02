@@ -71,6 +71,10 @@ onMounted(() => {
               <dd>{{ formatCohort(profile.cohortYear) }}</dd>
             </div>
             <div>
+              <dt>Ngày sinh</dt>
+              <dd>{{ formatDateOfBirth(profile.dateOfBirth) }}</dd>
+            </div>
+            <div>
               <dt>Khoa</dt>
               <dd>{{ profile.faculty.name }}</dd>
             </div>

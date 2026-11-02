@@ -2,7 +2,7 @@
 
 Cập nhật bối cảnh ngày **02/11/2026**, sau khi đóng Sprint 10 (LOCAL_TECHNICAL) và hồ sơ sprint trong repo. Đây là điểm bắt đầu để AI tiếp tục dự án khi không có lịch sử chat hoặc tệp Word local. Đọc tình trạng thực tế bằng Git và code trước khi sửa; ngày cập nhật tài liệu không có nghĩa kiểm thử đã được chạy lại trong ngày đó.
 
-**Điểm tiếp tục: Sprint 10 đã CLOSED LOCAL_TECHNICAL ngày 02/11/2026 ([hồ sơ đóng](docs/sprint-10-closure.md)); Sprint 11 đã có [kế hoạch đề xuất](docs/sprint-11-plan.md) và [ADR 0025 — niên khóa sinh viên](docs/adr/0025-student-cohort.md), cả hai đã được duyệt ngày 02/11; 11.0 (niên khóa) và nhóm việc theo mẫu Học viện A–C ([ADR 0026](docs/adr/0026-academy-criteria-classification-templates.md): bộ tiêu chí thật, xếp loại tạm tính, bảng điểm lớp, biên bản họp lớp) đã COMPLETE_LOCAL; tiếp theo là 11.1 — CLB và vai trò, còn chờ D (ngày sinh) và 11.L (lớp trưởng) ([trạng thái](docs/sprint-11-status.json)).** Production vẫn NOT_READY.
+**Điểm tiếp tục: Sprint 10 đã CLOSED LOCAL_TECHNICAL ngày 02/11/2026 ([hồ sơ đóng](docs/sprint-10-closure.md)); Sprint 11 đã có [kế hoạch đề xuất](docs/sprint-11-plan.md) và [ADR 0025 — niên khóa sinh viên](docs/adr/0025-student-cohort.md), cả hai đã được duyệt ngày 02/11; 11.0 (niên khóa) và nhóm việc theo mẫu Học viện A–C ([ADR 0026](docs/adr/0026-academy-criteria-classification-templates.md): bộ tiêu chí thật, xếp loại tạm tính, bảng điểm lớp, biên bản họp lớp) đã COMPLETE_LOCAL; D — ngày sinh ([ADR 0027](docs/adr/0027-student-date-of-birth.md), dữ liệu cá nhân, tự điền biểu mẫu thủ tục) cũng đã COMPLETE_LOCAL; tiếp theo là 11.1 — CLB và vai trò cùng 11.L — lớp trưởng ([trạng thái](docs/sprint-11-status.json)).** Production vẫn NOT_READY.
 
 ## 1. Dự án và cách cộng tác
 

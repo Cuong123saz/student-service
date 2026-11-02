@@ -17,6 +17,8 @@ export interface StudentProfileView {
   studentCode: string
   /** ADR 0025: admission year; niên khóa K = year - 2006 (2021 = K15). Null when unknown. */
   cohortYear: number | null
+  /** ADR 0027: ISO date or null; personal data shown only to the student and authorized staff. */
+  dateOfBirth: string | null
   class: {
     id: string
     code: string
@@ -59,6 +61,7 @@ export class DrizzleStudentProfileRepository implements StudentProfileRepository
         email: users.email,
         studentCode: studentProfiles.studentCode,
         cohortYear: studentProfiles.cohortYear,
+        dateOfBirth: studentProfiles.dateOfBirth,
         classId: academicClasses.id,
         classCode: academicClasses.code,
         className: academicClasses.name,
@@ -86,6 +89,7 @@ export class DrizzleStudentProfileRepository implements StudentProfileRepository
       email: row.email,
       studentCode: row.studentCode,
       cohortYear: row.cohortYear,
+      dateOfBirth: row.dateOfBirth,
       class: {
         id: row.classId,
         code: row.classCode,

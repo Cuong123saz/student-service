@@ -43,6 +43,7 @@ import {
   type DraftView,
   type SubmissionActor,
   type StoredEvidence,
+  type StudentSnapshot,
 } from './submission.types.js'
 import { queueFilters, queueFingerprint, queueCursor, queueSearch } from './submission-queue.js'
 import { personalNotifications } from '../notifications/notification.schema.js'
@@ -57,6 +58,7 @@ export class DrizzleSubmissionRepository {
         fullName: users.fullName,
         classCode: academicClasses.code,
         facultyCode: faculties.code,
+        dateOfBirth: studentProfiles.dateOfBirth,
       })
       .from(users)
       .innerJoin(userRoles, eq(users.id, userRoles.userId))
@@ -336,6 +338,19 @@ export class DrizzleSubmissionRepository {
         fileId,
       },
     })
+  }
+  /**
+   * ADR 0027 (data minimisation): the immutable round snapshot keeps the date of birth only
+   * when this form version actually autofills it.
+   */
+  private snapshotFor(
+    procedure: PublicProcedure,
+    profile: Awaited<ReturnType<DrizzleSubmissionRepository['profile']>>,
+  ): StudentSnapshot {
+    const { dateOfBirth, ...rest } = profile
+    return procedure.fields.some((f) => f.source === 'PROFILE' && f.profileKey === 'dateOfBirth')
+      ? { ...rest, dateOfBirth }
+      : rest
   }
   private profileValues(
     procedure: PublicProcedure,
@@ -747,7 +762,7 @@ export class DrizzleSubmissionRepository {
           roundNumber: row.roundNumber + 1,
           processingUnitId,
           designatedReviewerId,
-          studentSnapshot: currentProfile,
+          studentSnapshot: this.snapshotFor(row.procedure, currentProfile),
           updatedAt: new Date(),
         })
         .where(eq(submissions.id, id))

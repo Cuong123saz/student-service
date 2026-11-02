@@ -197,3 +197,18 @@ test('cột “Khoa” (đơn vị) bị bỏ qua, còn cột “Khóa” bị t
     )
   }
 })
+
+test('cột Ngày sinh là tùy chọn; ô ngày Excel giữ kiểu ngày để service đọc theo UTC', async () => {
+  const csv = await parseStudentImportFile(
+    'students.csv',
+    Buffer.from(
+      'Mã sinh viên,Họ và tên,Email,Mã lớp,Ngày sinh\nSV001,A B,a@example.edu.vn,K15A,10/02/2003',
+    ),
+  )
+  assert.equal(csv.rows[0]?.values.dateOfBirth, '10/02/2003')
+  const without = await parseStudentImportFile(
+    'students.csv',
+    Buffer.from('Mã sinh viên,Họ và tên,Email,Mã lớp\nSV001,A B,a@example.edu.vn,K15A'),
+  )
+  assert.equal('dateOfBirth' in without.rows[0]!.values, false)
+})

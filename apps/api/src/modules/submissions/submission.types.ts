@@ -23,6 +23,8 @@ export interface StudentSnapshot {
   studentCode: string
   classCode: string
   facultyCode: string
+  /** ADR 0027: present only when the submitted form version autofills the date of birth. */
+  dateOfBirth?: string | null
 }
 export interface EvidenceView {
   id: string

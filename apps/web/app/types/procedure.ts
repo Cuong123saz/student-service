@@ -3,7 +3,7 @@ export interface ProcedureField {
   label: string
   type: 'TEXT' | 'TEXTAREA' | 'NUMBER' | 'DATE' | 'SELECT' | 'BOOLEAN'
   source: 'STUDENT_INPUT' | 'PROFILE'
-  profileKey: 'studentCode' | 'fullName' | 'classCode' | 'facultyCode' | null
+  profileKey: 'studentCode' | 'fullName' | 'classCode' | 'facultyCode' | 'dateOfBirth' | null
   required: boolean
   maxLength: number
   options: { value: string; label: string }[]

@@ -58,6 +58,7 @@ const studentSchema = Type.Object({
   status: Type.String(),
   studentCode: Type.String(),
   cohortYear: Type.Union([Type.Integer(), Type.Null()]),
+  dateOfBirth: Type.Union([Type.String({ format: 'date' }), Type.Null()]),
   academicClass: Type.Object({
     id: Type.String({ format: 'uuid' }),
     code: Type.String(),

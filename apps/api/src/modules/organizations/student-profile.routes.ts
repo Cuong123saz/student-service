@@ -25,6 +25,7 @@ const profileResponseSchema = Type.Object({
     email: Type.Union([Type.String({ format: 'email' }), Type.Null()]),
     studentCode: Type.String(),
     cohortYear: Type.Union([Type.Integer(), Type.Null()]),
+    dateOfBirth: Type.Union([Type.String({ format: 'date' }), Type.Null()]),
     class: identitySchema,
     faculty: identitySchema,
   }),

@@ -38,6 +38,11 @@ export interface TrainingExportRow {
   approvedPoints: number
   advisor: TrainingExportReceipt
   faculty: TrainingExportReceipt
+  /**
+   * ADR 0027: current profile date of birth (ISO) read in the same snapshot transaction; only
+   * the class sheet prints it. Absent in snapshots that predate it.
+   */
+  dateOfBirth?: string | null
 }
 export interface TrainingExportSnapshot {
   schemaVersion: 1
