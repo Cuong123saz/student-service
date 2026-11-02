@@ -129,6 +129,12 @@ function roster(viewerRole: ReviewRoster['viewerRole']): ReviewRoster {
   }
 }
 let api = mockApi()
+// ADR 0033: the suggestion/settings panels are covered in activity-suggestions.acceptance.test.ts.
+mockNuxtImport('useActivitySuggestions', () => () => ({
+  forStudent: () => new Promise(() => {}),
+  forReview: () => new Promise(() => {}),
+  settings: () => new Promise(() => {}),
+}))
 mockNuxtImport('useTrainingReviews', () => () => api)
 mockNuxtImport('useRoute', () => () => route)
 function button(w: VueWrapper, name: string) {

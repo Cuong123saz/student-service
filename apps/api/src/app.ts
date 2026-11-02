@@ -15,6 +15,11 @@ import { activityRoutes } from './modules/activities/activity.routes.js'
 import { ActivityRegistrationRepository } from './modules/activities/activity-registration.repository.js'
 import { ActivityAttendanceRepository } from './modules/activities/activity-attendance.repository.js'
 import { activityAttendanceRoutes } from './modules/activities/activity-attendance.routes.js'
+import { ActivitySuggestionRepository } from './modules/activities/activity-suggestion.repository.js'
+import {
+  activitySettingsAdminRoutes,
+  activitySuggestionRoutes,
+} from './modules/activities/activity-suggestion.routes.js'
 import { TrainingPointService } from './modules/training-points/training-points.service.js'
 import {
   trainingAdminRoutes,
@@ -134,6 +139,7 @@ export interface BuildAppOptions {
   activityRepository?: ActivityRepository
   registrationRepository?: ActivityRegistrationRepository
   attendanceRepository?: ActivityAttendanceRepository
+  suggestionRepository?: ActivitySuggestionRepository
   trainingService?: TrainingPointService
   submissionService?: SubmissionService
   procedureService?: ProcedureUseCase
@@ -438,6 +444,10 @@ export function buildApp(options: BuildAppOptions = {}) {
         ),
       ),
   })
+  // ADR 0033: suggestions (user portal) and per-period settings (admin portal).
+  const suggestionRepository = options.suggestionRepository ?? new ActivitySuggestionRepository()
+  app.register(activitySuggestionRoutes, { prefix: USER_API_PREFIX, suggestionRepository })
+  app.register(activitySettingsAdminRoutes, { prefix: ADMIN_API_PREFIX, suggestionRepository })
   app.register(serviceRoutes)
 
   return app
