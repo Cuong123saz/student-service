@@ -23,7 +23,7 @@ Ngày sinh là dữ liệu cá nhân (theo hiểu biết hiện tại, thuộc p
 - Số trơn (serial Excel không có định dạng ngày) bị từ chối vì không chắc là ngày.
 - Ô trống không xóa ngày sinh đã có. Chỉ quản trị có quyền import sửa được; sinh viên không tự sửa.
 
-**Xem.** Sinh viên xem của chính mình trên hồ sơ. Quản trị xem trong danh sách sinh viên theo phạm vi hiện có. Cố vấn/khoa thấy trong bảng điểm lớp theo quyền xuất hiện có (ADR 0021). Không hiển thị ở trang công khai, danh sách xét duyệt hay thông báo.
+**Xem.** *(Sửa đổi bởi [ADR 0028](0028-class-monitor-role.md): lớp trưởng của lớp, trong nhiệm kỳ, cũng xem được ngày sinh để lập bảng điểm lớp và liên lạc; mọi lần xem có audit.)* Sinh viên xem của chính mình trên hồ sơ. Quản trị xem trong danh sách sinh viên theo phạm vi hiện có. Cố vấn/khoa thấy trong bảng điểm lớp theo quyền xuất hiện có (ADR 0021). Không hiển thị ở trang công khai, danh sách xét duyệt hay thông báo.
 
 **Audit và log.** Thay đổi ngày sinh ghi audit `STUDENT_DOB_UPDATE` **không kèm giá trị** (`before`/`after` chỉ ghi `{ "dateOfBirthSet": true|false }`). Ngày sinh không được đưa vào log, metadata audit hay thông báo lỗi.
 

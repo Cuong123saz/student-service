@@ -1,12 +1,12 @@
 ---
-status: Proposed
+status: Accepted
 date: 2026-11-02
 scope: Sprint 11.L class monitor (lớp trưởng) role, confirmation step and class roster
 ---
 
 # ADR 0028 — Vai trò lớp trưởng
 
-**Proposed ngày 02/11/2026.** Ghi các quyết định chủ dự án đã chốt; các mục đánh dấu **[CHỜ]** cần chủ dự án xác nhận trước khi đổi sang Accepted và viết migration. Liên quan ADR 0020 (xét duyệt điểm rèn luyện), ADR 0027 (ngày sinh).
+**Accepted ngày 02/11/2026.** Mọi mục đã được chủ dự án chốt, kể cả hai mục từng để chờ (xem “Quyền của cố vấn” và “Tổng hợp”). Liên quan ADR 0020 (xét duyệt điểm rèn luyện), ADR 0027 (ngày sinh).
 
 ## Đã chốt
 
@@ -19,7 +19,7 @@ Sinh viên nộp → Lớp trưởng xác nhận → Cố vấn xác nhận/tr�
 ```
 
 - Lớp trưởng **chỉ xác nhận đã kiểm tra** và có thể **ghi chú cho cố vấn**. Lớp trưởng **không sửa điểm** (cột “tập thể đánh giá” đã bỏ) và **không trả phiếu về sinh viên**; quyền trả về vẫn của cố vấn. Bản nộp của sinh viên vẫn bất biến.
-- Quyết định mới `MONITOR_CONFIRMED` được nối vào lịch sử append-only; cần migration mở rộng CHECK của `training_review_decisions.action` và sửa ADR 0020.
+- Quyết định mới `MONITOR_CONFIRMED` (và `MONITOR_BYPASSED` của cố vấn) được nối vào lịch sử append-only; cần migration mở rộng CHECK của `training_review_decisions.action` và sửa ADR 0020.
 - **Mặc định bắt buộc**: cố vấn chỉ thấy phiếu sau khi lớp trưởng xác nhận.
 - **Phiếu của chính lớp trưởng** bỏ qua bước này, đi thẳng tới cố vấn. Không ai tự xác nhận phiếu của mình.
 - Xác nhận bằng tài khoản là `NOT_VERIFIED`, `legalEffect=false`, không phải chữ ký số.
@@ -28,15 +28,12 @@ Sinh viên nộp → Lớp trưởng xác nhận → Cố vấn xác nhận/tr�
 
 **Audit.** Mọi thao tác của lớp trưởng (xác nhận, ghi chú, xem danh sách lớp, xem chi tiết phiếu, tải minh chứng) ghi audit. **Cố vấn của lớp** xem được audit các thao tác lớp trưởng trên lớp mình (trang mới ở cổng người dùng, chỉ lọc theo lớp được phân công).
 
-## [CHỜ] 1 — “Cố vấn có quyền thay đổi” nghĩa là gì
+## Quyền của cố vấn đối với bước lớp trưởng (đã chốt)
 
-Câu trả lời “ban đầu sẽ bắt buộc và cố vấn có quyền thay đổi” có thể hiểu theo ba cách:
+Bước lớp trưởng mặc định bắt buộc. Cố vấn của lớp được:
 
-1. Cố vấn **tắt/bật** bước lớp trưởng cho lớp mình.
-2. Cố vấn **bổ nhiệm/thay** lớp trưởng.
-3. Cố vấn **bỏ qua bước lớp trưởng cho từng phiếu** (kèm lý do, có audit), ví dụ khi lớp trưởng chậm.
-
-Đề xuất: cho cả **(2)** và **(3)**. Như vậy lớp không bao giờ bị kẹt vì thiếu lớp trưởng, mà bước xác nhận vẫn mặc định bắt buộc.
+1. **Bổ nhiệm/thay lớp trưởng** của lớp mình (đặt ngày bắt đầu/kết thúc nhiệm kỳ). CTSV cũng làm được.
+2. **Bỏ qua bước lớp trưởng cho từng phiếu**, bắt buộc ghi lý do; ghi thành quyết định `MONITOR_BYPASSED` trong lịch sử và audit. Nhờ vậy lớp không bị kẹt khi chưa có hoặc đổi lớp trưởng.
 
 ## Phạm vi dữ liệu và quyền xuất của lớp trưởng (đã chốt 02/11/2026)
 
@@ -56,7 +53,7 @@ Chủ dự án quyết định lớp trưởng **xem được cả ngày sinh**,
 **Chức năng mới cần làm:**
 
 1. **In phiếu đánh giá kết quả rèn luyện từng sinh viên** theo mẫu Học viện (DOCX/PDF): thông tin sinh viên (gồm ngày sinh, niên khóa), điểm tự khai và điểm duyệt theo 5 mục, ô ký Cố vấn / Lớp trưởng / Sinh viên để trống, ghi chú các xác nhận trên hệ thống. Chỉ chấm theo 5 mục lớn (mục con chưa được mô hình hóa, ADR 0026). Cố vấn/khoa cũng in được.
-2. **Tổng hợp trước khi duyệt:** bảng điểm lớp hiện chỉ liệt kê bản **khoa đã duyệt** (ADR 0026). Lớp trưởng tổng hợp ở đầu quy trình nên cần **[CHỜ]** chốt: thêm bản “bảng tổng hợp điểm tự khai” (ghi rõ “chưa được duyệt”), hay lớp trưởng chỉ tải bảng điểm sau khi khoa duyệt.
+2. **Tổng hợp:** lớp trưởng tải **bảng điểm lớp sau khi khoa duyệt** (không làm bảng tổng hợp điểm tự khai), vì từng phiếu đã được duyệt riêng, không cần duyệt lại (chủ dự án chốt).
 
 ## Phạm vi kỹ thuật dự kiến
 
