@@ -104,7 +104,55 @@
       ]
     },
     "10.4": {
-      "status": "PENDING"
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0024_SINGLE_SNAPSHOT_ZIP_CORS_EXPOSED_HEADERS_DOWNLOAD_PANEL",
+      "verifiedAt": "2026-11-02",
+      "baseBranch": "feat/sprint-10-3-training-minutes",
+      "apiUnit": {
+        "passed": 207,
+        "skipped": 2,
+        "failed": 0,
+        "discoveryPassed": 6
+      },
+      "apiIntegration": {
+        "passed": 358,
+        "failed": 0
+      },
+      "trainingReviewRunner": {
+        "passed": 21,
+        "subcases": 20
+      },
+      "web": {
+        "passed": 154,
+        "failed": 0
+      },
+      "newTests": {
+        "apiUnit": 4,
+        "apiHttpSql": 1,
+        "webUnit": 4,
+        "webAcceptance": 3
+      },
+      "quality": {
+        "check": "PASS",
+        "lint": "PASS",
+        "formatCheck": "PASS",
+        "build": "PASS",
+        "adrGate": "PASS"
+      },
+      "realBundleQA": {
+        "converter": "LibreOffice",
+        "manifestFilesMatched": 3,
+        "zipSha256MatchesHeaderAndAudit": true,
+        "pdfPages": 3
+      },
+      "browserRehearsal": "NOT_RUN",
+      "usageDocument": "docs/sprint-10-export-ui.md",
+      "limitations": [
+        "No real-browser rehearsal yet (CORS, Web Crypto, file save, responsive widths) — 10.5",
+        "No cancel for a running export request",
+        "Preview counts come from the class summary at page load and may differ from the export snapshot",
+        "Concurrency and rate limits are per service instance"
+      ]
     },
     "10.5": {
       "status": "PENDING"
@@ -112,7 +160,7 @@
   },
   "productionReadiness": "NOT_READY",
   "workingTreeHasUncommittedChanges": true,
-  "nextIncrement": "10.4 — UI download, CORS exposed headers and single-snapshot ZIP with manifest",
+  "nextIncrement": "10.5 — browser rehearsal with fake data, file/image review, runbook and closure",
   "evidenceDirectory": "C:\\Users\\Personal\\Documents\\ChatGPT\\New project\\sprint10-1\\verification",
   "runtimeFiles": [
     {

@@ -663,6 +663,119 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
     )
 
     await t.test(
+      'ZIP HTTP download bundles one snapshot with a verifiable manifest and CORS-exposed hashes',
+      async () => {
+        const { p, d } = await fixture()
+        await repo.act(advisor, d.id, 'ADVISOR_SIGNED', input())
+        await repo.act(faculty, d.id, 'FACULTY_APPROVED', input(1, false))
+        let failConvert = false
+        const exporter = new TrainingExportService(
+          repo,
+          createTrainingExportWorkbook,
+          createTrainingMinutesDocx,
+          {
+            convert: async () => {
+              if (failConvert) throw new Error('synthetic converter failure')
+              return Buffer.from('%PDF-1.7 synthetic bundle %%EOF')
+            },
+          },
+        )
+        const app = buildApp({
+          trainingReviewService: service,
+          trainingService: points,
+          trainingExportService: exporter,
+        })
+        await app.ready()
+        const token = app.jwt.sign(
+          {
+            sub: advisor,
+            username: 'test',
+            roles: ['ACADEMIC_ADVISOR', 'STUDENT'],
+            portal: 'user',
+            mustChangePassword: false,
+            iss: JWT_ISSUER,
+            aud: USER_JWT_AUDIENCE,
+          },
+          { expiresIn: '5m' },
+        )
+        const url = '/api/v1/user/training-reviews/periods/' + p.id + '/export.zip'
+        let ip = 1
+        const request = () =>
+          app.inject({
+            method: 'POST',
+            payload: {},
+            url,
+            headers: { cookie: 'user_session=' + token, origin: env.corsOrigin },
+            remoteAddress: '127.0.5.' + ip++,
+          })
+        const sha = (b: Uint8Array) => createHash('sha256').update(b).digest('hex')
+        try {
+          const res = await request()
+          assert.equal(res.statusCode, 200, res.body)
+          assert.equal(res.headers['content-type'], 'application/zip')
+          assert.match(res.headers['cache-control'] as string, /private.*no-store/)
+          const exposed = String(res.headers['access-control-expose-headers'] ?? '')
+          for (const header of [
+            'Content-Disposition',
+            'X-Export-Snapshot-Id',
+            'X-Export-Sha256',
+            'X-Export-Manifest-Sha256',
+          ])
+            assert.ok(exposed.includes(header), header)
+          assert.equal(res.headers['x-export-sha256'], sha(res.rawPayload))
+          const files = unzipSync(res.rawPayload)
+          const manifest = JSON.parse(strFromU8(files['manifest.json']!)) as {
+            snapshotId: string
+            approvedRows: number
+            files: { name: string; sha256: string; size: number }[]
+          }
+          assert.equal(res.headers['x-export-manifest-sha256'], sha(files['manifest.json']!))
+          assert.equal(manifest.snapshotId, res.headers['x-export-snapshot-id'])
+          assert.equal(manifest.approvedRows, 1)
+          assert.equal(manifest.files.length, 3)
+          for (const f of manifest.files) {
+            assert.equal(sha(files[f.name]!), f.sha256, f.name)
+            assert.equal(files[f.name]!.length, f.size, f.name)
+          }
+          // Every rendered file inside carries the same snapshot.
+          const docxName = manifest.files.find((f) => f.name.endsWith('.docx'))!.name
+          assert.ok(
+            strFromU8(unzipSync(files[docxName]!)['word/document.xml']!).includes(
+              manifest.snapshotId,
+            ),
+          )
+          const xlsxName = manifest.files.find((f) => f.name.endsWith('.xlsx'))!.name
+          const info = await readSheet(Buffer.from(files[xlsxName]!), 'Thông tin')
+          assert.equal(info.find((r) => r[0] === 'Mã snapshot')?.[1], manifest.snapshotId)
+
+          const [audit] = await db<
+            { metadata: Record<string, unknown> }[]
+          >`SELECT metadata FROM audit_logs WHERE action='training.export.zip.prepared' AND resource_id=${p.id}`
+          assert.deepEqual(audit!.metadata, {
+            format: 'ZIP',
+            rowCount: 1,
+            sha256: sha(res.rawPayload),
+            size: res.rawPayload.length,
+            snapshotId: manifest.snapshotId,
+            templateVersion: 'training-minutes-v1',
+            manifestSha256: res.headers['x-export-manifest-sha256'],
+          })
+
+          failConvert = true
+          const failed = await request()
+          assert.equal(failed.statusCode, 503)
+          assert.equal(failed.headers['x-export-sha256'], undefined)
+          const [count] = await db<
+            { n: number }[]
+          >`SELECT count(*)::integer AS n FROM audit_logs WHERE action='training.export.zip.prepared' AND resource_id=${p.id}`
+          assert.equal(count!.n, 1)
+        } finally {
+          await app.close()
+        }
+      },
+    )
+
+    await t.test(
       'advisor, return, new confirmation and faculty approval preserve original and frozen receipts',
       async () => {
         const { p, d } = await fixture(),

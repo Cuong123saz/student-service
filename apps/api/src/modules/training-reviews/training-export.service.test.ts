@@ -267,3 +267,71 @@ test('XLSX and minutes exports share one per-account slot', async () => {
     await running
   }
 })
+
+test('ZIP renders all formats from one snapshot, converts the bundled DOCX and audits once', async () => {
+  const snapshot = await fixture()
+  let snapshots = 0,
+    converted: Buffer | undefined
+  const receipts: Record<string, unknown>[] = []
+  const service = new TrainingExportService(
+    {
+      exportSnapshot: async () => {
+        snapshots++
+        return snapshot
+      },
+      assertExportAccess: async () => {},
+      recordExport: async (_a, _p, receipt) => {
+        receipts.push({ ...receipt })
+      },
+    },
+    () => Buffer.from('xlsx'),
+    () => Buffer.from('docx'),
+    {
+      convert: async (docx) => {
+        converted = docx
+        return Buffer.from('%PDF-zip')
+      },
+    },
+  )
+  const file = await service.downloadZip(actor, 'period')
+  assert.equal(snapshots, 1)
+  assert.equal(converted?.toString(), 'docx')
+  assert.equal(file.mimeType, 'application/zip')
+  assert.equal(file.name, `training-export-${snapshot.snapshotId}.zip`)
+  assert.equal(file.sha256, createHash('sha256').update(file.bytes).digest('hex'))
+  assert.equal(receipts.length, 1)
+  assert.equal(receipts[0]!.format, 'ZIP')
+  assert.equal(receipts[0]!.manifestSha256, file.manifestSha256)
+  assert.equal(receipts[0]!.sha256, file.sha256)
+})
+
+test('ZIP fails as a whole when PDF conversion fails, with no audit and a released slot', async () => {
+  const snapshot = await fixture()
+  let audits = 0,
+    fail = true
+  const service = new TrainingExportService(
+    {
+      exportSnapshot: async () => snapshot,
+      assertExportAccess: async () => {},
+      recordExport: async () => {
+        audits++
+      },
+    },
+    () => Buffer.from('xlsx'),
+    () => Buffer.from('docx'),
+    {
+      convert: async () => {
+        if (fail) throw new Error('DOCUMENT_CONVERSION_TIMEOUT')
+        return Buffer.from('%PDF-ok')
+      },
+    },
+  )
+  await assert.rejects(
+    service.downloadZip(actor, 'period'),
+    (e) => e instanceof SubmissionError && e.code === 'TRAINING_EXPORT_PDF_UNAVAILABLE',
+  )
+  assert.equal(audits, 0)
+  fail = false
+  await service.downloadZip(actor, 'period')
+  assert.equal(audits, 1)
+})

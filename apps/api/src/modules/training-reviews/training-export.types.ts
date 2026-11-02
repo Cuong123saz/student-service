@@ -7,6 +7,7 @@ export const trainingExportAuditActions = Object.freeze({
   XLSX: 'training.export.xlsx.prepared',
   DOCX: 'training.export.docx.prepared',
   PDF: 'training.export.pdf.prepared',
+  ZIP: 'training.export.zip.prepared',
 } as const)
 export type TrainingExportAuditFormat = keyof typeof trainingExportAuditActions
 export interface TrainingExportAuditReceipt {
@@ -17,6 +18,7 @@ export interface TrainingExportAuditReceipt {
   size: number
   templateVersion?: string
   sourceDocxSha256?: string
+  manifestSha256?: string
 }
 export interface TrainingExportReceipt {
   id: string
