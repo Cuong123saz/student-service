@@ -2,6 +2,22 @@ import type { Answers, Criterion } from '../training-points/training-points.type
 import type { ReviewDecision, ReviewDetail, ReviewSummary } from './training-review.types.js'
 
 export const trainingExportMaxRows = 1000
+/** Audit actions are a closed set; the format never becomes free text in the action name. */
+export const trainingExportAuditActions = Object.freeze({
+  XLSX: 'training.export.xlsx.prepared',
+  DOCX: 'training.export.docx.prepared',
+  PDF: 'training.export.pdf.prepared',
+} as const)
+export type TrainingExportAuditFormat = keyof typeof trainingExportAuditActions
+export interface TrainingExportAuditReceipt {
+  format: TrainingExportAuditFormat
+  snapshotId: string
+  rowCount: number
+  sha256: string
+  size: number
+  templateVersion?: string
+  sourceDocxSha256?: string
+}
 export interface TrainingExportReceipt {
   id: string
   revision: number

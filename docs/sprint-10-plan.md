@@ -1,6 +1,6 @@
 # Sprint 10 — Xuất bảng điểm rèn luyện và biên bản
 
-**IN_PROGRESS ngày 23/10/2026**. [Trạng thái chi tiết](sprint-10-status.json). Tiền đề: [Sprint 9 CLOSED kỹ thuật local](sprint-9-closure.md). Increment 10.1 và 10.2 đã hoàn thành kỹ thuật local: snapshot theo quyền và API POST tải Excel. Word/PDF/ZIP và giao diện tải còn ở các increment sau; chưa nghiệm thu mẫu chính thức của Học viện.
+**IN_PROGRESS, cập nhật 02/11/2026**. [Trạng thái chi tiết](sprint-10-status.json). Tiền đề: [Sprint 9 CLOSED kỹ thuật local](sprint-9-closure.md). Increment 10.1–10.3 đã hoàn thành kỹ thuật local: snapshot theo quyền, API POST tải Excel và biên bản Word/PDF. ZIP và giao diện tải còn ở các increment sau; chưa nghiệm thu mẫu chính thức của Học viện.
 
 ## Mục tiêu và hợp đồng dữ liệu đề xuất
 
@@ -19,7 +19,7 @@ Cố vấn/cán bộ khoa đủ quyền hiện tại xuất bảng Excel và bi�
 | --- | --- | --- |
 | 10.1 — COMPLETE_LOCAL | ADR 0021, DTO snapshot, truy vấn có scope và kiểm lại quyền | Chốt quyền xuất; đọc cùng snapshot; giữ lớp của đợt và điểm đã duyệt; kiểm tra dữ liệu trống/chưa duyệt |
 | 10.2 — COMPLETE_LOCAL | Bộ sinh XLSX và API POST tải, [hướng dẫn/kiểm chứng](sprint-10-xlsx.md) | Số hàng/tổng/trung bình khớp snapshot; mã sinh viên giữ dạng text; chuỗi không trở thành công thức; đọc lại tệp thực tế để đối chiếu |
-| 10.3 — Word/PDF | Mẫu có phiên bản, sinh DOCX và chuyển PDF | Tiếng Việt/font đúng; bảng dài lặp tiêu đề; không cắt hàng/chữ; tên dài và nhiều trang đọc được; rà trang đã render |
+| 10.3 — COMPLETE_LOCAL | Mẫu có phiên bản, sinh DOCX và chuyển PDF, [hướng dẫn/kiểm chứng](sprint-10-minutes.md) | Tiếng Việt/font đúng; bảng dài lặp tiêu đề; không cắt hàng/chữ; tên dài và nhiều trang đọc được; rà trang đã render |
 | 10.4 — Giao diện và ZIP | Xem phạm vi/số lượng trước tải, tải từng định dạng và gói | Trạng thái tải/lỗi rõ; nút dùng thành phần chung; 401/403 xóa dữ liệu; kiểm ZIP/hash và tính nhất quán giữa các tệp |
 | 10.5 — Diễn tập và đóng | Kiểm thử, runbook, báo cáo/ảnh/tệp mẫu, hồ sơ đóng | Kiểm thử quyền/đồng thời/audit và trình duyệt; trực tiếp rà Excel/Word/PDF; bảo toàn Sprint 8/9; chỉ đóng khi toàn bộ tiêu chí đạt |
 
@@ -59,3 +59,10 @@ Bằng chứng: `C:/Users/Personal/Documents/ChatGPT/New project/sprint10-1/veri
 ## Kết quả increment 10.2 — 23/10/2026
 
 Đã có POST /api/v1/user/training-reviews/periods/:id/export.xlsx, body {}. XLSX hai sheet, giữ mã sinh viên dạng chữ, điểm dạng số và ngày UTC+7, không tạo công thức từ chuỗi đầu vào. Kiểm lại quyền sau render và ghi audit cùng transaction; lỗi quyền/audit không trả tệp. 9 unit và 19 theo runner SQL/HTTP đạt; typecheck/lint/build API và kiểm định dạng đạt. Đã đọc lại XLSX, rà hai sheet bằng LibreOffice/Poppler và ghi hash bằng chứng. [Chi tiết sử dụng, giới hạn và kiểm chứng](sprint-10-xlsx.md). Chưa có nút tải UI, chưa xuất Word/PDF/ZIP, Sprint 10 chưa đóng. Bước kế tiếp 10.3.
+
+
+## Kết quả increment 10.3 — 02/11/2026
+
+[ADR 0023](adr/0023-training-minutes-docx-pdf.md). Có POST `.../periods/:id/minutes.docx` và `.../minutes.pdf`, body `{}`. DOCX sinh bằng OpenXML trong code, mẫu `training-minutes-v1` được ghim bằng hash nội dung, A4 ngang, nhãn thử nghiệm mọi trang, bảng lặp tiêu đề và không tách hàng, khối ký trên giấy để trống. PDF chuyển từ đúng byte DOCX qua `LibreOfficePdfConverter`; audit và header ghi SHA-256 DOCX nguồn. Lỗi converter trả 503 riêng, không audit, không trả PDF hỏng. Excel và Word dùng chung kiểm toàn vẹn snapshot. Kiểm lại quyền và ghi audit sau render/chuyển đổi như 10.2.
+
+Kiểm chứng: unit 10 ca mới (1 ca PDF thật opt-in, đã chạy đạt), 1 ca HTTP/SQL mới; toàn bộ unit/integration API, typecheck, lint, format đạt. Đã render PDF thật 3 trang (fixture) và 14 trang (120 dòng), rà ảnh trang và trích text. Microsoft Word desktop chưa kiểm. [Chi tiết](sprint-10-minutes.md). Bước kế tiếp 10.4: UI tải, CORS expose header, ZIP một snapshot kèm manifest.

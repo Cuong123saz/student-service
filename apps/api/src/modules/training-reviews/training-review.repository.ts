@@ -1,5 +1,7 @@
 import {
+  trainingExportAuditActions,
   trainingExportMaxRows,
+  type TrainingExportAuditReceipt,
   type TrainingExportSnapshot,
   type TrainingExportRow,
 } from './training-export.types.js'
@@ -201,14 +203,17 @@ export class TrainingReviewRepository {
   async recordExport(
     actor: SubmissionActor,
     periodId: string,
-    receipt: { snapshotId: string; rowCount: number; sha256: string; size: number },
+    receipt: TrainingExportAuditReceipt,
   ): Promise<void> {
+    const action = trainingExportAuditActions[receipt.format]
     await this.db.begin(async (tx) => {
       await this.locks(tx)
       const context = await this.exportContext(tx, actor.userId, periodId)
+      // jsonb_strip_nulls keeps the XLSX metadata contract at exactly its five original keys.
       await tx`INSERT INTO audit_logs(actor_type,actor_user_id,actor_username,action,resource_type,resource_id,outcome,request_id,ip_address,user_agent,metadata)
-        VALUES('USER',${actor.userId},${context.exportedBy.username},'training.export.xlsx.prepared','training_period',${periodId},'SUCCESS',${actor.requestId},${actor.ipAddress},${actor.userAgent},
-          jsonb_build_object('snapshotId',${receipt.snapshotId}::text,'rowCount',${receipt.rowCount}::integer,'sha256',${receipt.sha256}::text,'size',${receipt.size}::integer,'format','XLSX'))`
+        VALUES('USER',${actor.userId},${context.exportedBy.username},${action},'training_period',${periodId},'SUCCESS',${actor.requestId},${actor.ipAddress},${actor.userAgent},
+          jsonb_strip_nulls(jsonb_build_object('snapshotId',${receipt.snapshotId}::text,'rowCount',${receipt.rowCount}::integer,'sha256',${receipt.sha256}::text,'size',${receipt.size}::integer,'format',${receipt.format}::text,
+            'templateVersion',${receipt.templateVersion ?? null}::text,'sourceDocxSha256',${receipt.sourceDocxSha256 ?? null}::text)))`
     })
   }
 
