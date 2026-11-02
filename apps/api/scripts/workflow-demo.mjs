@@ -41,6 +41,8 @@ const sprint6Rehearsal = profile.kind === 'sprint6'
 const sprint7Rehearsal = profile.kind === 'sprint7'
 const sprint8Rehearsal = profile.kind === 'sprint8'
 const sprint9Rehearsal = profile.kind === 'sprint9'
+// Sprint 10 reuses the Sprint 9 accounts, roles and scopes, then exercises export downloads.
+const sprint10Rehearsal = profile.kind === 'sprint10'
 const queueCountsRehearsal = profile.kind === 'queue-counts'
 const signatureRehearsal = profile.kind === 'mock-signature'
 const vaultEnabled =
@@ -161,7 +163,7 @@ if (action === 'stop') {
     return child
   }
   async function ready(url) {
-    for (let i = 0; i < (vaultEnabled || sprint9Rehearsal ? 600 : 160); i++) {
+    for (let i = 0; i < (vaultEnabled || sprint9Rehearsal || sprint10Rehearsal ? 600 : 160); i++) {
       if (stopping) throw new Error('WORKFLOW_DEMO_CHILD_EXITED')
       try {
         if ((await fetch(url, { signal: AbortSignal.timeout(1000) })).ok) return
@@ -267,7 +269,7 @@ if (action === 'stop') {
       await sql`INSERT INTO role_permissions(role_id,permission_id)
       SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code='DRILL_REVIEW' AND p.code='document.mock_sign' ON CONFLICT DO NOTHING`
     const accounts = []
-    if (sprint8Rehearsal || sprint9Rehearsal) {
+    if (sprint8Rehearsal || sprint9Rehearsal || sprint10Rehearsal) {
       const adminId = randomUUID()
       await sql`INSERT INTO roles(code,name,is_system) VALUES('SYSTEM_ADMIN','Quản trị hệ thống giả định',true) ON CONFLICT DO NOTHING`
       await sql`INSERT INTO users(id,username,full_name,password_hash,status,must_change_password,activated_at) VALUES(${adminId},'demo.quantri','Quản trị giả định',${hash},'ACTIVE',false,now())`
@@ -276,7 +278,7 @@ if (action === 'stop') {
       await sql`INSERT INTO user_role_scopes(user_id,role_id,scope_id) SELECT ${adminId},r.id,s.id FROM roles r CROSS JOIN authorization_scopes s WHERE r.code='SYSTEM_ADMIN' AND s.scope_type='GLOBAL'`
       accounts.push({ username: 'demo.quantri', label: 'Quản trị đợt rèn luyện giả định' })
     }
-    if (sprint9Rehearsal) {
+    if (sprint9Rehearsal || sprint10Rehearsal) {
       const advisorId = randomUUID()
       const [clazz] =
         await sql`SELECT c.id,c.faculty_id FROM academic_classes c WHERE c.code='DRILL_CLASS'`
@@ -652,6 +654,22 @@ if (action === 'stop') {
         'queue-counts-browser',
       )
     }
+    if (sprint10Rehearsal)
+      launch(
+        join(apiRoot, 'scripts/check-sprint10-demo.mjs'),
+        apiRoot,
+        {
+          ...inherited,
+          WORKFLOW_SPRINT10_STATE_PATH: join(runRoot, 'state.json'),
+          ...(process.env.WORKFLOW_PLAYWRIGHT_MODULE
+            ? { WORKFLOW_PLAYWRIGHT_MODULE: process.env.WORKFLOW_PLAYWRIGHT_MODULE }
+            : {}),
+          ...(process.env.WORKFLOW_CHROMIUM_EXECUTABLE
+            ? { WORKFLOW_CHROMIUM_EXECUTABLE: process.env.WORKFLOW_CHROMIUM_EXECUTABLE }
+            : {}),
+        },
+        'sprint10-browser',
+      )
     if (sprint9Rehearsal)
       launch(
         join(apiRoot, 'scripts/check-sprint9-demo.mjs'),

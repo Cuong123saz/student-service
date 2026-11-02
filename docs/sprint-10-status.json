@@ -1,8 +1,8 @@
 {
   "sprint": 10,
-  "status": "IN_PROGRESS",
+  "status": "CLOSED",
   "updatedAt": "2026-11-02",
-  "closureScope": "NOT_CLOSED",
+  "closureScope": "LOCAL_TECHNICAL",
   "increments": {
     "10.1": {
       "status": "COMPLETE_LOCAL",
@@ -155,13 +155,42 @@
       ]
     },
     "10.5": {
-      "status": "PENDING"
+      "status": "COMPLETE_LOCAL",
+      "scope": "BROWSER_REHEARSAL_CLIENT_DISCONNECT_RUNBOOK_CLOSURE",
+      "verifiedAt": "2026-11-02",
+      "browserRun": "2858ad81-023b-43da-9e2b-4e2fa7e486c4",
+      "browserStatus": "PASS",
+      "browserChecks": 8,
+      "responsiveChecks": 8,
+      "screenshots": 9,
+      "productSourceCommit": "e019148",
+      "browserReportSha256": "dd36c218c6297cd5f91769c8a7c338d2d4e5a93396965eddf6fd481754d6b58c",
+      "superseededLooseAssertionRun": "209ed71e-ca11-42a7-a509-2d32c39a948b",
+      "sprint9RegressionRehearsal": "PASS (14 checks, 17 screenshots)",
+      "totals": {
+        "passed": 1092,
+        "skipped": 2,
+        "failed": 0,
+        "groups": {
+          "adrGate": 51,
+          "apiUnitDiscovery": 6,
+          "apiUnit": 207,
+          "apiIntegration": 359,
+          "storageRecoveryBundleGuards": 315,
+          "web": 154
+        }
+      },
+      "newTests": {
+        "clientDisconnectHttp": 1,
+        "rehearsalGuards": 3
+      },
+      "runbook": "docs/sprint-10-runbook.md",
+      "closure": "docs/sprint-10-closure.md"
     }
   },
   "productionReadiness": "NOT_READY",
-  "workingTreeHasUncommittedChanges": true,
-  "nextIncrement": "10.5 — browser rehearsal with fake data, file/image review, runbook and closure",
-  "evidenceDirectory": "C:\\Users\\Personal\\Documents\\ChatGPT\\New project\\sprint10-1\\verification",
+  "workingTreeHasUncommittedChanges": false,
+  "nextIncrement": null,
   "runtimeFiles": [
     {
       "path": "apps/api/src/modules/training-reviews/training-review.repository.ts",
@@ -202,5 +231,12 @@
       "sha256": "a1261418d6278b29b2746c9bbfbf312c6666846a107048941e2c041b426e0141"
     }
   ],
-  "previousRuntimePreservedOutsideChangedFiles": true
+  "previousRuntimePreservedOutsideChangedFiles": true,
+  "closedAt": "2026-11-02",
+  "basis": "USER_AUTHORIZED_AGENT_COMPLETION",
+  "authorization": "merge rồi tiếp tục công việc tiếp — after PR 2 (10.3) merge",
+  "manualOwnerAcceptance": "NOT_SEPARATELY_RECORDED",
+  "institutionalApproval": "NOT_CLAIMED",
+  "nextSprint": "Sprint 11 — planning only after owner confirms scope",
+  "historicalEvidenceNote": "runtimeFiles/evidenceFiles below are Sprint 10.1 fingerprints from 23/10 on another machine; kept for traceability"
 }
