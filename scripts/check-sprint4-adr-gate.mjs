@@ -6,6 +6,7 @@ const tableAdrMap = new Map([
     ['docs/adr/0025-student-cohort.md', 'docs/adr/0027-student-date-of-birth.md'],
   ],
   ['training_review_decisions', 'docs/adr/0020-training-points-review-workflow.md'],
+  ['class_monitor_assignments', 'docs/adr/0028-class-monitor-role.md'],
   ['training_periods', 'docs/adr/0019-training-points-foundation.md'],
   ['training_declarations', 'docs/adr/0019-training-points-foundation.md'],
   ['training_evidence', 'docs/adr/0019-training-points-foundation.md'],

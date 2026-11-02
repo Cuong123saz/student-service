@@ -35,6 +35,12 @@ export const SYSTEM_ROLES = [
     description: 'Thực hiện ký văn bản khi được phân công',
     isSystem: true,
   },
+  {
+    code: 'CLASS_MONITOR',
+    name: 'Lớp trưởng',
+    description: 'Xác nhận phiếu điểm rèn luyện và tổng hợp bảng điểm của lớp trong nhiệm kỳ',
+    isSystem: true,
+  },
 ] as const
 export const USER_API_PREFIX = '/api/v1/user'
 

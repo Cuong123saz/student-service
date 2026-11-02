@@ -46,6 +46,8 @@ const ROLE_SCOPE_TYPES: Record<SystemRoleCode, readonly AuthorizationScopeType[]
   ACADEMIC_ADVISOR: ['CLASS'],
   FACULTY_REVIEWER: ['FACULTY'],
   DOCUMENT_SIGNER: ['ORGANIZATION'],
+  // ADR 0028: a class monitor's scope is its term assignment, not an authorization scope.
+  CLASS_MONITOR: [],
 }
 
 interface ScopeRow {

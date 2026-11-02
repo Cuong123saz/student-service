@@ -107,6 +107,10 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
     await grant(outsider, 'FACULTY_REVIEWER', foreignScope!.id)
     await db`INSERT INTO student_profiles(user_id,class_id,student_code) VALUES(${student},${clazz},'S9001'),(${other},${clazz},'S9002')`
     await db`INSERT INTO academic_advisor_assignments(advisor_user_id,class_id,valid_from) VALUES(${advisor},${clazz},now()-interval '1 day')`
+    // ADR 0028: the Sprint 9/10 scenarios use the class monitor's own declaration, which goes
+    // straight to the advisor; the monitor step itself is covered by dedicated tests below.
+    await db`INSERT INTO user_roles(user_id,role_id) SELECT ${student},id FROM roles WHERE code='CLASS_MONITOR'`
+    await db`INSERT INTO class_monitor_assignments(monitor_user_id,class_id,valid_from,assigned_by_user_id) VALUES(${student},${clazz},now()-interval '1 day',${advisor})`
     await db`INSERT INTO academic_advisor_assignments(advisor_user_id,class_id,valid_from,status) VALUES(${dual},${clazz},now()-interval '1 day','INACTIVE')`
     const pointRepo = new TrainingPointRepository(db),
       repo = new TrainingReviewRepository(db),
@@ -145,6 +149,13 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
       A: { points: 8, note: 'Cố vấn đối chiếu A' },
       B: { points: 5, note: 'Cố vấn đối chiếu B' },
     }
+    const actorOf = (userId: string) => ({
+      userId,
+      username: 'test',
+      requestId: randomUUID(),
+      ipAddress: '127.0.0.1',
+      userAgent: 'test',
+    })
     const input = (revision = 0, withAnswers = true): ReviewInput => ({
       expectedRevision: revision,
       requestId: randomUUID(),
@@ -244,8 +255,10 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
         )
         second = await pointRepo.save(other, second.id, second.revision, zero)
         await pointRepo.submit(other, second.id, second.revision, randomUUID())
-        await repo.act(advisor, second.id, 'ADVISOR_SIGNED', { ...input(), answers: zero })
-        await repo.act(faculty, second.id, 'FACULTY_APPROVED', input(1, false))
+        // ADR 0028: a regular student's declaration passes the class monitor first.
+        await repo.act(student, second.id, 'MONITOR_CONFIRMED', input(0, false))
+        await repo.act(advisor, second.id, 'ADVISOR_SIGNED', { ...input(1), answers: zero })
+        await repo.act(faculty, second.id, 'FACULTY_APPROVED', input(2, false))
         const [advisorBefore] = await db<
           { full_name: string }[]
         >`SELECT full_name FROM users WHERE id=${advisor}`
@@ -284,7 +297,10 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
         const { p } = await fixture()
         for (const read of [repo.exportSnapshot.bind(repo), repo.assertExportAccess.bind(repo)]) {
           await assert.rejects(read(admin, p.id), status(403))
-          await assert.rejects(read(student, p.id), status(403))
+          await assert.rejects(read(other, p.id), status(403))
+          // ADR 0028: the class monitor is refused detailed exports but allowed the class sheet/forms.
+          await assert.rejects(read(student, p.id), status(404))
+          await read(student, p.id, true)
           await assert.rejects(read(outsider, p.id), status(404))
           await assert.rejects(read(faculty, randomUUID()), status(404))
         }
@@ -405,7 +421,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
           }
           for (const [user, expected] of [
             [admin, 403],
-            [student, 403],
+            [other, 403],
             [outsider, 404],
           ] as const)
             assert.equal(
@@ -587,7 +603,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             (await request('docx', { origin: 'https://foreign.invalid' })).statusCode,
             403,
           )
-          assert.equal((await request('pdf', { cookie: cookie(student) })).statusCode, 403)
+          assert.equal((await request('pdf', { cookie: cookie(other) })).statusCode, 403)
           assert.equal((await request('pdf', { cookie: cookie(outsider) })).statusCode, 404)
           assert.equal(
             (await app.inject({ url: `${base}/minutes.pdf`, headers: { cookie: cookie() } }))
@@ -604,7 +620,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             docx.headers['content-disposition'] as string,
             /attachment; filename="training-minutes.docx"/,
           )
-          assert.equal(docx.headers['x-export-template-version'], 'training-minutes-v2')
+          assert.equal(docx.headers['x-export-template-version'], 'training-minutes-v3')
           assert.match(docx.headers['cache-control'] as string, /private.*no-store/)
           const word = strFromU8(unzipSync(docx.rawPayload)['word/document.xml']!)
           assert.ok(word.includes('S9001'))
@@ -630,7 +646,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             sha256: sha(docx.rawPayload),
             size: docx.rawPayload.length,
             snapshotId: docx.headers['x-export-snapshot-id'],
-            templateVersion: 'training-minutes-v2',
+            templateVersion: 'training-minutes-v3',
           })
           const [pdfAudit] = await audits('training.export.pdf.prepared')
           assert.deepEqual(pdfAudit!.metadata, {
@@ -639,7 +655,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             sha256: sha(pdf.rawPayload),
             size: pdf.rawPayload.length,
             snapshotId: pdf.headers['x-export-snapshot-id'],
-            templateVersion: 'training-minutes-v2',
+            templateVersion: 'training-minutes-v3',
             sourceDocxSha256: sha(converted!),
           })
 
@@ -762,7 +778,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             sha256: sha(res.rawPayload),
             size: res.rawPayload.length,
             snapshotId: manifest.snapshotId,
-            templateVersion: 'training-minutes-v2',
+            templateVersion: 'training-minutes-v3',
             manifestSha256: res.headers['x-export-manifest-sha256'],
           })
 
@@ -1265,6 +1281,206 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
         } finally {
           await app.close()
         }
+      },
+    )
+    // ADR 0028 — class monitor step, roster, audit and appointment.
+    const submitOther = async (p: { id: string }) => {
+      let d = await pointRepo.start(other, p.id)
+      d = await pointRepo.save(other, d.id, d.revision, answers)
+      return points.submit(other, d.id, d.revision, randomUUID())
+    }
+    await t.test(
+      'monitor confirms first without changing scores; advisor cannot skip it silently',
+      async () => {
+        const { p } = await fixture()
+        const d = await submitOther(p)
+        const before = await repo.detail(advisor, d.id)
+        assert.equal(before.state, 'WAITING_MONITOR')
+        assert.equal(before.canAdvisorSign, false)
+        assert.equal(before.canAdvisorBypass, true)
+        await assert.rejects(repo.act(advisor, d.id, 'ADVISOR_SIGNED', input()), status(409))
+        // The monitor cannot sign as advisor, and the student cannot confirm its own form.
+        await assert.rejects(repo.act(student, d.id, 'ADVISOR_SIGNED', input()), status(403))
+        await assert.rejects(
+          repo.act(other, d.id, 'MONITOR_CONFIRMED', input(0, false)),
+          status(403),
+        )
+        const confirmed = await repo.act(student, d.id, 'MONITOR_CONFIRMED', input(0, false))
+        assert.equal(confirmed.state, 'WAITING_ADVISOR')
+        const decision = confirmed.decisions.at(-1)!
+        assert.equal(decision.action, 'MONITOR_CONFIRMED')
+        assert.equal(decision.actor.roleCode, 'CLASS_MONITOR')
+        assert.deepEqual(decision.answers, d.answers)
+        assert.equal(decision.totalPoints, d.totalPoints)
+        await assert.rejects(
+          repo.act(student, d.id, 'MONITOR_CONFIRMED', input(1, false)),
+          status(409),
+        )
+        const signed = await repo.act(advisor, d.id, 'ADVISOR_SIGNED', input(1))
+        assert.equal(signed.state, 'WAITING_FACULTY')
+        // The database itself refuses a monitor decision that alters the student's scores.
+        await assert.rejects(
+          db`INSERT INTO training_review_decisions(id,declaration_id,revision,action,actor_user_id,actor_snapshot,assessed_answers,total_points,comment,declaration_sha256,request_id,input_revision,payload,payload_sha256) VALUES(${randomUUID()},${d.id},3,'MONITOR_CONFIRMED',${student},'{}'::jsonb,${JSON.stringify(assessed)}::text::jsonb,13,'x',${'a'.repeat(64)},${randomUUID()},2,'{}'::jsonb,${'a'.repeat(64)})`,
+          pg('23514'),
+        )
+        // The monitor's own declaration goes straight to the advisor.
+        const own = await fixture()
+        assert.equal((await repo.detail(advisor, own.d.id)).state, 'WAITING_ADVISOR')
+        assert.equal((await repo.detail(student, own.d.id)).canMonitorConfirm, false)
+      },
+    )
+    await t.test('advisor bypasses the monitor step with a recorded reason', async () => {
+      const { p } = await fixture()
+      const d = await submitOther(p)
+      await assert.rejects(
+        repo.act(student, d.id, 'MONITOR_BYPASSED', input(0, false)),
+        status(403),
+      )
+      const bypassed = await repo.act(advisor, d.id, 'MONITOR_BYPASSED', {
+        ...input(0, false),
+        comment: 'Lớp trưởng nghỉ ốm',
+      })
+      assert.equal(bypassed.state, 'WAITING_ADVISOR')
+      assert.equal(bypassed.decisions.at(-1)!.comment, 'Lớp trưởng nghỉ ốm')
+      assert.equal(bypassed.decisions.at(-1)!.actor.roleCode, 'ACADEMIC_ADVISOR')
+      const [audit] = await db<
+        { n: number }[]
+      >`SELECT count(*)::integer AS n FROM audit_logs WHERE action='training.review.monitor_bypassed' AND metadata->>'declarationId'=${d.id}`
+      assert.equal(audit!.n, 1)
+    })
+    await t.test(
+      'monitor roster shows contact data and date of birth; every monitor read is audited for the advisor',
+      async () => {
+        const { p } = await fixture(true)
+        const d = await submitOther(p)
+        await db`UPDATE student_profiles SET date_of_birth='2003-02-10',cohort_year=2021 WHERE user_id=${other}`
+        const before = await db<
+          { n: number }[]
+        >`SELECT count(*)::integer AS n FROM audit_logs WHERE action LIKE 'training.monitor.%'`
+        const roster = await repo.roster(student, p.id)
+        assert.equal(roster.canAppointMonitor, false)
+        assert.equal(roster.monitor?.userId, student)
+        const row = roster.students.find((x) => x.userId === other)!
+        assert.equal(row.dateOfBirth, '2003-02-10')
+        assert.equal(row.cohortYear, 2021)
+        assert.equal(row.declarationState, 'SUBMITTED')
+        await repo.detail(student, d.id)
+        // Advisor reads are not audited as monitor reads.
+        await repo.roster(advisor, p.id)
+        await repo.detail(advisor, d.id)
+        const after = await db<
+          { action: string; classId: string }[]
+        >`SELECT action,metadata->>'classId' AS "classId" FROM audit_logs WHERE action LIKE 'training.monitor.%' ORDER BY occurred_at DESC LIMIT 2`
+        const [count] = await db<
+          { n: number }[]
+        >`SELECT count(*)::integer AS n FROM audit_logs WHERE action LIKE 'training.monitor.%'`
+        assert.equal(count!.n - before[0]!.n, 2)
+        assert.deepEqual(after.map((a) => a.action).sort(), [
+          'training.monitor.declaration_viewed',
+          'training.monitor.roster_viewed',
+        ])
+        assert.ok(after.every((a) => a.classId === clazz))
+        const log = await repo.monitorAudit(advisor, p.id)
+        assert.ok(log.items.some((i) => i.action === 'training.monitor.roster_viewed'))
+        assert.doesNotMatch(JSON.stringify(log), /2003-02-10/)
+        await assert.rejects(repo.monitorAudit(student, p.id), status(403))
+        await assert.rejects(repo.roster(outsider, p.id), status(404))
+      },
+    )
+    await t.test(
+      'monitor HTTP exports: class sheet and printed form allowed, detailed exports refused',
+      async () => {
+        const { p } = await fixture()
+        const d = await submitOther(p)
+        await repo.act(student, d.id, 'MONITOR_CONFIRMED', input(0, false))
+        await repo.act(advisor, d.id, 'ADVISOR_SIGNED', input(1))
+        await repo.act(faculty, d.id, 'FACULTY_APPROVED', input(2, false))
+        const exporter = new TrainingExportService(
+          repo,
+          createTrainingExportWorkbook,
+          createTrainingMinutesDocx,
+          { convert: async () => Buffer.from('%PDF-1.7 synthetic form %%EOF') },
+        )
+        const app = buildApp({
+          trainingReviewService: service,
+          trainingService: points,
+          trainingExportService: exporter,
+        })
+        await app.ready()
+        const token = app.jwt.sign(
+          {
+            sub: student,
+            username: 'test',
+            roles: ['STUDENT', 'CLASS_MONITOR'],
+            portal: 'user',
+            mustChangePassword: false,
+            iss: JWT_ISSUER,
+            aud: USER_JWT_AUDIENCE,
+          },
+          { expiresIn: '5m' },
+        )
+        let ip = 1
+        const post = (path: string) =>
+          app.inject({
+            method: 'POST',
+            payload: {},
+            url: '/api/v1/user/training-reviews/periods/' + p.id + '/' + path,
+            headers: { cookie: 'user_session=' + token, origin: env.corsOrigin },
+            remoteAddress: '127.0.6.' + ip++,
+          })
+        try {
+          for (const path of ['export.xlsx', 'minutes.docx', 'export.zip'])
+            assert.equal((await post(path)).statusCode, 404, path)
+          const sheet = await post('class-sheet.xlsx')
+          assert.equal(sheet.statusCode, 200, sheet.body)
+          const form = await post('declarations/' + d.id + '/form.docx')
+          assert.equal(form.statusCode, 200, form.body)
+          assert.equal(form.headers['x-export-template-version'], 'training-form-v1')
+          assert.ok(
+            strFromU8(unzipSync(form.rawPayload)['word/document.xml']!).includes('Lớp trưởng'),
+          )
+          const pdf = await post('declarations/' + d.id + '/form.pdf')
+          assert.equal(pdf.statusCode, 200, pdf.body)
+          // A declaration that is not faculty-approved in this period cannot be printed.
+          const pending = await submitOther((await fixture()).p)
+          assert.equal((await post('declarations/' + pending.id + '/form.docx')).statusCode, 404)
+          const [audit] = await db<
+            { metadata: { declarationId: string; format: string } }[]
+          >`SELECT metadata FROM audit_logs WHERE action='training.export.form.prepared' AND resource_id=${p.id} ORDER BY occurred_at LIMIT 1`
+          assert.equal(audit!.metadata.declarationId, d.id)
+          assert.equal(audit!.metadata.format, 'FORM')
+          const log = await repo.monitorAudit(advisor, p.id)
+          assert.ok(log.items.some((i) => i.action === 'training.export.form.prepared'))
+        } finally {
+          await app.close()
+        }
+      },
+    )
+    await t.test(
+      'advisor replaces the monitor: the old term ends at once and only class students qualify',
+      async () => {
+        const { p } = await fixture()
+        const d = await submitOther(p)
+        await assert.rejects(repo.appointMonitor({ ...actorOf(student) }, p.id, other), status(403))
+        await assert.rejects(repo.appointMonitor(actorOf(advisor), p.id, outsider), status(400))
+        try {
+          await repo.appointMonitor(actorOf(advisor), p.id, other)
+          // The previous monitor lost every right at once: the declaration is no longer visible (404).
+          await assert.rejects(
+            repo.act(student, d.id, 'MONITOR_CONFIRMED', input(0, false)),
+            status(404),
+          )
+          assert.equal((await repo.detail(advisor, d.id)).state, 'WAITING_ADVISOR')
+          const roster = await repo.roster(advisor, p.id)
+          assert.equal(roster.monitor?.userId, other)
+          const [audit] = await db<
+            { n: number }[]
+          >`SELECT count(*)::integer AS n FROM audit_logs WHERE action='training.monitor.appointed' AND metadata->>'monitorUserId'=${other}`
+          assert.equal(audit!.n, 1)
+        } finally {
+          await repo.appointMonitor(actorOf(advisor), p.id, student)
+        }
+        assert.equal((await repo.roster(advisor, p.id)).monitor?.userId, student)
       },
     )
   } finally {

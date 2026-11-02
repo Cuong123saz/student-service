@@ -5,16 +5,16 @@ import type { TrainingReviewRepository } from './training-review.repository.js'
 import type { ReviewAction, ReviewInput } from './training-review.types.js'
 export type TrainingReviewStore = Pick<
   TrainingReviewRepository,
-  'periods' | 'queue' | 'detail' | 'file' | 'act'
+  'periods' | 'queue' | 'detail' | 'file' | 'act' | 'roster' | 'appointMonitor' | 'monitorAudit'
 >
 export class TrainingReviewService {
   constructor(
     readonly repository: TrainingReviewStore,
     private readonly storage: EvidenceStorage,
   ) {}
-  async download(user: string, id: string, fileId: string) {
+  async download(user: string, id: string, fileId: string, audit = true) {
     return readVerifiedEvidence(
-      () => this.repository.file(user, id, fileId),
+      () => this.repository.file(user, id, fileId, audit),
       (key) => this.storage.read(key),
       (reason) =>
         new SubmissionError(
@@ -30,7 +30,8 @@ export class TrainingReviewService {
   }
   async act(user: string, id: string, action: ReviewAction, input: ReviewInput) {
     const d = await this.repository.detail(user, id)
-    for (const f of d.files) await this.download(user, id, f.id)
+    // Integrity re-read before a decision; not a user download, so not audited as one.
+    for (const f of d.files) await this.download(user, id, f.id, false)
     return this.repository.act(user, id, action, input)
   }
 }

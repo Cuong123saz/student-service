@@ -4,6 +4,8 @@ import type {
   ReviewDetail,
   ReviewQueue,
   ReviewPeriod,
+  ReviewRoster,
+  MonitorAuditItem,
 } from '~/types/training-review'
 import type { TrainingAnswers } from '~/types/training-point'
 import { trainingFetchError } from '~/utils/training-point'
@@ -52,6 +54,18 @@ export function useTrainingReviews() {
     queue: (id: string, cursor?: string, state?: ReviewState) =>
       request<ReviewQueue>('/training-reviews/periods/' + id, { query: { cursor, state } }),
     detail: (id: string) => request<ReviewDetail>('/training-reviews/' + id),
+    // ADR 0028: class roster, monitor appointment and the advisor's view of monitor activity.
+    roster: (periodId: string) =>
+      request<ReviewRoster>('/training-reviews/periods/' + periodId + '/roster'),
+    appointMonitor: (periodId: string, studentUserId: string | null) =>
+      request<ReviewRoster>('/training-reviews/periods/' + periodId + '/monitor', {
+        method: 'PUT',
+        body: { studentUserId },
+      }),
+    monitorAudit: (periodId: string) =>
+      request<{ items: MonitorAuditItem[] }>(
+        '/training-reviews/periods/' + periodId + '/monitor-audit',
+      ),
     own: (id: string) => request<ReviewDetail>('/training-declarations/' + id + '/review'),
     act: (d: ReviewDetail, action: ReviewAction, comment: string, answers?: TrainingAnswers) =>
       request<ReviewDetail>('/training-reviews/' + d.id + '/' + action, {
@@ -74,11 +88,17 @@ export function useTrainingReviews() {
     exportPeriod: async (
       periodId: string,
       format: TrainingExportFormat,
+      declarationId?: string,
     ): Promise<TrainingExportResult> => {
       let response
       try {
         response = await $fetch.raw<Blob>(
-          base + '/training-reviews/periods/' + periodId + '/' + trainingExportFormats[format].path,
+          base +
+            '/training-reviews/periods/' +
+            periodId +
+            '/' +
+            (declarationId ? 'declarations/' + declarationId + '/' : '') +
+            trainingExportFormats[format].path,
           { method: 'POST', body: {}, credentials: 'include', responseType: 'blob' },
         )
       } catch (e) {

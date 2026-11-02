@@ -1,6 +1,12 @@
 import type { Answers, Criterion } from '../training-points/training-points.types.js'
-export type ReviewAction = 'ADVISOR_SIGNED' | 'FACULTY_RETURNED' | 'FACULTY_APPROVED'
-export type ReviewState = 'WAITING_ADVISOR' | 'WAITING_FACULTY' | 'RETURNED_TO_ADVISOR' | 'APPROVED'
+export type ReviewAction =
+  | 'MONITOR_CONFIRMED'
+  | 'MONITOR_BYPASSED'
+  | 'ADVISOR_SIGNED'
+  | 'FACULTY_RETURNED'
+  | 'FACULTY_APPROVED'
+export type ReviewState =
+  'WAITING_MONITOR' | 'WAITING_ADVISOR' | 'WAITING_FACULTY' | 'RETURNED_TO_ADVISOR' | 'APPROVED'
 export interface ReviewInput {
   expectedRevision: number
   requestId: string
@@ -55,15 +61,21 @@ export interface ReviewDetail {
   historyTruncated: boolean
   canAdvisorSign: boolean
   canFacultyDecide: boolean
+  /** ADR 0028: the class monitor confirms first; the advisor may bypass with a reason. */
+  canMonitorConfirm: boolean
+  canAdvisorBypass: boolean
 }
-export const reviewState = (action?: ReviewAction): ReviewState =>
-  action === 'ADVISOR_SIGNED'
-    ? 'WAITING_FACULTY'
-    : action === 'FACULTY_RETURNED'
-      ? 'RETURNED_TO_ADVISOR'
-      : action === 'FACULTY_APPROVED'
-        ? 'APPROVED'
-        : 'WAITING_ADVISOR'
+/** ADR 0028: with no decision yet, a declaration waits for the monitor unless its student is the monitor. */
+export const reviewState = (action?: ReviewAction, studentIsMonitor = false): ReviewState =>
+  action === undefined && !studentIsMonitor
+    ? 'WAITING_MONITOR'
+    : action === 'ADVISOR_SIGNED'
+      ? 'WAITING_FACULTY'
+      : action === 'FACULTY_RETURNED'
+        ? 'RETURNED_TO_ADVISOR'
+        : action === 'FACULTY_APPROVED'
+          ? 'APPROVED'
+          : 'WAITING_ADVISOR'
 
 export interface ReviewPeriod {
   id: string
@@ -85,6 +97,7 @@ export interface ReviewQueueRow {
 }
 export interface ReviewSummary {
   submitted: number
+  waitingMonitor: number
   waitingAdvisor: number
   waitingFaculty: number
   returnedToAdvisor: number

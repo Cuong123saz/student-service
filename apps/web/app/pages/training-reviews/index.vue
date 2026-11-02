@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ReviewPeriod, ReviewQueue, ReviewState } from '~/types/training-review'
+import type { ReviewPeriod, ReviewQueue, ReviewRoster, ReviewState } from '~/types/training-review'
 import type { TrainingError } from '~/types/training-point'
 import { reviewLabels } from '~/utils/training-review'
 definePageMeta({ middleware: 'user-auth' })
@@ -10,7 +10,8 @@ const api = useTrainingReviews(),
   state = ref<ReviewState | ''>(''),
   busy = ref(false),
   error = ref<TrainingError | null>(null),
-  truncated = ref(false)
+  truncated = ref(false),
+  viewerRole = ref<ReviewRoster['viewerRole']>('ADVISOR')
 let generation = 0
 async function load(initial = false, cursor?: string) {
   const g = ++generation
@@ -56,7 +57,7 @@ onBeforeUnmount(() => {
   <section class="training-workspace training-workspace--student">
     <header>
       <NuxtLink to="/portal">← Cổng của tôi</NuxtLink>
-      <p class="page-eyebrow">Cố vấn và khoa</p>
+      <p class="page-eyebrow">Cố vấn, khoa và lớp trưởng</p>
       <h1 class="page-title">Xét duyệt điểm rèn luyện</h1>
       <p class="page-description">
         Đối chiếu từng bản đã nộp, xem minh chứng và tổng hợp theo lớp.
@@ -110,6 +111,9 @@ onBeforeUnmount(() => {
             Đã nộp: <strong>{{ queue.summary.submitted }}</strong>
           </p>
           <p>
+            Chờ lớp trưởng: <strong>{{ queue.summary.waitingMonitor }}</strong>
+          </p>
+          <p>
             Chờ cố vấn: <strong>{{ queue.summary.waitingAdvisor }}</strong>
           </p>
           <p>
@@ -135,6 +139,13 @@ onBeforeUnmount(() => {
         :key="queue.period.id"
         :period="queue.period"
         :summary="queue.summary"
+        :viewer-role="viewerRole"
+        @lost-access="lostAccess"
+      />
+      <TrainingRosterPanel
+        :key="'roster-' + queue.period.id"
+        :period-id="queue.period.id"
+        @loaded="viewerRole = $event.viewerRole"
         @lost-access="lostAccess"
       />
       <section class="tp-panel">

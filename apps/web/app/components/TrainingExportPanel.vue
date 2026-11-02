@@ -2,18 +2,33 @@
 import type { ReviewQueue } from '~/types/training-review'
 import type { TrainingError } from '~/types/training-point'
 import type { TrainingExportResult } from '~/composables/useTrainingReviews'
-import { trainingExportFormats, type TrainingExportFormat } from '~/utils/training-export'
+import {
+  panelExportFormats,
+  trainingExportFormats,
+  type TrainingExportFormat,
+} from '~/utils/training-export'
 
-const props = defineProps<{ period: ReviewQueue['period']; summary: ReviewQueue['summary'] }>()
+const props = withDefaults(
+  defineProps<{
+    period: ReviewQueue['period']
+    summary: ReviewQueue['summary']
+    /** ADR 0028: a class monitor only gets the class sheet. */
+    viewerRole?: 'ADVISOR' | 'FACULTY' | 'MONITOR'
+  }>(),
+  { viewerRole: 'ADVISOR' },
+)
 const emit = defineEmits<{ 'lost-access': [error: TrainingError] }>()
 const api = useTrainingReviews(),
   busy = ref<TrainingExportFormat | ''>(''),
   error = ref<TrainingError | null>(null),
   result = ref<(TrainingExportResult & { format: TrainingExportFormat }) | null>(null)
-const formats = Object.keys(trainingExportFormats) as TrainingExportFormat[]
+const formats = computed(() => panelExportFormats[props.viewerRole])
 const pending = computed(
   () =>
-    props.summary.waitingAdvisor + props.summary.waitingFaculty + props.summary.returnedToAdvisor,
+    props.summary.waitingMonitor +
+    props.summary.waitingAdvisor +
+    props.summary.waitingFaculty +
+    props.summary.returnedToAdvisor,
 )
 let generation = 0
 watch(

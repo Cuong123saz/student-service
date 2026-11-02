@@ -96,6 +96,11 @@ export const SYSTEM_PERMISSIONS = [
     name: 'Duyệt điểm rèn luyện cấp khoa',
     description: 'Phê duyệt kết quả điểm rèn luyện ở cấp khoa',
   },
+  {
+    code: 'training_point.monitor_confirm',
+    name: 'Lớp trưởng xác nhận điểm rèn luyện',
+    description: 'Xác nhận phiếu và xem dữ liệu lớp mình trong nhiệm kỳ',
+  },
 ] as const
 
 export type SystemPermissionCode = (typeof SYSTEM_PERMISSIONS)[number]['code']
@@ -131,4 +136,5 @@ export const SYSTEM_ROLE_PERMISSIONS = {
     'training_point.faculty_approve',
   ],
   DOCUMENT_SIGNER: ['document.sign'],
+  CLASS_MONITOR: ['training_point.monitor_confirm'],
 } as const satisfies Record<SystemRoleCode, readonly SystemPermissionCode[]>

@@ -147,6 +147,7 @@ export function createTrainingExportWorkbook(s: TrainingExportSnapshot): Buffer 
     ['Trạng thái đợt', s.period.status],
     ['Bộ tiêu chí', s.period.policyLabel],
     ['Bản đã nộp', s.summary.submitted],
+    ['Chờ lớp trưởng', s.summary.waitingMonitor],
     ['Chờ cố vấn', s.summary.waitingAdvisor],
     ['Chờ khoa', s.summary.waitingFaculty],
     ['Khoa trả về', s.summary.returnedToAdvisor],

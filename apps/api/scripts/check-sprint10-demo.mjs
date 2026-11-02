@@ -204,10 +204,20 @@ try {
   phase = 'approve-one-declaration'
   const reviewPath = '/training-reviews/' + approvedDeclaration.id
   const initial = await (await request(advisor, 'user', reviewPath)).json()
-  await request(advisor, 'user', reviewPath + '/advisor-sign', 200, {
+  // ADR 0028: the class monitor step comes first; the advisor bypasses it with a reason.
+  await request(advisor, 'user', reviewPath + '/monitor-bypass', 200, {
     method: 'POST',
     data: {
       expectedRevision: 0,
+      requestId: crypto.randomUUID(),
+      confirmed: true,
+      comment: 'Lớp giả định chưa bổ nhiệm lớp trưởng',
+    },
+  })
+  await request(advisor, 'user', reviewPath + '/advisor-sign', 200, {
+    method: 'POST',
+    data: {
+      expectedRevision: 1,
       requestId: crypto.randomUUID(),
       confirmed: true,
       comment: 'Cố vấn đối chiếu giả định',
@@ -221,7 +231,7 @@ try {
     await request(faculty, 'user', reviewPath + '/faculty-approve', 200, {
       method: 'POST',
       data: {
-        expectedRevision: 1,
+        expectedRevision: 2,
         requestId: crypto.randomUUID(),
         confirmed: true,
         comment: 'Khoa duyệt giả định',

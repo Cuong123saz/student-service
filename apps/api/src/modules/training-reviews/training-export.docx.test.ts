@@ -76,13 +76,13 @@ test('minutes DOCX is deterministic and its content is pinned to the template ve
   assert.deepEqual(createTrainingMinutesDocx(structuredClone(s)), first)
   // Changing the generated layout must bump trainingMinutesTemplate and this pin together.
   // The pin covers the uncompressed parts, so a zip library upgrade alone does not trip it.
-  assert.equal(trainingMinutesTemplate.label, 'training-minutes-v2')
+  assert.equal(trainingMinutesTemplate.label, 'training-minutes-v3')
   const hash = createHash('sha256')
   for (const [name, content] of Object.entries(parts(first)).sort(([a], [b]) => (a < b ? -1 : 1)))
     hash.update(name + '\u0000').update(content)
   assert.equal(
     hash.digest('hex'),
-    '4cc6049334bbace3da4701d6a192c42d4d1bca5e29ebee1c9fccc61aab0119be',
+    '63a74cf679c5502e78f13340092670ca6552a9ab61b0627ae018e5280cb8a328',
     'layout changed: bump trainingMinutesTemplate.version and update this pin',
   )
 })

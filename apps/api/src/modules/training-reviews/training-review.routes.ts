@@ -53,6 +53,44 @@ export async function trainingReviewRoutes(
   app.get('/training-reviews/periods', { preHandler: auth }, (req, reply) =>
     execute(req, reply, () => r.periods(submissionActor(req).userId)),
   )
+  // ADR 0028: class roster (advisor, faculty, class monitor), monitor appointment and audit.
+  app.get<{ Params: { id: string } }>(
+    '/training-reviews/periods/:id/roster',
+    { preHandler: auth, schema: { params } },
+    (req, reply) =>
+      execute(req, reply, () => r.roster(submissionActor(req).userId, req.params.id.toLowerCase())),
+  )
+  app.put<{ Params: { id: string }; Body: { studentUserId: string | null } }>(
+    '/training-reviews/periods/:id/monitor',
+    {
+      preHandler: write,
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+      schema: {
+        params,
+        body: Type.Object(
+          { studentUserId: Type.Union([uuid, Type.Null()]) },
+          { additionalProperties: false },
+        ),
+      },
+    },
+    (req, reply) =>
+      execute(req, reply, async () => {
+        await r.appointMonitor(
+          submissionActor(req),
+          req.params.id.toLowerCase(),
+          req.body.studentUserId?.toLowerCase() ?? null,
+        )
+        return r.roster(submissionActor(req).userId, req.params.id.toLowerCase())
+      }),
+  )
+  app.get<{ Params: { id: string } }>(
+    '/training-reviews/periods/:id/monitor-audit',
+    { preHandler: auth, schema: { params } },
+    (req, reply) =>
+      execute(req, reply, () =>
+        r.monitorAudit(submissionActor(req).userId, req.params.id.toLowerCase()),
+      ),
+  )
   app.get<{ Params: { id: string }; Querystring: { cursor?: string; state?: ReviewState } }>(
     '/training-reviews/periods/:id',
     {
@@ -65,9 +103,13 @@ export async function trainingReviewRoutes(
             cursor: Type.Optional(uuid),
             state: Type.Optional(
               Type.Union(
-                ['WAITING_ADVISOR', 'WAITING_FACULTY', 'RETURNED_TO_ADVISOR', 'APPROVED'].map((x) =>
-                  Type.Literal(x),
-                ),
+                [
+                  'WAITING_MONITOR',
+                  'WAITING_ADVISOR',
+                  'WAITING_FACULTY',
+                  'RETURNED_TO_ADVISOR',
+                  'APPROVED',
+                ].map((x) => Type.Literal(x)),
               ),
             ),
           },
@@ -118,6 +160,8 @@ export async function trainingReviewRoutes(
       ),
   )
   for (const [path, action] of [
+    ['monitor-confirm', 'MONITOR_CONFIRMED'],
+    ['monitor-bypass', 'MONITOR_BYPASSED'],
     ['advisor-sign', 'ADVISOR_SIGNED'],
     ['faculty-return', 'FACULTY_RETURNED'],
     ['faculty-approve', 'FACULTY_APPROVED'],
