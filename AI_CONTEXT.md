@@ -10,7 +10,7 @@ Dự án Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục
 
 Chủ dự án muốn được phản biện như intern được senior hướng dẫn: chỉ ra giả định sai, lỗi và hệ quả bằng bằng chứng; giải thích quyết định quan trọng, tránh khen chung chung. Trả lời bằng tiếng Việt. Phân biệt yêu cầu hướng dẫn với yêu cầu thực hiện; tiếp tục phần đã được người dùng cho phép, không hỏi lại cùng một xác nhận.
 
-Repo: [Cuong123saz/student-service](https://github.com/Cuong123saz/student-service). Tại lúc cập nhật: 10.3 đã merge vào `main` ([PR 2](https://github.com/Cuong123saz/student-service/pull/2)); 10.4 chờ review ở [PR 3](https://github.com/Cuong123saz/student-service/pull/3); 10.5 ở nhánh `feat/sprint-10-5-rehearsal-closure` tách từ nhánh 10.4. Tên nhánh và trạng thái dirty phải đọc lại từ Git, không coi các giá trị trong tài liệu là thông tin live. Đường dẫn máy hiện tại là `D:\student-service`; trên máy khác dùng root checkout thực tế, không hard-code đường dẫn này trong sản phẩm.
+Repo: [Cuong123saz/student-service](https://github.com/Cuong123saz/student-service). Tại lúc cập nhật: 10.3 và 10.4 đã merge vào `main` ([PR 2](https://github.com/Cuong123saz/student-service/pull/2), [PR 3](https://github.com/Cuong123saz/student-service/pull/3)); 10.5 ở nhánh `feat/sprint-10-5-rehearsal-closure`. Tên nhánh và trạng thái dirty phải đọc lại từ Git, không coi các giá trị trong tài liệu là thông tin live. Đường dẫn máy hiện tại là `D:\student-service`; trên máy khác dùng root checkout thực tế, không hard-code đường dẫn này trong sản phẩm.
 
 ## 2. Thứ tự đọc và nguồn đối chiếu
 
@@ -104,7 +104,7 @@ Chi tiết tại [hướng dẫn Excel](docs/sprint-10-xlsx.md), [ADR 0021](docs
 
 ### Bắt đầu Sprint 11 khi người dùng yêu cầu tiếp tục
 
-1. Đọc lại Git: PR 10.4/10.5 đã merge chưa; không xếp chồng Sprint 11 lên nhánh chưa merge nếu tránh được.
+1. Đọc lại Git: PR 10.5 đã merge chưa; không xếp chồng Sprint 11 lên nhánh chưa merge nếu tránh được.
 2. Chưa viết code. Lập `docs/sprint-11-plan.md` dạng đề xuất và hỏi chủ dự án chốt: actor/scope (ai tạo hoạt động, ai điểm danh), sức chứa và danh sách chờ, trạng thái đăng ký/hủy/điểm danh và tranh chấp, quan hệ với minh chứng điểm rèn luyện. Không tự cộng điểm từ hoạt động khi chưa có quy tắc.
 3. Sau khi chốt: ADR trước schema/migration, theo gate hiện có.
 
