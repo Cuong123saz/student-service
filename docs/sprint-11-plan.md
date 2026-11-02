@@ -63,7 +63,7 @@ CLB bị tạm dừng/giải thể không mở hoạt động mới; chứng nh�
 | --- | --- | --- |
 | 11.0 — COMPLETE_LOCAL | [ADR 0025](adr/0025-student-cohort.md); migration cột niên khóa (nullable), import Excel/CSV thêm cột “Niên khóa”, hiển thị trong hồ sơ/quản trị | Dữ liệu cũ giữ nguyên; giá trị sai bị báo lỗi theo dòng; không suy niên khóa từ mã sinh viên/lớp |
 | 11.1 — CLB và vai trò | [ADR 0029](adr/0029-clubs-and-activity-roles.md); role/permission CTSV, Phòng Đào tạo, người phụ trách CLB; CLB là đơn vị tổ chức; trạng thái CLB | Đúng ma trận quyền; SYSTEM_ADMIN không thay vai trò; audit |
-| 11.2 — Hoạt động | ADR + migration; tạo/sửa/hủy hoạt động, bắt buộc/tự nguyện, đối tượng, sức chứa, giao CLB, tạm dừng | Chỉ CTSV/Phòng ĐT tạo bắt buộc; lịch sử thay đổi; đối tượng kiểm ở máy chủ |
+| 11.2 — Hoạt động | [ADR 0030](adr/0030-extracurricular-activities.md) + migration; tạo/sửa/hủy hoạt động, bắt buộc/tự nguyện, đối tượng, sức chứa, giao CLB, tạm dừng | Chỉ CTSV/Phòng ĐT tạo bắt buộc; lịch sử thay đổi; đối tượng kiểm ở máy chủ |
 | 11.3 — Đăng ký | Đăng ký, danh sách chờ, yêu cầu hủy, vắng mặt, thông báo | Không vượt sức chứa khi đồng thời; danh sách chờ đúng thứ tự; hạn 24 giờ |
 | 11.4 — Điểm danh và chứng nhận | QR, chụp ảnh trong trang, xóa EXIF, hàng duyệt, cấp/thu hồi chứng nhận | Từ chối ngoài giờ/không đăng ký/không đối tượng; không tự duyệt; ảnh riêng tư |
 | 11.5 — Gợi ý điểm | Thiết lập ngoại khóa theo đợt (nhóm nhận điểm, mức điểm, ngưỡng, khoảng thời gian) có audit; tính b/B/t; đính kèm chứng nhận vào bản kê khai | Không sửa bản đã nộp/điểm đã duyệt; các ca biên (B=0, hủy được duyệt, thu hồi) |
