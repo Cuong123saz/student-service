@@ -9,6 +9,9 @@ import type {
   StudentRegistrationView,
   RegistrationHistoryItem,
   ActivityRoster,
+  AttendanceQueue,
+  Certificate,
+  MyAttendance,
 } from '~/types/activity'
 import { trainingFetchError } from '~/utils/training-point'
 
@@ -74,6 +77,47 @@ export function useActivities() {
       request<ActivityRoster>('/manage/' + id + '/registrations/' + registrationId + '/decision', {
         method: 'POST',
         body: { expectedRevision, accept, ...(note ? { note } : {}) },
+      }),
+    // ADR 0032: check-in, photo, review and certificates.
+    attendance: (id: string) => request<MyAttendance>('/' + id + '/attendance'),
+    scan: (id: string, code: string) =>
+      request<MyAttendance>('/' + id + '/attendance/scan', { method: 'POST', body: { code } }),
+    submitPhoto: (id: string, photo: Blob) => {
+      const body = new FormData()
+      body.append('photo', photo, 'attendance.jpg')
+      return request<MyAttendance>('/' + id + '/attendance/photo', { method: 'POST', body })
+    },
+    certificates: () => request<{ items: Certificate[] }>('/certificates'),
+    attendanceQueue: (id: string) => request<AttendanceQueue>('/manage/' + id + '/attendance'),
+    attendancePhoto: (id: string, attendanceId: string) =>
+      request<Blob>('/manage/' + id + '/attendance/' + attendanceId + '/photo', {
+        responseType: 'blob',
+      }),
+    review: (
+      id: string,
+      entries: { id: string; revision: number }[],
+      approve: boolean,
+      note: string,
+    ) =>
+      request<AttendanceQueue>('/manage/' + id + '/attendance/review', {
+        method: 'POST',
+        body: { entries, approve, ...(note ? { note } : {}) },
+      }),
+    revokeCertificate: (certificateId: string, reason: string) =>
+      request<{ activityId: string }>('/certificates/' + certificateId + '/revoke', {
+        method: 'POST',
+        body: { reason },
+      }),
+    checkinQr: (id: string) =>
+      request<Blob>('/manage/' + id + '/checkin-qr.svg', { responseType: 'blob' }),
+    configureCheckin: (
+      id: string,
+      expectedRevision: number,
+      change: { reset: true } | { rotating: boolean },
+    ) =>
+      request<ActivityDetail>('/manage/' + id + '/checkin', {
+        method: 'POST',
+        body: { expectedRevision, ...change },
       }),
     delegate: (id: string, expectedRevision: number, clubId: string | null, reason: string) =>
       request<ActivityDetail>('/' + id + '/delegation', {

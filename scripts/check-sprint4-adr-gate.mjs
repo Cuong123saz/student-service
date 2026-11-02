@@ -13,6 +13,8 @@ const tableAdrMap = new Map([
   ['activity_events', 'docs/adr/0030-extracurricular-activities.md'],
   ['activity_registrations', 'docs/adr/0031-activity-registration-waitlist.md'],
   ['activity_registration_events', 'docs/adr/0031-activity-registration-waitlist.md'],
+  ['activity_attendances', 'docs/adr/0032-activity-attendance-certificates.md'],
+  ['activity_certificates', 'docs/adr/0032-activity-attendance-certificates.md'],
   ['training_periods', 'docs/adr/0019-training-points-foundation.md'],
   ['training_declarations', 'docs/adr/0019-training-points-foundation.md'],
   ['training_evidence', 'docs/adr/0019-training-points-foundation.md'],

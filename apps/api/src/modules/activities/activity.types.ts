@@ -47,6 +47,10 @@ export interface ActivityPermissions {
   canDelegate: boolean
   canSuspend: boolean
   canResume: boolean
+  /** ADR 0032: reviews attendance and cancellations (owner unit or owner/delegated club). */
+  canReview: boolean
+  /** ADR 0032: owner only — QR mode and secret reset. */
+  canConfigureCheckin: boolean
 }
 export interface ActivityEvent {
   id: string

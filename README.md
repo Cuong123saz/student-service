@@ -603,3 +603,12 @@ Theo [ADR 0031](docs/adr/0031-activity-registration-waitlist.md):
 - **Đăng ký và danh sách chờ.** Sinh viên đúng đối tượng đăng ký trước giờ bắt đầu. Hết chỗ thì vào danh sách chờ theo thứ tự đăng ký. Database chặn vượt sức chứa, kể cả khi nhiều người đăng ký cùng lúc. Có chỗ trống thì người đầu danh sách chờ tự lên và thấy thông báo trên trang hoạt động.
 - **Hủy.** Sinh viên gửi yêu cầu hủy trước giờ bắt đầu ít nhất 24 giờ, kèm lý do. Chủ hoạt động hoặc CLB được giao chấp nhận hoặc từ chối; không ai tự xử lý yêu cầu của chính mình. Yêu cầu chưa xử lý tới giờ bắt đầu được tự động chấp nhận.
 - **Vắng.** Người đã đăng ký mà không tham gia có trạng thái Vắng riêng, chưa áp dụng phạt.
+
+### Sprint 11.4 — Điểm danh và chứng nhận
+
+Theo [ADR 0032](docs/adr/0032-activity-attendance-certificates.md):
+
+- **Mã QR.** Chủ hoạt động tải mã QR SVG để in, hoặc bật QR đổi liên tục để chiếu màn hình; khi đó mã in sẵn mất hiệu lực. Khi mã bị lộ có thể đặt lại.
+- **Điểm danh.** Trong giờ hoạt động, sinh viên đang có chỗ quét mã rồi chụp selfie bằng camera trước ngay trên trang (không chọn ảnh có sẵn) trong 3 phút. Máy chủ chỉ nhận JPEG, xóa EXIF/GPS trước khi lưu, lưu riêng tư và xóa ảnh sau 90 ngày.
+- **Duyệt.** Chủ hoạt động hoặc CLB được giao duyệt, không tự duyệt; duyệt được nhiều lượt một lần.
+- **Chứng nhận.** Hệ thống cấp chứng nhận có mã và hash, không phải văn bằng và chưa có chữ ký số. CTSV thu hồi được, kèm lý do.

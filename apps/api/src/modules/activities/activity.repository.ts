@@ -137,6 +137,8 @@ export class ActivityRepository {
       canDelegate: owner && a.kind === 'MANDATORY' && open && now < a.endsMs,
       canSuspend: access.moderate && a.status === 'PUBLISHED',
       canResume: access.moderate && a.status === 'SUSPENDED' && now < a.endsMs,
+      canReview: owner || (!!a.delegatedClub && access.leaderClubs.includes(a.delegatedClub.id)),
+      canConfigureCheckin: owner && open,
     }
   }
   /** @internal shared with ActivityRegistrationRepository. */

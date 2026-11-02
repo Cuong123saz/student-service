@@ -215,7 +215,48 @@
       ]
     },
     "11.4": {
-      "status": "PENDING"
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0032_QR_CHECKIN_PHOTO_REVIEW_CERTIFICATES",
+      "adr": "docs/adr/0032-activity-attendance-certificates.md",
+      "migration": "apps/api/drizzle/0034_activity_attendance.sql",
+      "dependency": "qrcode@1.5.4 (API, server-side SVG)",
+      "quality": {
+        "check": "PASS",
+        "lint": "PASS",
+        "formatCheck": "PASS",
+        "build": "PASS",
+        "adrGate": "PASS (52)"
+      },
+      "apiUnit": {
+        "passed": 232,
+        "failed": 0
+      },
+      "apiIntegration": {
+        "passed": 399,
+        "failed": 0
+      },
+      "storageRecoveryBundleGuards": {
+        "passed": 82,
+        "failed": 0
+      },
+      "web": {
+        "passed": 188,
+        "failed": 0
+      },
+      "decisions": [
+        "Static printed QR = HMAC(secret,'static'); optional rotating QR in 30 s windows; secret never leaves the server; owner can reset",
+        "Scan only during the activity with a held seat; 3-minute capture session; retry allowed only before a photo is sent",
+        "In-page front camera, no file picker; server keeps JPEG only, strips APP1-APP15/COM, stores SHA-256, private folder activity-photos",
+        "Owner unit or owner/delegated club reviews; no self-review; batch approval up to 100",
+        "Certificates CN-XXXXXXXXXXXX with payload SHA-256, NOT_VERIFIED, legal_effect=false, append-only; CTSV revokes with reason",
+        "Absence now excludes approved attendance; photos purged 90 days after the end (purgeExpiredPhotos)"
+      ],
+      "limitations": [
+        "Photo purge has no scheduler yet (Sprint 13 operations)",
+        "Camera needs HTTPS outside localhost; real-phone test pending Sprint 13",
+        "Rehearsal with fake camera folded into 11.6",
+        "Photo pixels are not inspected (no face or location verification, by design)"
+      ]
     },
     "11.5": {
       "status": "PENDING"
@@ -225,7 +266,7 @@
     }
   },
   "productionReadiness": "NOT_READY",
-  "nextIncrement": "11.4 — attendance and certificates",
+  "nextIncrement": "11.5 — training point suggestions",
   "academyTemplates": {
     "status": "COMPLETE_LOCAL",
     "adr": "docs/adr/0026-academy-criteria-classification-templates.md",

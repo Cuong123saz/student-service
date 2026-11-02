@@ -13,6 +13,8 @@ import { clubRoutes } from './modules/clubs/club.routes.js'
 import { ActivityRepository } from './modules/activities/activity.repository.js'
 import { activityRoutes } from './modules/activities/activity.routes.js'
 import { ActivityRegistrationRepository } from './modules/activities/activity-registration.repository.js'
+import { ActivityAttendanceRepository } from './modules/activities/activity-attendance.repository.js'
+import { activityAttendanceRoutes } from './modules/activities/activity-attendance.routes.js'
 import { TrainingPointService } from './modules/training-points/training-points.service.js'
 import {
   trainingAdminRoutes,
@@ -131,6 +133,7 @@ export interface BuildAppOptions {
   clubRepository?: ClubRepository
   activityRepository?: ActivityRepository
   registrationRepository?: ActivityRegistrationRepository
+  attendanceRepository?: ActivityAttendanceRepository
   trainingService?: TrainingPointService
   submissionService?: SubmissionService
   procedureService?: ProcedureUseCase
@@ -420,6 +423,20 @@ export function buildApp(options: BuildAppOptions = {}) {
     prefix: USER_API_PREFIX,
     activityRepository: options.activityRepository ?? new ActivityRepository(),
     registrationRepository: options.registrationRepository ?? new ActivityRegistrationRepository(),
+  })
+  // ADR 0032: check-in photos live in their own private folder, apart from training evidence.
+  app.register(activityAttendanceRoutes, {
+    prefix: USER_API_PREFIX,
+    attendanceRepository:
+      options.attendanceRepository ??
+      new ActivityAttendanceRepository(
+        new LocalEvidenceStorage(
+          resolve(
+            process.env.SUBMISSION_STORAGE_ROOT || '.local/submission-files',
+            'activity-photos',
+          ),
+        ),
+      ),
   })
   app.register(serviceRoutes)
 

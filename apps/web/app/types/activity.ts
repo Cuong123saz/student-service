@@ -111,6 +111,8 @@ export interface ActivityDetail extends Activity {
   canDelegate: boolean
   canSuspend: boolean
   canResume: boolean
+  canReview: boolean
+  canConfigureCheckin: boolean
   events: ActivityEvent[]
 }
 export interface ActivityOptions {
@@ -161,4 +163,63 @@ export const activityEventLabels: Record<string, string> = {
   CANCELLED: 'Hủy',
   DELEGATED: 'Giao CLB',
   DELEGATION_REVOKED: 'Rút giao CLB',
+}
+
+/** ADR 0032: attendance and participation certificates. */
+export type AttendanceStatus = 'SCANNED' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
+export interface MyAttendance {
+  activityId: string
+  status: AttendanceStatus | null
+  captureExpiresAt: string | null
+  reviewNote: string | null
+  certificateCode: string | null
+}
+export interface AttendanceEntry {
+  id: string
+  studentUserId: string
+  studentCode: string
+  fullName: string
+  classCode: string
+  status: AttendanceStatus
+  scannedAt: string
+  submittedAt: string | null
+  reviewedAt: string | null
+  reviewer: string | null
+  reviewNote: string | null
+  hasPhoto: boolean
+  certificate: {
+    id: string
+    code: string
+    status: 'ISSUED' | 'REVOKED'
+    revokeReason: string | null
+  } | null
+  revision: number
+}
+export interface AttendanceQueue {
+  canReview: boolean
+  canRevoke: boolean
+  summary: { pending: number; approved: number; rejected: number }
+  items: AttendanceEntry[]
+  truncated: boolean
+}
+export interface Certificate {
+  id: string
+  code: string
+  activityId: string
+  activityTitle: string
+  activityStartsAt: string
+  issuedAt: string
+  issuedBy: string
+  payloadSha256: string
+  status: 'ISSUED' | 'REVOKED'
+  revokedAt: string | null
+  revokeReason: string | null
+  technicalSignatureStatus: 'NOT_VERIFIED'
+  legalEffect: false
+}
+export const attendanceStatusLabels: Record<AttendanceStatus, string> = {
+  SCANNED: 'Đã quét mã, chưa gửi ảnh',
+  PENDING_REVIEW: 'Chờ duyệt',
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Bị từ chối',
 }
