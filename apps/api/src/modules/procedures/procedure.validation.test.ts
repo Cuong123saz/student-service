@@ -71,3 +71,14 @@ test('required evidence cannot exceed total file budget', () => {
     validateProcedureConfig(config).some((issue) => issue.path === 'attachments.0.maxBytes'),
   )
 })
+test('date of birth autofill must be a DATE field; other profile data stays TEXT', () => {
+  const config = defaultProcedureConfig(unitId)
+  const field = config.fields[0]!
+  field.profileKey = 'dateOfBirth'
+  field.type = 'TEXT'
+  assert.ok(validateProcedureConfig(config).some((issue) => issue.path === 'fields.0.source'))
+  field.type = 'DATE'
+  assert.deepEqual(validateProcedureConfig(config), [])
+  field.profileKey = 'fullName'
+  assert.ok(validateProcedureConfig(config).some((issue) => issue.path === 'fields.0.source'))
+})

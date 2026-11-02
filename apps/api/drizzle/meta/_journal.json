@@ -204,6 +204,13 @@
       "when": 1793610000000,
       "tag": "0028_student_cohort",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793620000000,
+      "tag": "0029_student_date_of_birth",
+      "breakpoints": true
     }
   ]
 }

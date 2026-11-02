@@ -8,7 +8,7 @@ export const fieldSchema = Type.Object(
     type: enumeration(['TEXT', 'TEXTAREA', 'NUMBER', 'DATE', 'SELECT', 'BOOLEAN'] as const),
     source: enumeration(['STUDENT_INPUT', 'PROFILE'] as const),
     profileKey: Type.Union([
-      enumeration(['studentCode', 'fullName', 'classCode', 'facultyCode'] as const),
+      enumeration(['studentCode', 'fullName', 'classCode', 'facultyCode', 'dateOfBirth'] as const),
       Type.Null(),
     ]),
     required: Type.Boolean(),

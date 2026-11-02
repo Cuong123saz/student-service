@@ -150,7 +150,8 @@ function setSource(index: number, event: Event) {
   } else {
     field.source = 'PROFILE'
     field.profileKey = value as NonNullable<typeof field.profileKey>
-    field.type = 'TEXT'
+    // ADR 0027: date of birth autofills a DATE field; other profile data is text.
+    field.type = value === 'dateOfBirth' ? 'DATE' : 'TEXT'
     field.options = []
   }
 }
@@ -384,6 +385,7 @@ onMounted(() => {
                 <option value="fullName">Tự điền họ tên</option>
                 <option value="classCode">Tự điền lớp</option>
                 <option value="facultyCode">Tự điền khoa</option>
+                <option value="dateOfBirth">Tự điền ngày sinh</option>
               </select>
               <label :for="'field-type-' + index">Kiểu nhập</label
               ><select

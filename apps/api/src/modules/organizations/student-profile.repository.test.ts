@@ -120,6 +120,7 @@ test('repository trả hồ sơ và đúng cố vấn đang hiệu lực', async
     studentCode: 'REPO-SV001',
     // ADR 0025: a profile created without a cohort keeps it unknown, never inferred.
     cohortYear: null,
+    dateOfBirth: null,
     class: {
       id: academicClass.id,
       code: 'REPO-K15A',

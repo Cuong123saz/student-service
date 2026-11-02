@@ -2,6 +2,7 @@ import { strToU8, zipSync } from 'fflate'
 import { groups } from '../training-points/training-points.types.js'
 import type { TrainingExportSnapshot } from './training-export.types.js'
 import { classifyTrainingPoints, countTrainingClassifications } from './training-classification.js'
+import { formatDateOfBirth } from '../organizations/student-date-of-birth.js'
 import {
   assertTrainingExportSnapshot,
   trainingExportIntegrityError,
@@ -261,8 +262,8 @@ export function createTrainingExportWorkbook(s: TrainingExportSnapshot): Buffer 
 /** ADR 0026: school-format class sheet (bảng điểm rèn luyện lớp). Layout changes bump the version. */
 export const trainingClassSheetTemplate = Object.freeze({
   id: 'class-sheet',
-  version: 1,
-  label: 'class-sheet-v1',
+  version: 2,
+  label: 'class-sheet-v2',
 })
 const semesterName: Record<string, string> = { '1': 'I', '2': 'II', SUMMER: 'HÈ' }
 const style = {
@@ -284,7 +285,7 @@ function merged(value: Cell, r: number, from: number, to: number, styleId: numbe
 
 /**
  * Only faculty-approved declarations are listed; pending ones are counted in a footnote.
- * There is no date-of-birth column: the system does not store it yet (ADR 0026, item D).
+ * v2 adds the date of birth (ADR 0027) from the current profile; empty when unknown.
  */
 export function createTrainingClassSheet(s: TrainingExportSnapshot): Buffer {
   assertTrainingExportSnapshot(s)
@@ -298,39 +299,39 @@ export function createTrainingClassSheet(s: TrainingExportSnapshot): Buffer {
     rows.push(
       `<row r="${r}" ht="22" customHeight="1">${cell(left, r, 0, pairStyle)}${cell(right, r, 3, pairStyle)}</row>`,
     )
-    merges.push(`A${r}:C${r}`, `D${r}:F${r}`)
+    merges.push(`A${r}:C${r}`, `D${r}:G${r}`)
   }
   pair(1, 'BỘ GIÁO DỤC VÀ ĐÀO TẠO', 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM')
   pair(2, 'HỌC VIỆN QUẢN LÝ GIÁO DỤC', 'Độc lập - Tự do - Hạnh phúc')
   rows.push(
     `<row r="3" ht="22" customHeight="1">${cell('Hà Nội, ngày …… tháng …… năm ……', 3, 3, style.italic)}</row>`,
   )
-  merges.push('D3:F3')
+  merges.push('D3:G3')
   push(
     merged(
       `BẢNG ĐIỂM RÈN LUYỆN LỚP ${s.period.classCode} HỌC KỲ ${semesterName[s.period.semester] ?? s.period.semester} NĂM HỌC ${s.period.academicYear}`,
       4,
       0,
-      5,
+      6,
       style.bold,
       34,
     ),
   )
-  push(merged('(Kèm theo Quyết định số: ………… ngày …… / …… / ……)', 5, 0, 5, style.italic))
-  push(merged(s.notice, 6, 0, 5, style.notice, 26))
+  push(merged('(Kèm theo Quyết định số: ………… ngày …… / …… / ……)', 5, 0, 6, style.italic))
+  push(merged(s.notice, 6, 0, 6, style.notice, 26))
   push(
     merged(
       `Snapshot ${s.snapshotId} · ${trainingClassSheetTemplate.label} · Xếp loại tạm tính theo mốc chuẩn (${s.classification.version}), chưa áp dụng hạ mức do kỷ luật`,
       7,
       0,
-      5,
+      6,
       style.italic,
       36,
     ),
   )
   rows.push(
     row(
-      ['STT', 'Mã sinh viên', 'Họ và tên', 'Tổng điểm', 'Xếp loại', 'Ghi chú'],
+      ['STT', 'Mã sinh viên', 'Họ và tên', 'Ngày sinh', 'Tổng điểm', 'Xếp loại', 'Ghi chú'],
       8,
       30,
       style.header,
@@ -343,9 +344,10 @@ export function createTrainingClassSheet(s: TrainingExportSnapshot): Buffer {
         cell(i + 1, n, 0, style.number) +
         cell(r.student.studentCode, n, 1, style.centered) +
         cell(r.student.fullName, n, 2, style.text) +
-        cell(r.approvedPoints, n, 3, style.number) +
-        cell(classifyTrainingPoints(r.approvedPoints).label, n, 4, style.centered) +
-        cell('', n, 5, style.text) +
+        cell(formatDateOfBirth(r.dateOfBirth), n, 3, style.centered) +
+        cell(r.approvedPoints, n, 4, style.number) +
+        cell(classifyTrainingPoints(r.approvedPoints).label, n, 5, style.centered) +
+        cell('', n, 6, style.text) +
         '</row>',
     )
   })
@@ -356,7 +358,7 @@ export function createTrainingClassSheet(s: TrainingExportSnapshot): Buffer {
         'Chưa có bản kê khai nào được khoa duyệt trong snapshot này.',
         next,
         0,
-        5,
+        6,
         style.centered,
         26,
       ),
@@ -369,14 +371,14 @@ export function createTrainingClassSheet(s: TrainingExportSnapshot): Buffer {
       `Số bản đã nộp: ${s.summary.submitted}; đã được khoa duyệt (có trong bảng): ${s.summary.approved}; chưa duyệt: ${pending}.`,
       next + 1,
       0,
-      5,
+      6,
       style.italic,
     ),
   )
   rows.push(
     `<row r="${next + 3}" ht="22" customHeight="1">${cell('Hà Nội, ngày …… tháng …… năm ……', next + 3, 3, style.italic)}</row>`,
   )
-  merges.push(`D${next + 3}:F${next + 3}`)
+  merges.push(`D${next + 3}:G${next + 3}`)
   pair(next + 4, 'CỐ VẤN HỌC TẬP', 'LỚP TRƯỞNG')
   pair(next + 5, '(Ký, ghi rõ họ tên)', '(Ký, ghi rõ họ tên)', style.italic)
   // Signature space stays empty; no name, signature or seal is generated.
@@ -398,7 +400,7 @@ export function createTrainingClassSheet(s: TrainingExportSnapshot): Buffer {
       declaration +
       `<Relationships xmlns="${relNs}"><Relationship Id="rId1" Type="${officeRel}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${officeRel}/styles" Target="styles.xml"/></Relationships>`,
     'xl/styles.xml': styles,
-    'xl/worksheets/sheet1.xml': sheet(rows, [6, 17, 30, 13, 15, 24], {
+    'xl/worksheets/sheet1.xml': sheet(rows, [6, 17, 28, 13, 11, 13, 18], {
       merges,
       portraitPrint: true,
     }),

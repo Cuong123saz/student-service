@@ -523,6 +523,7 @@ onMounted(() => {
                   <strong>{{ student.academicClass.code }}</strong>
                   <small>{{ student.academicClass.name }}</small>
                   <small>Niên khóa: {{ formatCohort(student.cohortYear) }}</small>
+                  <small>Ngày sinh: {{ formatDateOfBirth(student.dateOfBirth) }}</small>
                 </td>
                 <td>
                   <strong>{{ student.faculty.code }}</strong>

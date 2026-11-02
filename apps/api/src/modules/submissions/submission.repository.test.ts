@@ -97,7 +97,12 @@ class MemoryStorage {
     this.files.delete(key)
   }
 }
-async function fixture(mode: ProcedureConfig['processingMode'] = 'ONLINE', designated = false) {
+async function fixture(
+  mode: ProcedureConfig['processingMode'] = 'ONLINE',
+  designated = false,
+  // ADR 0027: FIELD = form autofills the date of birth; PROFILE_ONLY = profile has one, form does not.
+  dateOfBirth?: 'FIELD' | 'PROFILE_ONLY',
+) {
   const suffix = randomUUID(),
     userId = randomUUID(),
     otherId = randomUUID(),
@@ -129,7 +134,12 @@ async function fixture(mode: ProcedureConfig['processingMode'] = 'ONLINE', desig
     .insert(academicClasses)
     .values({ id: classId, facultyId, code: 'S5T_' + suffix, name: 'Lớp giả định' })
   await db.insert(studentProfiles).values([
-    { userId, classId, studentCode: 'S5T_' + suffix },
+    {
+      userId,
+      classId,
+      studentCode: 'S5T_' + suffix,
+      ...(dateOfBirth ? { dateOfBirth: '2003-02-10' } : {}),
+    },
     { userId: otherId, classId, studentCode: 'S5T_' + randomUUID() },
   ])
   await db
@@ -171,6 +181,20 @@ async function fixture(mode: ProcedureConfig['processingMode'] = 'ONLINE', desig
         maxLength: 200,
         options: [],
       },
+      ...(dateOfBirth === 'FIELD'
+        ? [
+            {
+              key: 'dob',
+              label: 'Ngày sinh',
+              type: 'DATE' as const,
+              source: 'PROFILE' as const,
+              profileKey: 'dateOfBirth' as const,
+              required: false,
+              maxLength: 10,
+              options: [],
+            },
+          ]
+        : []),
       ...(['NUMBER', 'BOOLEAN', 'DATE'] as const).map((type, index) => ({
         key: ['amount', 'agreed', 'date'][index]!,
         label: type,
@@ -876,6 +900,27 @@ test('submit requires all required answers/evidence, a current revision, and val
   )
   assert.equal((await f.service.get(f.actor.userId, draft.id)).status, 'DRAFT')
   assert.equal((await intakeAudit('SUBMISSION_SUBMIT')).length, 0)
+})
+
+test('date of birth autofills a DATE field and enters the frozen snapshot only when the form uses it', async () => {
+  for (const mode of ['FIELD', 'PROFILE_ONLY'] as const) {
+    const f = await fixture('HYBRID', true, mode)
+    const ready = await complete(f)
+    assert.equal(ready.values.dob, mode === 'FIELD' ? '2003-02-10' : undefined, mode)
+    await f.service.submit(f.actor, ready.id, ready.revision)
+    const [row] = await db
+      .select({ snapshot: submissions.studentSnapshot, values: submissions.values })
+      .from(submissions)
+      .where(eq(submissions.id, ready.id))
+    if (mode === 'FIELD') {
+      assert.equal(row!.snapshot!.dateOfBirth, '2003-02-10')
+      assert.equal((row!.values as Record<string, unknown>).dob, '2003-02-10')
+    } else {
+      // Data minimisation: a form without the field never copies the date of birth.
+      assert.equal('dateOfBirth' in row!.snapshot!, false)
+      assert.doesNotMatch(JSON.stringify(row), /2003-02-10/)
+    }
+  }
 })
 
 test('submit snapshots the refreshed profile, is concurrent/idempotent, freezes student operations and hides routing metadata', async () => {

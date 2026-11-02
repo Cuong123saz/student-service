@@ -236,8 +236,10 @@ export class TrainingReviewRepository {
             'payloadSha256',a.payload_sha256) AS advisor,
           jsonb_build_object('id',r.id,'revision',r.revision,'actor',r.actor_snapshot,
             'confirmedAt',to_char(r.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-            'payloadSha256',r.payload_sha256) AS faculty
+            'payloadSha256',r.payload_sha256) AS faculty,
+          sp.date_of_birth::text AS "dateOfBirth"
         FROM training_declarations d
+        LEFT JOIN student_profiles sp ON sp.user_id=d.student_user_id
         JOIN LATERAL (SELECT * FROM training_review_decisions WHERE declaration_id=d.id ORDER BY revision DESC LIMIT 1) r ON r.action='FACULTY_APPROVED'
         JOIN training_review_decisions a ON a.id=r.parent_decision_id AND a.declaration_id=d.id AND a.action='ADVISOR_SIGNED'
         WHERE d.period_id=${periodId} AND d.state='SUBMITTED'

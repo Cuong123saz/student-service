@@ -99,7 +99,9 @@ Chủ dự án cung cấp phiếu đánh giá, bảng điểm lớp và biên b�
 - **A** — Bộ tiêu chí 5 mục của phiếu (20/25/20/25/10) là mẫu mặc định khi tạo đợt; không cần migration. Chưa chấm theo mục con.
 - **B** — Xếp loại tạm tính 6 mức theo mốc chuẩn (`classification-standard-v1`), chưa hạ mức do kỷ luật. File Excel mẫu của trường thiếu mức Trung bình/Kém; hệ thống không sao chép lỗi đó.
 - **C** — Bảng điểm lớp theo mẫu trường (`class-sheet.xlsx`, `class-sheet-v1`) và biên bản họp lớp (`training-minutes-v2`, A4 dọc + phụ lục A4 ngang); ZIP có thêm bảng điểm lớp.
-- **D (chưa làm)** — Ngày sinh sinh viên cho cột “Ngày sinh” của bảng điểm lớp; cần ADR riêng về dữ liệu cá nhân.
+- **D — COMPLETE_LOCAL** — Ngày sinh ([ADR 0027](adr/0027-student-date-of-birth.md)): migration `0029`, import cột “Ngày sinh”, hồ sơ/quản trị, bảng điểm lớp `class-sheet-v2`, tự điền trường ngày của biểu mẫu thủ tục; ảnh chụp bản nộp chỉ chứa ngày sinh khi biểu mẫu dùng nó; audit không ghi giá trị.
 - **E** — Vai trò lớp trưởng: giữ, làm ở 11.L.
 
 Kiểm chứng: typecheck/lint/format/build đạt; unit API 219 đạt / 2 bỏ qua; integration API 360 đạt; storage/recovery/bundle/guard 315 đạt; web 157 đạt; ca PDF thật đạt; `rehearse:sprint10` PASS với 5 định dạng tải qua trình duyệt; đã xem ảnh render biên bản v2, phụ lục 120 dòng và bảng điểm lớp.
+
+Kiểm chứng D (02/11/2026): typecheck/lint/format/build đạt; ADR gate 52 đạt; unit API 224 đạt / 2 bỏ qua; integration API 362 đạt (thêm ca import ngày sinh + audit không lộ giá trị, ca tối thiểu hóa ảnh chụp bản nộp); storage/recovery/bundle/guard 315 đạt; web 159 đạt; diễn tập migration 0029 trên DB giả giữ dữ liệu cũ (kể cả niên khóa), CHECK từ chối ngày ngoài khoảng.

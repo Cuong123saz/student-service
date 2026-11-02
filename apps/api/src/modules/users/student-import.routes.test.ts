@@ -836,6 +836,84 @@ test('niên khóa: tạo mới, đổi có audit, ô trống không xóa giá tr
   )
 })
 
+test('ngày sinh: ghi khi import, ô trống không xóa, audit không chứa giá trị ngày sinh', async (context) => {
+  const { actor, academicClass } = await createImportContext()
+  const [studentRole] = await db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(eq(roles.code, 'STUDENT'))
+    .limit(1)
+  assert.ok(studentRole)
+  const existing: Record<string, string> = {}
+  for (const code of ['400', '401']) {
+    const [user] = await db
+      .insert(users)
+      .values({
+        username: 'sv' + code,
+        email: `sv${code}@example.edu.vn`,
+        fullName: 'Sinh viên ' + code,
+        status: 'ACTIVE',
+        mustChangePassword: false,
+      })
+      .returning({ id: users.id })
+    assert.ok(user)
+    await db.insert(userRoles).values({ userId: user.id, roleId: studentRole.id })
+    await db.insert(studentProfiles).values({
+      userId: user.id,
+      studentCode: code,
+      classId: academicClass.id,
+      dateOfBirth: '2002-01-01',
+    })
+    existing[code] = user.id
+  }
+  const { app, jobService } = createApp()
+  context.after(() => app.close())
+  const cookie = await createAdminCookie(app, actor)
+  const upload = multipartCsv(
+    [
+      'Mã sinh viên,Họ và tên,Email,Mã lớp,Ngày sinh',
+      '400,Sinh viên 400,sv400@example.edu.vn,K15A,10/02/2003',
+      '401,Sinh viên 401,sv401@example.edu.vn,K15A,',
+      '402,Sinh viên 402,sv402@example.edu.vn,K15A,24/06/2003',
+    ].join('\n'),
+  )
+  const preview = (await uploadAndProcessPreview(app, jobService, cookie, upload)) as {
+    previewId: string
+  }
+  const confirm = await app.inject({
+    method: 'POST',
+    url: `/api/v1/admin/students/imports/${preview.previewId}/confirm`,
+    headers: { cookie },
+    payload: { duplicateStrategy: 'OVERWRITE' },
+  })
+  assert.equal(confirm.statusCode, 200, confirm.body)
+  const rows = await db
+    .select({ code: studentProfiles.studentCode, dateOfBirth: studentProfiles.dateOfBirth })
+    .from(studentProfiles)
+    .where(inArray(studentProfiles.studentCode, ['400', '401', '402']))
+  assert.deepEqual(Object.fromEntries(rows.map((r) => [r.code, r.dateOfBirth])), {
+    '400': '2003-02-10',
+    '401': '2002-01-01',
+    '402': '2003-06-24',
+  })
+  const audits = await db
+    .select({ resourceId: auditLogs.resourceId, before: auditLogs.before, after: auditLogs.after })
+    .from(auditLogs)
+    .where(eq(auditLogs.action, 'STUDENT_DOB_UPDATE'))
+  assert.deepEqual(audits, [
+    {
+      resourceId: existing['400'],
+      before: { dateOfBirthSet: true },
+      after: { dateOfBirthSet: true },
+    },
+  ])
+  // No audit row anywhere carries a date of birth value.
+  const leaked = await db.execute(
+    sql`SELECT count(*)::int AS n FROM audit_logs WHERE audit_logs::text LIKE '%2003-02-10%' OR audit_logs::text LIKE '%2002-01-01%' OR audit_logs::text LIKE '%2003-06-24%'`,
+  )
+  assert.equal((leaked as unknown as { n: number }[])[0]!.n, 0)
+})
+
 test('hai confirm đồng thời chỉ commit preview một lần trên PostgreSQL', async (context) => {
   const { actor } = await createImportContext()
   const { app, jobService } = createApp()

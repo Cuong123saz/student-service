@@ -31,6 +31,7 @@ const directoryPage: StudentDirectoryPage = {
       status: 'ACTIVE',
       studentCode: 'SV001',
       cohortYear: 2022,
+      dateOfBirth: '2003-02-10',
       academicClass: {
         id: classId,
         code: 'K15A',

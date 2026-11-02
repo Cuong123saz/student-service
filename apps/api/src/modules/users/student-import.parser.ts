@@ -10,19 +10,22 @@ export const STUDENT_IMPORT_MAX_ARCHIVE_RATIO = 100
 
 export type StudentImportFormat = 'CSV' | 'XLSX'
 
-export type StudentImportColumn = 'studentCode' | 'fullName' | 'email' | 'classCode' | 'cohortYear'
+export type StudentImportColumn =
+  'studentCode' | 'fullName' | 'email' | 'classCode' | 'cohortYear' | 'dateOfBirth'
 
 // read-excel-file returns Date instances at runtime, but
 // its published CellValue type currently declares typeof Date.
 export type StudentImportSourceCellValue = CellValue | Date
 
-export type StudentImportRequiredColumn = Exclude<StudentImportColumn, 'cohortYear'>
+export type StudentImportRequiredColumn = Exclude<StudentImportColumn, 'cohortYear' | 'dateOfBirth'>
 
 export interface StudentImportSourceRow {
   sourceRow: number
   values: Record<StudentImportRequiredColumn, StudentImportSourceCellValue | null> & {
     /** Optional column (ADR 0025); absent or null means the cohort is unknown. */
     cohortYear?: StudentImportSourceCellValue | null
+    /** Optional column (ADR 0027); personal data. */
+    dateOfBirth?: StudentImportSourceCellValue | null
   }
 }
 
@@ -101,6 +104,10 @@ const HEADER_ALIASES: Record<string, StudentImportColumn> = {
   namnhaphoc: 'cohortYear',
   cohort: 'cohortYear',
   cohortyear: 'cohortYear',
+  ngaysinh: 'dateOfBirth',
+  dateofbirth: 'dateOfBirth',
+  birthdate: 'dateOfBirth',
+  dob: 'dateOfBirth',
 }
 
 function isAmbiguousCohortHeader(value: StudentImportSourceCellValue | null): boolean {
@@ -175,6 +182,9 @@ function mapRows(
       // Optional column: present only when the file has it; absent means unknown.
       ...(columnIndexes.has('cohortYear')
         ? { cohortYear: row[columnIndexes.get('cohortYear')!] ?? null }
+        : {}),
+      ...(columnIndexes.has('dateOfBirth')
+        ? { dateOfBirth: row[columnIndexes.get('dateOfBirth')!] ?? null }
         : {}),
     },
   }))

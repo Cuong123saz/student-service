@@ -24,6 +24,7 @@ const profile: StudentProfileView = {
   email: 'student001@example.edu.vn',
   studentCode: 'SV001',
   cohortYear: null,
+  dateOfBirth: null,
   class: {
     id: '505da565-8e6a-4de6-80b6-69024c46654a',
     code: 'QLGD-K15A',

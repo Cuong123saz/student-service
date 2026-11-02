@@ -775,7 +775,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
           })
           assert.equal(classSheet.statusCode, 200, classSheet.body)
           assert.match(classSheet.headers['content-type'] as string, /spreadsheetml/)
-          assert.equal(classSheet.headers['x-export-template-version'], 'class-sheet-v1')
+          assert.equal(classSheet.headers['x-export-template-version'], 'class-sheet-v2')
           const sheet = await readSheet(classSheet.rawPayload, 'Bảng điểm lớp')
           assert.ok(sheet.some((r) => r[1] === 'S9001' && r[4] !== null))
           const [classAudit] = await db<
@@ -787,7 +787,7 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             sha256: sha(classSheet.rawPayload),
             size: classSheet.rawPayload.length,
             snapshotId: classSheet.headers['x-export-snapshot-id'],
-            templateVersion: 'class-sheet-v1',
+            templateVersion: 'class-sheet-v2',
           })
 
           failConvert = true

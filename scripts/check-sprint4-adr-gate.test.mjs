@@ -92,6 +92,7 @@ function fixture(t, { adr, closure = { sprint: '2+3', status: 'CLOSED' } } = {})
   }
   if (adr !== undefined) {
     write('docs/adr/0025-student-cohort.md', '---\nstatus: ' + adr + '\n---\n')
+    write('docs/adr/0027-student-date-of-birth.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0020-training-points-review-workflow.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0019-training-points-foundation.md', '---\nstatus: ' + adr + '\n---\n')
     write('docs/adr/0018-mock-signing-workflow.md', '---\nstatus: ' + adr + '\n---\n')
