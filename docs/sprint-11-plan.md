@@ -1,6 +1,6 @@
 # Sprint 11 — Hoạt động ngoại khóa, CLB và chứng nhận tham gia
 
-**PLANNED — bản đề xuất ngày 02/11/2026, chờ chủ dự án duyệt trước khi viết code.** Tiền đề: [Sprint 10 đóng kỹ thuật local](sprint-10-closure.md). Quyết định trong tài liệu này lấy từ trao đổi với chủ dự án ngày 02/11/2026; mục “chờ xác nhận” là đề xuất của AI, chưa được chốt. Production NOT_READY.
+**PLANNED — chủ dự án duyệt ngày 02/11/2026 (“đồng ý hết”).** Tiền đề: [Sprint 10 đóng kỹ thuật local](sprint-10-closure.md). Quyết định trong tài liệu này lấy từ trao đổi với chủ dự án ngày 02/11/2026. Production NOT_READY.
 
 ## Mục tiêu
 
@@ -17,7 +17,7 @@ Sinh viên đăng ký và tham gia hoạt động ngoại khóa do nhà trườn
 
 Quyền kiểm tại máy chủ theo role + permission + scope hiện có (`GLOBAL`/`FACULTY`/`CLASS`/`ORGANIZATION`). CLB là một đơn vị tổ chức, dùng lại scope `ORGANIZATION`. SYSTEM_ADMIN không tự thay vai trò nghiệp vụ.
 
-**Chờ xác nhận:** Sprint 11 chỉ để CTSV tạo CLB trên hệ thống sau khi đã duyệt bên ngoài; chưa có luồng sinh viên gửi đề nghị lập CLB.
+**Đã chốt:** Sprint 11 chỉ để CTSV tạo CLB trên hệ thống sau khi đã duyệt bên ngoài; chưa có luồng sinh viên gửi đề nghị lập CLB.
 
 ## Quy tắc nghiệp vụ đã chốt
 
@@ -32,7 +32,7 @@ CLB bị tạm dừng/giải thể không mở hoạt động mới; chứng nh�
 
 **Đăng ký.** Có sức chứa (hoặc không giới hạn) và danh sách chờ. Chống vượt sức chứa khi đăng ký đồng thời bằng khóa dòng trong transaction. Khi chỗ được nhả, người đầu danh sách chờ (theo thời điểm đăng ký) tự lên và nhận thông báo.
 
-**Hủy.** Cả hai loại: sinh viên gửi yêu cầu hủy **trước giờ bắt đầu ít nhất 24 giờ**, kèm lý do; chủ hoạt động (hoặc CLB được giao) chấp nhận hoặc từ chối. Chấp nhận thì nhả chỗ cho danh sách chờ. *Chờ xác nhận:* yêu cầu chưa được xử lý tới giờ bắt đầu thì tự coi là chấp nhận.
+**Hủy.** Cả hai loại: sinh viên gửi yêu cầu hủy **trước giờ bắt đầu ít nhất 24 giờ**, kèm lý do; chủ hoạt động (hoặc CLB được giao) chấp nhận hoặc từ chối. Chấp nhận thì nhả chỗ cho danh sách chờ. Yêu cầu chưa được xử lý tới giờ bắt đầu thì **tự coi là chấp nhận** (đã chốt).
 
 **Vắng mặt.** Người đã đăng ký mà không có lượt tham gia được duyệt có trạng thái **Vắng** riêng, khác “không đăng ký” và “hủy được duyệt”. Chưa áp dụng phạt; quy chế phạt sẽ dùng dữ liệu này khi có.
 
@@ -55,7 +55,10 @@ CLB bị tạm dừng/giải thể không mở hoạt động mới; chứng nh�
 | b < B | 0 |
 
 - Khi B = 0, theo quyết định của chủ dự án vẫn +2 dù t = 0. **Rủi ro đã ghi nhận:** mâu thuẫn với nguyên tắc “không tham gia → 0”. Làm thành cấu hình theo đợt (bật/tắt), mặc định bật.
-- Gắn vào **nhóm C**, cấu hình theo đợt, nhãn “giả định — cần đối chiếu quy chế điểm rèn luyện hiện hành của Học viện”. Bộ A–E hiện vẫn là dữ liệu giả.
+- **Thiết lập theo đợt, không viết cứng** (chủ dự án yêu cầu “setting để đổi mục khi cần”). Mỗi đợt điểm rèn luyện có một thiết lập ngoại khóa gồm: nhóm tiêu chí nhận điểm (mặc định **C**), điểm mức cao (mặc định 5), điểm mức cơ bản (mặc định 2), số hoạt động tự nguyện tối thiểu cho mức cao (mặc định 2), có cho mức cơ bản khi không có hoạt động bắt buộc hay không (mặc định có), và khoảng thời gian tính hoạt động.
+  - Người quản lý đợt (quyền `training_point.period.manage` hiện có) sửa trên trang quản trị đợt. Kiểm hợp lệ: nhóm phải có trong bộ tiêu chí của đợt, điểm không âm và không vượt điểm tối đa của nhóm, mức cao ≥ mức cơ bản.
+  - Mỗi lần đổi ghi audit (giá trị cũ → mới). Đổi thiết lập **không** sửa bản kê khai đã nộp: gợi ý điểm được chốt cùng bản nộp, giống snapshot Sprint 8.
+  - Giao diện ghi nhãn “giả định — cần đối chiếu quy chế điểm rèn luyện hiện hành của Học viện”. Bộ A–E hiện vẫn là dữ liệu giả.
 - Điểm chỉ là **gợi ý** và chứng nhận được đính kèm làm minh chứng khi sinh viên kê khai. Điểm tự khai, điểm gợi ý và điểm duyệt lưu riêng; cố vấn/khoa duyệt như Sprint 9. Thu hồi chứng nhận không sửa ngược bản đã nộp hay điểm đã duyệt; chỉ ảnh hưởng gợi ý của bản kê khai chưa nộp, và được hiển thị cho người duyệt.
 
 ## Thứ tự thực hiện
@@ -67,7 +70,7 @@ CLB bị tạm dừng/giải thể không mở hoạt động mới; chứng nh�
 | 11.2 — Hoạt động | ADR + migration; tạo/sửa/hủy hoạt động, bắt buộc/tự nguyện, đối tượng, sức chứa, giao CLB, tạm dừng | Chỉ CTSV/Phòng ĐT tạo bắt buộc; lịch sử thay đổi; đối tượng kiểm ở máy chủ |
 | 11.3 — Đăng ký | Đăng ký, danh sách chờ, yêu cầu hủy, vắng mặt, thông báo | Không vượt sức chứa khi đồng thời; danh sách chờ đúng thứ tự; hạn 24 giờ |
 | 11.4 — Điểm danh và chứng nhận | QR, chụp ảnh trong trang, xóa EXIF, hàng duyệt, cấp/thu hồi chứng nhận | Từ chối ngoài giờ/không đăng ký/không đối tượng; không tự duyệt; ảnh riêng tư |
-| 11.5 — Gợi ý điểm | Cấu hình bậc theo đợt, tính b/B/t, đính kèm chứng nhận vào bản kê khai | Không sửa bản đã nộp/điểm đã duyệt; các ca biên (B=0, hủy được duyệt, thu hồi) |
+| 11.5 — Gợi ý điểm | Thiết lập ngoại khóa theo đợt (nhóm nhận điểm, mức điểm, ngưỡng, khoảng thời gian) có audit; tính b/B/t; đính kèm chứng nhận vào bản kê khai | Không sửa bản đã nộp/điểm đã duyệt; các ca biên (B=0, hủy được duyệt, thu hồi) |
 | 11.6 — Giao diện, diễn tập, đóng | Trang CLB/CTSV/sinh viên, `rehearse:sprint11`, runbook, hồ sơ đóng | Diễn tập trình duyệt 375–1440 px với camera giả lập; rà ảnh |
 
 Mỗi increment có ADR trước khi đổi schema/quyền, test theo quy ước hiện có, và cập nhật status/AI_CONTEXT khi xong.

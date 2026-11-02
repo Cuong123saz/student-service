@@ -1,12 +1,12 @@
 ---
-status: Proposed
+status: Accepted
 date: 2026-11-02
 scope: Sprint 11.0 student cohort (niên khóa) for activity eligibility
 ---
 
 # ADR 0025 — Niên khóa của sinh viên
 
-**Proposed — chờ chủ dự án duyệt trước khi tạo migration.** Phục vụ [kế hoạch Sprint 11](../sprint-11-plan.md): hoạt động ngoại khóa có thể giới hạn theo niên khóa (ví dụ chỉ K2022).
+**Accepted ngày 02/11/2026 — chủ dự án duyệt (“đồng ý hết”).** Phục vụ [kế hoạch Sprint 11](../sprint-11-plan.md): hoạt động ngoại khóa có thể giới hạn theo niên khóa (ví dụ chỉ K2022).
 
 ## Bối cảnh
 
