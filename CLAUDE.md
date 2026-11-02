@@ -1,5 +1,7 @@
 # Instructions for Claude
 
+Đọc [AGENTS.md](AGENTS.md) và [AI_CONTEXT.md](AI_CONTEXT.md) trước để nhận bối cảnh/roadmap/điểm tiếp tục hiện hành. Các mục trạng thái trong roadmap Word local hoặc nhật ký cũ không thay hồ sơ sprint mới hơn.
+
 ## Quy tắc làm việc
 
 - **Không tự động thực thi thay đổi khi người dùng chưa yêu cầu rõ ràng.** Khi được hỏi "hướng dẫn tôi làm X", trả lời bằng hướng dẫn từng bước (step-by-step) để người dùng tự thực hiện — không tự chạy lệnh, không tự sửa file, không tự cài package thay cho người dùng.

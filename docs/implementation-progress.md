@@ -1,5 +1,7 @@
 # Tiến độ triển khai và điểm tiếp tục
 
+> **Nhật ký lịch sử từ 14/10/2026.** Các “bước tiếp theo” bên dưới phản ánh thời điểm ghi nhận, không phải trạng thái hiện tại. Đọc [AI_CONTEXT.md](../AI_CONTEXT.md) và [trạng thái Sprint 10](sprint-10-status.json) để tiếp tục dự án.
+
 Cập nhật 14/10/2026. Đây là tiến độ mã nguồn/kiểm chứng local, không thay quy chế hoặc nghiệm thu vận hành của Học viện. Sprint 2+3 giữ CLOSED đã ghi nhận; Sprint 4 **CLOSED kỹ thuật local theo ủy quyền của chủ dự án**, chưa có biên bản tự thao tác nghiệm thu riêng. Xem [hồ sơ đóng](sprint-4-closure.md).
 
 Sprint 5 **CLOSED kỹ thuật local ngày 14/10/2026 theo ủy quyền của chủ dự án**; [hồ sơ đóng](sprint-5-closure.md), [trạng thái riêng](sprint-5-status.json). Phạm vi đúng kế hoạch: tự điền hồ sơ, lưu nháp, upload và xem trước. Lượt cuối 498 bài đạt (6 unit có mục tiêu, 306 integration, 122 Web, 44 ADR, 20 guard), API/Web build và chất lượng đạt; browser 86bab7b5-f536-4f35-99a2-50b76c9b4645 đạt 12 nhóm/16 responsive/0 lỗi JS, 8 ảnh đã xem, STOPPED và dọn container riêng. Sửa nhãn tệp nhỏ hiện0,0 MiB; đồng bộ worker test lease trước claim và giới hạn khởi tạo Nuxt Windows theo quan sát. Các lỗi chạy đầu được giữ trong báo cáo; không reset/migrate nguồn development, chưa production.
