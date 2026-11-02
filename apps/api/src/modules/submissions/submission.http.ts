@@ -6,6 +6,7 @@ import {
   ADMIN_SESSION_COOKIE_NAME,
   JWT_ISSUER,
   USER_JWT_AUDIENCE,
+  USER_PORTAL_ROLE_CODES,
   USER_SESSION_COOKIE_NAME,
 } from '../auth/auth.constants.js'
 import { isAdminSession, isUserSession } from '../auth/auth-session.js'
@@ -44,10 +45,7 @@ export function requireSubmissionSession(portal: 'user' | 'admin', student = fal
         reply,
         new SubmissionError(401, 'UNAUTHORIZED', 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'),
       )
-    const portalRoles =
-      portal === 'admin'
-        ? ['ADMIN', 'SYSTEM_ADMIN']
-        : ['STUDENT', 'ACADEMIC_ADVISOR', 'FACULTY_REVIEWER', 'DOCUMENT_SIGNER']
+    const portalRoles = portal === 'admin' ? ['ADMIN', 'SYSTEM_ADMIN'] : USER_PORTAL_ROLE_CODES
     if (!session.roles.some((role) => portalRoles.includes(role)))
       return sendError(
         request,

@@ -203,7 +203,7 @@ test('GLOBAL xem được catalog role, scope và người dùng', async () => {
 
   const snapshot = await repository.getSnapshot({ actorUserId: actor.id })
 
-  assert.equal(snapshot.roles.length, 7)
+  assert.equal(snapshot.roles.length, 10)
   assert.equal(snapshot.scopes.length, 6)
   assert.ok(snapshot.users.some((user) => user.id === student.id && user.canManage))
   assert.ok(snapshot.users.some((user) => user.id === actor.id && !user.canManage))

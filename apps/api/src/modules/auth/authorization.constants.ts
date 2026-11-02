@@ -101,12 +101,24 @@ export const SYSTEM_PERMISSIONS = [
     name: 'Lớp trưởng xác nhận điểm rèn luyện',
     description: 'Xác nhận phiếu và xem dữ liệu lớp mình trong nhiệm kỳ',
   },
+  {
+    code: 'club.read',
+    name: 'Xem CLB',
+    description: 'Xem danh sách CLB và người phụ trách trong phạm vi',
+  },
+  {
+    code: 'club.manage',
+    name: 'Quản lý CLB',
+    description: 'Tạo, sửa, tạm dừng, giải thể CLB và gán người phụ trách',
+  },
 ] as const
 
 export type SystemPermissionCode = (typeof SYSTEM_PERMISSIONS)[number]['code']
 
+// ADR 0029: SYSTEM_ADMIN assigns roles but does not act as CTSV, so it never manages clubs.
+const systemAdminExcluded = new Set<string>(['document.mock_sign', 'club.manage'])
 const allPermissionCodes = SYSTEM_PERMISSIONS.filter(
-  (permission) => permission.code !== 'document.mock_sign',
+  (permission) => !systemAdminExcluded.has(permission.code),
 ).map((permission) => permission.code)
 
 export const SYSTEM_ROLE_PERMISSIONS = {
@@ -137,4 +149,7 @@ export const SYSTEM_ROLE_PERMISSIONS = {
   ],
   DOCUMENT_SIGNER: ['document.sign'],
   CLASS_MONITOR: ['training_point.monitor_confirm'],
+  STUDENT_AFFAIRS: ['club.read', 'club.manage'],
+  TRAINING_OFFICE: ['club.read'],
+  CLUB_LEADER: ['club.read'],
 } as const satisfies Record<SystemRoleCode, readonly SystemPermissionCode[]>

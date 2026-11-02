@@ -10,6 +10,7 @@ import {
   JWT_ISSUER,
   USER_API_PREFIX,
   USER_JWT_AUDIENCE,
+  USER_PORTAL_ROLE_CODES,
   USER_SESSION_COOKIE_NAME,
   USER_SESSION_TTL_SECONDS,
 } from './auth.constants.js'
@@ -52,12 +53,7 @@ const errorResponseSchema = Type.Object({
   message: Type.String(),
 })
 
-const USER_PORTAL_ROLES = new Set([
-  'STUDENT',
-  'ACADEMIC_ADVISOR',
-  'FACULTY_REVIEWER',
-  'DOCUMENT_SIGNER',
-])
+const USER_PORTAL_ROLES = new Set<string>(USER_PORTAL_ROLE_CODES)
 
 const userSessionCookieOptions = {
   httpOnly: true,

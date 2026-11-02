@@ -1,5 +1,14 @@
 export type SystemRoleCode =
-  'SYSTEM_ADMIN' | 'ADMIN' | 'STUDENT' | 'ACADEMIC_ADVISOR' | 'FACULTY_REVIEWER' | 'DOCUMENT_SIGNER'
+  | 'SYSTEM_ADMIN'
+  | 'ADMIN'
+  | 'STUDENT'
+  | 'ACADEMIC_ADVISOR'
+  | 'FACULTY_REVIEWER'
+  | 'DOCUMENT_SIGNER'
+  | 'CLASS_MONITOR'
+  | 'STUDENT_AFFAIRS'
+  | 'TRAINING_OFFICE'
+  | 'CLUB_LEADER'
 
 export interface SessionUser {
   id: string
@@ -40,4 +49,8 @@ export const roleLabels: Record<SystemRoleCode, string> = {
   ACADEMIC_ADVISOR: 'Giảng viên cố vấn',
   FACULTY_REVIEWER: 'Cán bộ khoa',
   DOCUMENT_SIGNER: 'Người ký văn bản',
+  CLASS_MONITOR: 'Lớp trưởng',
+  STUDENT_AFFAIRS: 'Công tác sinh viên (CTSV)',
+  TRAINING_OFFICE: 'Phòng Đào tạo',
+  CLUB_LEADER: 'Người phụ trách CLB',
 }
