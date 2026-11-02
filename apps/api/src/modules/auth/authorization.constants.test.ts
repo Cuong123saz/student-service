@@ -12,7 +12,14 @@ test('mọi system role đều có permission mapping tường minh', () => {
 
 test('SYSTEM_ADMIN có toàn bộ quyền vận hành, trừ mô phỏng và quản lý CLB (ADR 0029)', () => {
   const allPermissionCodes = SYSTEM_PERMISSIONS.filter(
-    (p) => p.code !== 'document.mock_sign' && p.code !== 'club.manage',
+    (p) =>
+      ![
+        'document.mock_sign',
+        'club.manage',
+        'activity.mandatory.manage',
+        'activity.moderate',
+        'activity.club.manage',
+      ].includes(p.code),
   )
     .map((permission) => permission.code)
     .sort()
@@ -34,17 +41,17 @@ test('audit.read mặc định chỉ cấp cho SYSTEM_ADMIN', () => {
   assert.deepEqual(rolesWithAuditRead, ['SYSTEM_ADMIN'])
 })
 
-test('catalog mặc định có đúng 43 role-permission grants', () => {
+test('catalog mặc định có đúng 50 role-permission grants', () => {
   const grantCount = Object.values(SYSTEM_ROLE_PERMISSIONS).reduce(
     (total, permissionCodes) => total + permissionCodes.length,
     0,
   )
 
-  assert.equal(grantCount, 43)
+  assert.equal(grantCount, 50)
 })
 
-test('submission.assign mặc định chỉ SYSTEM_ADMIN; catalog có đúng 22 quyền', () => {
-  assert.equal(SYSTEM_PERMISSIONS.length, 22)
+test('submission.assign mặc định chỉ SYSTEM_ADMIN; catalog có đúng 26 quyền', () => {
+  assert.equal(SYSTEM_PERMISSIONS.length, 26)
   const holders = Object.entries(SYSTEM_ROLE_PERMISSIONS)
     .filter(([, codes]) => (codes as readonly string[]).includes('submission.assign'))
     .map(([role]) => role)
@@ -75,6 +82,14 @@ test('ADR 0029: chỉ CTSV quản lý CLB; Phòng Đào tạo và người phụ
     .filter(([, codes]) => (codes as readonly string[]).includes('club.manage'))
     .map(([role]) => role)
   assert.deepEqual(holders, ['STUDENT_AFFAIRS'])
-  assert.deepEqual([...SYSTEM_ROLE_PERMISSIONS.TRAINING_OFFICE], ['club.read'])
-  assert.deepEqual([...SYSTEM_ROLE_PERMISSIONS.CLUB_LEADER], ['club.read'])
+  assert.deepEqual([...SYSTEM_ROLE_PERMISSIONS.CLUB_LEADER], ['club.read', 'activity.club.manage'])
+  const mandatory = Object.entries(SYSTEM_ROLE_PERMISSIONS)
+    .filter(([, codes]) => (codes as readonly string[]).includes('activity.mandatory.manage'))
+    .map(([role]) => role)
+  // ADR 0030: only CTSV and Phòng Đào tạo create mandatory activities; only CTSV moderates.
+  assert.deepEqual(mandatory, ['STUDENT_AFFAIRS', 'TRAINING_OFFICE'])
+  assert.equal(
+    (SYSTEM_ROLE_PERMISSIONS.TRAINING_OFFICE as readonly string[]).includes('club.manage'),
+    false,
+  )
 })

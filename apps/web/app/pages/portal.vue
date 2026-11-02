@@ -53,8 +53,15 @@ const allItems: PortalItem[] = [
   },
   {
     label: 'Hoạt động ngoại khóa',
-    description: 'Đăng ký và theo dõi hoạt động đã tham gia.',
+    description: 'Xem hoạt động đã công bố mà bạn thuộc đối tượng.',
+    to: '/activities',
     roles: ['STUDENT'],
+  },
+  {
+    label: 'Quản lý hoạt động ngoại khóa',
+    description: 'Tạo, công bố, giao CLB thực hiện và theo dõi lịch sử hoạt động.',
+    to: '/activity-management',
+    roles: ['STUDENT_AFFAIRS', 'TRAINING_OFFICE', 'CLUB_LEADER'],
   },
   {
     label: 'Nghiên cứu khoa học',

@@ -1,13 +1,12 @@
 import { Type } from '@sinclair/typebox'
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import {
   configureSubmissionErrors,
-  executeSubmission,
   requireSubmissionSession,
   submissionActor,
   submissionOrigin,
 } from '../submissions/submission.http.js'
-import { SubmissionError } from '../submissions/submission.types.js'
+import { portalExecute, portalInput } from '../shared/portal-input.js'
 import { ClubRepository } from './club.repository.js'
 import { clubCodePattern, clubStatuses, type ClubStatus } from './club.types.js'
 
@@ -17,34 +16,12 @@ const uuid = Type.String({ format: 'uuid' }),
   name = Type.String({ minLength: 1, maxLength: 255 }),
   description = Type.String({ maxLength: 2000 }),
   reason = Type.String({ minLength: 1, maxLength: 500 })
-const invalid = (message: string) => new SubmissionError(400, 'INVALID_CLUB', message)
-/** The global AJV setup strips unknown fields; clubs reject them instead of ignoring them. */
-function strict(value: unknown, fields: string[]) {
-  if (value && typeof value === 'object' && Object.keys(value).some((k) => !fields.includes(k)))
-    throw invalid('Thông tin chứa trường không được phép.')
-}
-function text(value: string, label: string, required = true) {
-  // eslint-disable-next-line no-control-regex
-  const clean = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim()
-  if (required && !clean) throw invalid(label + ' không được để trống.')
-  return clean
-}
-async function execute(req: FastifyRequest, reply: FastifyReply, fn: () => Promise<unknown>) {
-  return executeSubmission(req, reply, async () => {
-    try {
-      return await fn()
-    } catch (e) {
-      const x = e as { code?: string; message?: string }
-      if (x.code === '23505' || (x.code === '23514' && x.message?.startsWith('CLUB_')))
-        throw new SubmissionError(
-          409,
-          'CLUB_CONFLICT',
-          'CLB đã thay đổi hoặc thao tác không còn phù hợp. Hãy tải lại.',
-        )
-      throw e
-    }
-  })
-}
+const { invalid, strict, text } = portalInput('INVALID_CLUB')
+const execute = portalExecute(
+  'CLUB_',
+  'CLUB_CONFLICT',
+  'CLB đã thay đổi hoặc thao tác không còn phù hợp. Hãy tải lại.',
+)
 
 /** ADR 0029: club management in the user portal (CTSV), read access for Phòng ĐT and leaders. */
 export async function clubRoutes(

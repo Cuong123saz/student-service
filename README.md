@@ -584,3 +584,14 @@ Theo [ADR 0028](docs/adr/0028-class-monitor-role.md), cố vấn bổ nhiệm l�
 ### Sprint 11.1 — CLB và vai trò ngoại khóa
 
 Theo [ADR 0029](docs/adr/0029-clubs-and-activity-roles.md), có ba role mới: CTSV (`STUDENT_AFFAIRS`), Phòng Đào tạo (`TRAINING_OFFICE`) và người phụ trách CLB (`CLUB_LEADER`). Mỗi CLB là một đơn vị tổ chức. CTSV tạo, sửa, tạm dừng, mở lại và giải thể CLB trên trang `/clubs` ở cổng người dùng; đổi trạng thái phải ghi lý do, và giải thể là thao tác cuối cùng. CTSV cũng gán hoặc kết thúc nhiệm kỳ người phụ trách. Phòng Đào tạo xem được mọi CLB, còn người phụ trách chỉ xem CLB mình. Quản trị hệ thống chỉ xem, không quản lý CLB. Mọi thao tác đều ghi audit `club.*`.
+
+### Sprint 11.2 — Hoạt động ngoại khóa
+
+Theo [ADR 0030](docs/adr/0030-extracurricular-activities.md), có hai loại hoạt động:
+
+- **Bắt buộc:** chỉ CTSV hoặc Phòng Đào tạo tạo. Phòng Đào tạo theo khoa chỉ tạo cho khoa được giao. Chủ hoạt động có thể giao một CLB thực hiện và rút lại bất cứ lúc nào.
+- **Tự nguyện:** người phụ trách CLB đang hoạt động tự mở, không cần duyệt trước.
+
+Đối tượng xác định theo khoa, lớp và niên khóa, và được kiểm ở máy chủ. Vòng đời: bản nháp → công bố ⇄ tạm dừng → hủy. Chỉ CTSV được tạm dừng; hủy là thao tác cuối cùng. Mọi thay đổi ghi lịch sử với giá trị trước/sau.
+
+Trang `/activity-management` dành cho người quản lý; sinh viên xem hoạt động phù hợp ở `/activities`. Đăng ký thuộc 11.3.

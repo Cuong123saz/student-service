@@ -111,12 +111,39 @@ export const SYSTEM_PERMISSIONS = [
     name: 'Quản lý CLB',
     description: 'Tạo, sửa, tạm dừng, giải thể CLB và gán người phụ trách',
   },
+  {
+    code: 'activity.read',
+    name: 'Xem hoạt động ngoại khóa',
+    description: 'Xem mọi hoạt động ngoại khóa và lịch sử thay đổi',
+  },
+  {
+    code: 'activity.mandatory.manage',
+    name: 'Quản lý hoạt động bắt buộc',
+    description: 'Tạo, sửa, công bố, hủy và giao CLB thực hiện hoạt động bắt buộc',
+  },
+  {
+    code: 'activity.moderate',
+    name: 'Kiểm soát hoạt động ngoại khóa',
+    description: 'Tạm dừng hoặc mở lại hoạt động đã công bố',
+  },
+  {
+    code: 'activity.club.manage',
+    name: 'Quản lý hoạt động của CLB',
+    description: 'Tạo, sửa, công bố và hủy hoạt động tự nguyện của CLB trong nhiệm kỳ',
+  },
 ] as const
 
 export type SystemPermissionCode = (typeof SYSTEM_PERMISSIONS)[number]['code']
 
 // ADR 0029: SYSTEM_ADMIN assigns roles but does not act as CTSV, so it never manages clubs.
-const systemAdminExcluded = new Set<string>(['document.mock_sign', 'club.manage'])
+const systemAdminExcluded = new Set<string>([
+  'document.mock_sign',
+  'club.manage',
+  // ADR 0030: SYSTEM_ADMIN only reads activities.
+  'activity.mandatory.manage',
+  'activity.moderate',
+  'activity.club.manage',
+])
 const allPermissionCodes = SYSTEM_PERMISSIONS.filter(
   (permission) => !systemAdminExcluded.has(permission.code),
 ).map((permission) => permission.code)
@@ -149,7 +176,13 @@ export const SYSTEM_ROLE_PERMISSIONS = {
   ],
   DOCUMENT_SIGNER: ['document.sign'],
   CLASS_MONITOR: ['training_point.monitor_confirm'],
-  STUDENT_AFFAIRS: ['club.read', 'club.manage'],
-  TRAINING_OFFICE: ['club.read'],
-  CLUB_LEADER: ['club.read'],
+  STUDENT_AFFAIRS: [
+    'club.read',
+    'club.manage',
+    'activity.read',
+    'activity.mandatory.manage',
+    'activity.moderate',
+  ],
+  TRAINING_OFFICE: ['club.read', 'activity.read', 'activity.mandatory.manage'],
+  CLUB_LEADER: ['club.read', 'activity.club.manage'],
 } as const satisfies Record<SystemRoleCode, readonly SystemPermissionCode[]>
