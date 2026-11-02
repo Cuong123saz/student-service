@@ -43,7 +43,13 @@ const allItems: PortalItem[] = [
     label: 'Xét duyệt điểm rèn luyện',
     description: 'Đối chiếu minh chứng, xác nhận từng bản và tổng hợp theo lớp.',
     to: '/training-reviews',
-    roles: ['ACADEMIC_ADVISOR', 'FACULTY_REVIEWER'],
+    roles: ['ACADEMIC_ADVISOR', 'FACULTY_REVIEWER', 'CLASS_MONITOR'],
+  },
+  {
+    label: 'Câu lạc bộ',
+    description: 'Quản lý CLB, trạng thái và người phụ trách theo nhiệm kỳ.',
+    to: '/clubs',
+    roles: ['STUDENT_AFFAIRS', 'TRAINING_OFFICE', 'CLUB_LEADER'],
   },
   {
     label: 'Hoạt động ngoại khóa',

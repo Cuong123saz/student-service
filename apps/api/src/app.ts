@@ -8,6 +8,8 @@ import { TrainingPointRepository } from './modules/training-points/training-poin
 import { TrainingReviewRepository } from './modules/training-reviews/training-review.repository.js'
 import { TrainingReviewService } from './modules/training-reviews/training-review.service.js'
 import { trainingReviewRoutes } from './modules/training-reviews/training-review.routes.js'
+import { ClubRepository } from './modules/clubs/club.repository.js'
+import { clubRoutes } from './modules/clubs/club.routes.js'
 import { TrainingPointService } from './modules/training-points/training-points.service.js'
 import {
   trainingAdminRoutes,
@@ -123,6 +125,7 @@ import { notificationRoutes } from './modules/notifications/notification.routes.
 export interface BuildAppOptions {
   trainingExportService?: TrainingExportUseCase
   trainingReviewService?: TrainingReviewService
+  clubRepository?: ClubRepository
   trainingService?: TrainingPointService
   submissionService?: SubmissionService
   procedureService?: ProcedureUseCase
@@ -403,6 +406,10 @@ export function buildApp(options: BuildAppOptions = {}) {
     prefix: USER_API_PREFIX,
     trainingExportService:
       options.trainingExportService ?? new TrainingExportService(new TrainingReviewRepository()),
+  })
+  app.register(clubRoutes, {
+    prefix: USER_API_PREFIX,
+    clubRepository: options.clubRepository ?? new ClubRepository(),
   })
   app.register(serviceRoutes)
 

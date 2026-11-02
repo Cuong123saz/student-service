@@ -580,3 +580,7 @@ Quản trị tạo/sửa/mở/đóng đợt theo lớp, năm học/học kỳ v�
 ### Sprint 11.L — Lớp trưởng
 
 Theo [ADR 0028](docs/adr/0028-class-monitor-role.md), cố vấn bổ nhiệm lớp trưởng theo nhiệm kỳ ngay trên trang xét duyệt. Phiếu nộp sẽ chờ lớp trưởng xác nhận trước khi đến cố vấn. Lớp trưởng không sửa điểm và không trả phiếu. Cố vấn có thể bỏ qua bước này cho từng phiếu, bắt buộc ghi lý do. Phiếu của chính lớp trưởng đi thẳng lên cố vấn. Lớp trưởng xem được danh sách lớp, gồm ngày sinh và email. Lớp trưởng tải được bảng điểm lớp và in phiếu từng sinh viên (mẫu `training-form-v1`, Word/PDF) sau khi khoa duyệt. Mọi lần lớp trưởng xem hoặc in đều ghi nhật ký và cố vấn xem được. Xác nhận của lớp trưởng là xác nhận bằng tài khoản, chưa phải chữ ký số.
+
+### Sprint 11.1 — CLB và vai trò ngoại khóa
+
+Theo [ADR 0029](docs/adr/0029-clubs-and-activity-roles.md), có ba role mới: CTSV (`STUDENT_AFFAIRS`), Phòng Đào tạo (`TRAINING_OFFICE`) và người phụ trách CLB (`CLUB_LEADER`). Mỗi CLB là một đơn vị tổ chức. CTSV tạo, sửa, tạm dừng, mở lại và giải thể CLB trên trang `/clubs` ở cổng người dùng; đổi trạng thái phải ghi lý do, và giải thể là thao tác cuối cùng. CTSV cũng gán hoặc kết thúc nhiệm kỳ người phụ trách. Phòng Đào tạo xem được mọi CLB, còn người phụ trách chỉ xem CLB mình. Quản trị hệ thống chỉ xem, không quản lý CLB. Mọi thao tác đều ghi audit `club.*`.

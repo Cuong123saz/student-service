@@ -1,15 +1,15 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 
-import { JWT_ISSUER, USER_JWT_AUDIENCE, USER_SESSION_COOKIE_NAME } from './auth.constants.js'
+import {
+  JWT_ISSUER,
+  USER_JWT_AUDIENCE,
+  USER_PORTAL_ROLE_CODES,
+  USER_SESSION_COOKIE_NAME,
+} from './auth.constants.js'
 
 import { isUserSession } from './auth-session.js'
 
-const USER_PORTAL_ROLES = new Set([
-  'STUDENT',
-  'ACADEMIC_ADVISOR',
-  'FACULTY_REVIEWER',
-  'DOCUMENT_SIGNER',
-])
+const USER_PORTAL_ROLES = new Set<string>(USER_PORTAL_ROLE_CODES)
 
 export async function requireUserSession(request: FastifyRequest, reply: FastifyReply) {
   const token = request.cookies[USER_SESSION_COOKIE_NAME]

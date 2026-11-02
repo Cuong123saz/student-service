@@ -10,8 +10,10 @@ test('mọi system role đều có permission mapping tường minh', () => {
   assert.deepEqual(Object.keys(SYSTEM_ROLE_PERMISSIONS).sort(), roleCodes)
 })
 
-test('SYSTEM_ADMIN có toàn bộ quyền vận hành, mô phỏng cần cấp riêng', () => {
-  const allPermissionCodes = SYSTEM_PERMISSIONS.filter((p) => p.code !== 'document.mock_sign')
+test('SYSTEM_ADMIN có toàn bộ quyền vận hành, trừ mô phỏng và quản lý CLB (ADR 0029)', () => {
+  const allPermissionCodes = SYSTEM_PERMISSIONS.filter(
+    (p) => p.code !== 'document.mock_sign' && p.code !== 'club.manage',
+  )
     .map((permission) => permission.code)
     .sort()
 
@@ -32,17 +34,17 @@ test('audit.read mặc định chỉ cấp cho SYSTEM_ADMIN', () => {
   assert.deepEqual(rolesWithAuditRead, ['SYSTEM_ADMIN'])
 })
 
-test('catalog mặc định có đúng 38 role-permission grants', () => {
+test('catalog mặc định có đúng 43 role-permission grants', () => {
   const grantCount = Object.values(SYSTEM_ROLE_PERMISSIONS).reduce(
     (total, permissionCodes) => total + permissionCodes.length,
     0,
   )
 
-  assert.equal(grantCount, 38)
+  assert.equal(grantCount, 43)
 })
 
-test('submission.assign mặc định chỉ SYSTEM_ADMIN; catalog có đúng 20 quyền', () => {
-  assert.equal(SYSTEM_PERMISSIONS.length, 20)
+test('submission.assign mặc định chỉ SYSTEM_ADMIN; catalog có đúng 22 quyền', () => {
+  assert.equal(SYSTEM_PERMISSIONS.length, 22)
   const holders = Object.entries(SYSTEM_ROLE_PERMISSIONS)
     .filter(([, codes]) => (codes as readonly string[]).includes('submission.assign'))
     .map(([role]) => role)
@@ -66,4 +68,13 @@ test('training period management defaults only to SYSTEM_ADMIN', () => {
     .filter(([, codes]) => (codes as readonly string[]).includes('training_point.period.manage'))
     .map(([role]) => role)
   assert.deepEqual(holders, ['SYSTEM_ADMIN'])
+})
+
+test('ADR 0029: chỉ CTSV quản lý CLB; Phòng Đào tạo và người phụ trách chỉ xem', () => {
+  const holders = Object.entries(SYSTEM_ROLE_PERMISSIONS)
+    .filter(([, codes]) => (codes as readonly string[]).includes('club.manage'))
+    .map(([role]) => role)
+  assert.deepEqual(holders, ['STUDENT_AFFAIRS'])
+  assert.deepEqual([...SYSTEM_ROLE_PERMISSIONS.TRAINING_OFFICE], ['club.read'])
+  assert.deepEqual([...SYSTEM_ROLE_PERMISSIONS.CLUB_LEADER], ['club.read'])
 })

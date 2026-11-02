@@ -5,6 +5,10 @@ const ADMIN_ASSIGNABLE_ROLES = new Set<SystemRoleCode>([
   'ACADEMIC_ADVISOR',
   'FACULTY_REVIEWER',
   'DOCUMENT_SIGNER',
+  // ADR 0029: CTSV and Phòng Đào tạo are business roles. Term roles (class monitor, club leader)
+  // are granted only through their term assignment, never directly.
+  'STUDENT_AFFAIRS',
+  'TRAINING_OFFICE',
 ])
 
 export class EmptyRoleAssignmentError extends Error {

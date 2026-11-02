@@ -48,6 +48,11 @@ const ROLE_SCOPE_TYPES: Record<SystemRoleCode, readonly AuthorizationScopeType[]
   DOCUMENT_SIGNER: ['ORGANIZATION'],
   // ADR 0028: a class monitor's scope is its term assignment, not an authorization scope.
   CLASS_MONITOR: [],
+  // ADR 0029: CTSV is academy-wide; Phòng Đào tạo may be limited to faculties.
+  STUDENT_AFFAIRS: ['GLOBAL'],
+  TRAINING_OFFICE: ['GLOBAL', 'FACULTY'],
+  // A club leader's scope is its term assignment, granted by CTSV on the club page.
+  CLUB_LEADER: [],
 }
 
 interface ScopeRow {

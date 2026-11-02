@@ -7,6 +7,8 @@ const tableAdrMap = new Map([
   ],
   ['training_review_decisions', 'docs/adr/0020-training-points-review-workflow.md'],
   ['class_monitor_assignments', 'docs/adr/0028-class-monitor-role.md'],
+  ['clubs', 'docs/adr/0029-clubs-and-activity-roles.md'],
+  ['club_leader_assignments', 'docs/adr/0029-clubs-and-activity-roles.md'],
   ['training_periods', 'docs/adr/0019-training-points-foundation.md'],
   ['training_declarations', 'docs/adr/0019-training-points-foundation.md'],
   ['training_evidence', 'docs/adr/0019-training-points-foundation.md'],

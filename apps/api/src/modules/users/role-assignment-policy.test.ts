@@ -22,6 +22,12 @@ test('ADMIN được gán các role nghiệp vụ', () => {
   })
 })
 
+test('ADR 0029: ADMIN gán được CTSV và Phòng Đào tạo, không gán role theo nhiệm kỳ', () => {
+  assert.doesNotThrow(() => assertCanAssignRoles(['ADMIN'], ['STUDENT_AFFAIRS', 'TRAINING_OFFICE']))
+  for (const role of ['CLUB_LEADER', 'CLASS_MONITOR'] as const)
+    assert.throws(() => assertCanAssignRoles(['ADMIN'], [role]), ForbiddenRoleAssignmentError)
+})
+
 test('ADMIN không được gán SYSTEM_ADMIN', () => {
   assert.throws(() => {
     assertCanAssignRoles(['ADMIN'], ['SYSTEM_ADMIN'])

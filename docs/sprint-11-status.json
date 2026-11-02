@@ -87,7 +87,49 @@
       ]
     },
     "11.1": {
-      "status": "PENDING"
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0029_CLUBS_ROLES_LEADER_TERMS_AUDIT",
+      "adr": "docs/adr/0029-clubs-and-activity-roles.md",
+      "migration": "apps/api/drizzle/0031_clubs.sql",
+      "quality": {
+        "check": "PASS",
+        "lint": "PASS",
+        "formatCheck": "PASS",
+        "build": "PASS",
+        "adrGate": "PASS (52)"
+      },
+      "apiUnit": {
+        "passed": 228,
+        "failed": 0
+      },
+      "apiIntegration": {
+        "passed": 373,
+        "failed": 0
+      },
+      "storageRecoveryBundleGuards": {
+        "passed": 82,
+        "failed": 0
+      },
+      "web": {
+        "passed": 170,
+        "failed": 0
+      },
+      "browserRehearsal": "rehearse:sprint10 PASS (regression); dedicated club rehearsal folded into 11.6",
+      "decisions": [
+        "Club = organizational unit + clubs row; ACTIVE/SUSPENDED/DISSOLVED, reason required, DISSOLVED final (DB trigger)",
+        "Roles STUDENT_AFFAIRS (GLOBAL), TRAINING_OFFICE (GLOBAL/FACULTY), CLUB_LEADER (term assignment)",
+        "SYSTEM_ADMIN reads clubs but has no club.manage; ADMIN may assign CTSV and Phòng ĐT, never term roles",
+        "User-portal role list centralised in USER_PORTAL_ROLE_CODES (login, guards, submission and notification APIs)"
+      ],
+      "fixesToEarlierIncrements": [
+        "11.L: portal now links the review page for CLASS_MONITOR; web role labels include the monitor"
+      ],
+      "limitations": [
+        "Assumptions in ADR 0029 (several leaders per club, staff or student leaders) await owner confirmation",
+        "Leader is picked by exact username; no user search UI",
+        "Session roles refresh at next sign-in after a term is granted",
+        "CTSV appointing class monitors (ADR 0028) not yet implemented"
+      ]
     },
     "11.2": {
       "status": "PENDING"
@@ -106,7 +148,7 @@
     }
   },
   "productionReadiness": "NOT_READY",
-  "nextIncrement": "11.1 — clubs and roles",
+  "nextIncrement": "11.2 — activities",
   "academyTemplates": {
     "status": "COMPLETE_LOCAL",
     "adr": "docs/adr/0026-academy-criteria-classification-templates.md",

@@ -218,6 +218,13 @@
       "when": 1793630000000,
       "tag": "0030_class_monitor",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793640000000,
+      "tag": "0031_clubs",
+      "breakpoints": true
     }
   ]
 }

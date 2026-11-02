@@ -1,6 +1,7 @@
 import { and, eq, desc, isNull, or, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { users, roles, userRoles } from '../auth/auth.schema.js'
+import { USER_PORTAL_ROLE_CODES } from '../auth/auth.constants.js'
 import { submissions, submissionEvents } from '../submissions/submission.schema.js'
 import { reviewerAuthorities, reviewVisibility } from '../submissions/submission.authorization.js'
 import { SubmissionError, missingDraft } from '../submissions/submission.types.js'
@@ -55,10 +56,7 @@ export class DrizzleNotificationRepository {
         and(eq(users.id, userId), eq(users.status, 'ACTIVE'), eq(users.mustChangePassword, false)),
       )
     const codes = current.map((r) => r.code)
-    const usable =
-      portal === 'admin'
-        ? ['ADMIN', 'SYSTEM_ADMIN']
-        : ['STUDENT', 'ACADEMIC_ADVISOR', 'FACULTY_REVIEWER', 'DOCUMENT_SIGNER']
+    const usable = portal === 'admin' ? ['ADMIN', 'SYSTEM_ADMIN'] : USER_PORTAL_ROLE_CODES
     if (!codes.some((code) => usable.includes(code)))
       throw new SubmissionError(
         403,
