@@ -776,6 +776,75 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
     )
 
     await t.test(
+      'client disconnect during PDF conversion leaves the server healthy and releases the slot',
+      async () => {
+        const { p, d } = await fixture()
+        await repo.act(advisor, d.id, 'ADVISOR_SIGNED', input())
+        await repo.act(faculty, d.id, 'FACULTY_APPROVED', input(1, false))
+        let started!: () => void
+        const converting = new Promise<void>((resolve) => (started = resolve))
+        let conversions = 0
+        const exporter = new TrainingExportService(
+          repo,
+          createTrainingExportWorkbook,
+          createTrainingMinutesDocx,
+          {
+            convert: async () => {
+              conversions++
+              started()
+              await new Promise((resolve) => setTimeout(resolve, 400))
+              return Buffer.from('%PDF-1.7 synthetic slow %%EOF')
+            },
+          },
+        )
+        const app = buildApp({
+          trainingReviewService: service,
+          trainingService: points,
+          trainingExportService: exporter,
+        })
+        const address = await app.listen({ host: '127.0.0.1', port: 0 })
+        const token = app.jwt.sign(
+          {
+            sub: advisor,
+            username: 'test',
+            roles: ['ACADEMIC_ADVISOR', 'STUDENT'],
+            portal: 'user',
+            mustChangePassword: false,
+            iss: JWT_ISSUER,
+            aud: USER_JWT_AUDIENCE,
+          },
+          { expiresIn: '5m' },
+        )
+        const call = (signal?: AbortSignal) =>
+          fetch(address + '/api/v1/user/training-reviews/periods/' + p.id + '/minutes.pdf', {
+            method: 'POST',
+            body: '{}',
+            signal: signal ?? null,
+            headers: {
+              cookie: 'user_session=' + token,
+              origin: env.corsOrigin,
+              'content-type': 'application/json',
+            },
+          })
+        try {
+          const abort = new AbortController()
+          const pending = call(abort.signal)
+          await converting
+          abort.abort()
+          await assert.rejects(pending, { name: 'AbortError' })
+          // Let the abandoned task finish; the per-account slot must then be free again.
+          await new Promise((resolve) => setTimeout(resolve, 600))
+          const next = await call()
+          assert.equal(next.status, 200)
+          assert.equal((await next.arrayBuffer()).byteLength > 0, true)
+          assert.equal(conversions, 2)
+        } finally {
+          await app.close()
+        }
+      },
+    )
+
+    await t.test(
       'advisor, return, new confirmation and faculty approval preserve original and frozen receipts',
       async () => {
         const { p, d } = await fixture(),

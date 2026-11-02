@@ -1,8 +1,8 @@
 # Student Service Portal — Bối cảnh và lộ trình cho AI
 
-Cập nhật bối cảnh ngày **02/11/2026**, sau increment 10.4 (nhánh xếp chồng trên 10.3, nền `main` `4034d89`) và hồ sơ sprint trong repo. Đây là điểm bắt đầu để AI tiếp tục dự án khi không có lịch sử chat hoặc tệp Word local. Đọc tình trạng thực tế bằng Git và code trước khi sửa; ngày cập nhật tài liệu không có nghĩa kiểm thử đã được chạy lại trong ngày đó.
+Cập nhật bối cảnh ngày **02/11/2026**, sau khi đóng Sprint 10 (LOCAL_TECHNICAL) và hồ sơ sprint trong repo. Đây là điểm bắt đầu để AI tiếp tục dự án khi không có lịch sử chat hoặc tệp Word local. Đọc tình trạng thực tế bằng Git và code trước khi sửa; ngày cập nhật tài liệu không có nghĩa kiểm thử đã được chạy lại trong ngày đó.
 
-**Điểm tiếp tục: Sprint 10 đang IN_PROGRESS, increment 10.1–10.4 đã COMPLETE_LOCAL; công việc tiếp theo là 10.5 — diễn tập trình duyệt, rà tệp và hồ sơ đóng Sprint 10.** Production vẫn NOT_READY.
+**Điểm tiếp tục: Sprint 10 đã CLOSED LOCAL_TECHNICAL ngày 02/11/2026 ([hồ sơ đóng](docs/sprint-10-closure.md)); công việc tiếp theo là lập kế hoạch Sprint 11 — hoạt động ngoại khóa, chỉ sau khi chủ dự án chốt phạm vi.** Production vẫn NOT_READY.
 
 ## 1. Dự án và cách cộng tác
 
@@ -10,13 +10,13 @@ Dự án Cổng Dịch vụ Sinh viên của Học viện Quản lý Giáo dục
 
 Chủ dự án muốn được phản biện như intern được senior hướng dẫn: chỉ ra giả định sai, lỗi và hệ quả bằng bằng chứng; giải thích quyết định quan trọng, tránh khen chung chung. Trả lời bằng tiếng Việt. Phân biệt yêu cầu hướng dẫn với yêu cầu thực hiện; tiếp tục phần đã được người dùng cho phép, không hỏi lại cùng một xác nhận.
 
-Repo: [Cuong123saz/student-service](https://github.com/Cuong123saz/student-service). Tại lúc cập nhật: 10.3 nằm ở nhánh `feat/sprint-10-3-training-minutes` ([PR 2](https://github.com/Cuong123saz/student-service/pull/2) vào `main`), 10.4 ở nhánh `feat/sprint-10-4-export-ui-zip` tách từ nhánh 10.3. Tên nhánh và trạng thái dirty phải đọc lại từ Git, không coi các giá trị trong tài liệu là thông tin live. Đường dẫn máy hiện tại là `D:\student-service`; trên máy khác dùng root checkout thực tế, không hard-code đường dẫn này trong sản phẩm.
+Repo: [Cuong123saz/student-service](https://github.com/Cuong123saz/student-service). Tại lúc cập nhật: 10.3 đã merge vào `main` ([PR 2](https://github.com/Cuong123saz/student-service/pull/2)); 10.4 chờ review ở [PR 3](https://github.com/Cuong123saz/student-service/pull/3); 10.5 ở nhánh `feat/sprint-10-5-rehearsal-closure` tách từ nhánh 10.4. Tên nhánh và trạng thái dirty phải đọc lại từ Git, không coi các giá trị trong tài liệu là thông tin live. Đường dẫn máy hiện tại là `D:\student-service`; trên máy khác dùng root checkout thực tế, không hard-code đường dẫn này trong sản phẩm.
 
 ## 2. Thứ tự đọc và nguồn đối chiếu
 
 1. [AGENTS.md](AGENTS.md): cách làm việc trong repo; [README.md](README.md): khởi động và mô tả chức năng.
 2. Tài liệu này: bối cảnh, toàn bộ roadmap và điểm tiếp tục.
-3. [Kế hoạch Sprint 10](docs/sprint-10-plan.md), [trạng thái Sprint 10](docs/sprint-10-status.json), [Excel đã có](docs/sprint-10-xlsx.md).
+3. [Hồ sơ đóng Sprint 10](docs/sprint-10-closure.md), [trạng thái Sprint 10](docs/sprint-10-status.json), [runbook diễn tập](docs/sprint-10-runbook.md).
 4. [Quy ước phát triển](docs/development-guidelines.md), ADR và code của phần đang sửa.
 
 Khi có mâu thuẫn, làm rõ nguồn và thời điểm: yêu cầu mới nhất của chủ dự án; code/Git thực tế; ADR và hồ sơ sprint hiện hành; sau đó mới tới tài liệu lịch sử. Code chứng minh chức năng tồn tại nhưng không tự chứng minh chức năng đã qua nghiệm thu. Kế hoạch tương lai không phải kết quả đã triển khai. Không tự đổi trạng thái để làm tài liệu có vẻ thống nhất khi chưa đủ bằng chứng.
@@ -65,7 +65,7 @@ Mục tiêu lấy từ roadmap hợp nhất; trạng thái đối chiếu README
 | 7 | Digital signature MVP: mock signer, hash, workflow, verify và audit | CLOSED LOCAL_TECHNICAL ngày 14/10; chữ ký vẫn mô phỏng/NOT_VERIFIED |
 | 8 | Đợt, tiêu chí A–E, kê khai/minh chứng, snapshot và lịch sử | CLOSED LOCAL_TECHNICAL ngày 15/10 |
 | 9 | Cố vấn xác nhận, khoa trả về/duyệt, lịch sử vòng xét duyệt và tổng hợp lớp | CLOSED LOCAL_TECHNICAL ngày 23/10 |
-| 10 | Excel tổng hợp, biên bản Word/PDF, ZIP | IN_PROGRESS; 10.1–10.4 đạt local, còn 10.5 |
+| 10 | Excel tổng hợp, biên bản Word/PDF, ZIP | CLOSED LOCAL_TECHNICAL ngày 02/11 |
 | 11 | Hoạt động ngoại khóa: đăng ký, giới hạn, điểm danh, đề xuất minh chứng | PLANNED theo roadmap; chưa có module nghiệp vụ tương ứng trong cây modules hiện tại |
 | 12 | Nghiên cứu khoa học: đề tài, nhóm, giảng viên hướng dẫn, xét duyệt | PLANNED theo roadmap; chưa có module nghiệp vụ tương ứng trong cây modules hiện tại |
 | 13 | Hardening/UAT: bảo mật, backup, hiệu năng, accessibility, nghiệm thu local | PLANNED; chưa được coi đã hoàn tất nhờ có test hoặc demo của sprint trước |
@@ -74,7 +74,7 @@ Milestone theo roadmap: sau Sprint 3 có nền tài khoản/quản trị; sau Sp
 
 Hồ sơ đóng và trạng thái: `docs/sprint-status.json` cho 2+3; từ 4 đến 9 có `docs/sprint-N-status.json` và `docs/sprint-N-closure.md`. Không đóng lại các sprint cũ bằng cách chạy một lệnh test mới rồi ghi đè bằng chứng trước đó.
 
-## 5. Sprint 10 đang ở đâu
+## 5. Sprint 10 đã có gì
 
 | Increment | Đã có hoặc phải làm tiếp |
 | --- | --- |
@@ -82,7 +82,7 @@ Hồ sơ đóng và trạng thái: `docs/sprint-status.json` cho 2+3; từ 4 đ�
 | 10.2 — COMPLETE_LOCAL | ADR 0022; bộ sinh XLSX, API tải POST, audit sau render và kiểm chứng tệp thật |
 | 10.3 — COMPLETE_LOCAL | ADR 0023; biên bản `training-minutes-v1` DOCX/PDF, PDF từ đúng DOCX, audit sau render, rà PDF thật nhiều trang ([chi tiết](docs/sprint-10-minutes.md)) |
 | 10.4 — COMPLETE_LOCAL | ADR 0024; ZIP một snapshot + manifest, CORS expose header, panel tải trên `/training-reviews` ([chi tiết](docs/sprint-10-export-ui.md)) |
-| 10.5 — PENDING | Test hồi quy/quyền/đồng thời, diễn tập browser dữ liệu giả, rà tệp/ảnh, runbook và hồ sơ đóng khi đủ tiêu chí |
+| 10.5 — COMPLETE_LOCAL | `rehearse:sprint10` PASS, ca khách ngắt kết nối, [runbook](docs/sprint-10-runbook.md), [hồ sơ đóng](docs/sprint-10-closure.md) |
 
 ### Hợp đồng Excel hiện có cần giữ
 
@@ -102,12 +102,13 @@ Chi tiết tại [hướng dẫn Excel](docs/sprint-10-xlsx.md), [ADR 0021](docs
 - PDF luôn chuyển từ đúng buffer DOCX trong cùng request qua `LibreOfficePdfConverter`. Lỗi converter trả 503 `TRAINING_EXPORT_PDF_*`, không audit. Không render hay chạy converter khi giữ khóa DB.
 - Excel/Word dùng chung `assertTrainingExportSnapshot`. Microsoft Word desktop chưa kiểm; CI không có LibreOffice nên ca PDF thật là opt-in `TRAINING_MINUTES_REAL_PDF=true`.
 
-### Bắt đầu 10.5 khi người dùng yêu cầu tiếp tục
+### Bắt đầu Sprint 11 khi người dùng yêu cầu tiếp tục
 
-1. Merge hoặc rebase theo trạng thái PR 10.3/10.4 thực tế trên GitHub; đọc lại Git trước khi làm.
-2. Diễn tập trình duyệt thật bằng dữ liệu giả riêng: API + web + PostgreSQL test, tài khoản cố vấn/khoa giả, tải đủ bốn định dạng; kiểm CORS thật, Web Crypto, tên tệp, 401/403 giữa chừng, và ảnh chụp 375/768/1024/1440 px. Tham khảo các script `rehearse`/`workflow-demo` của Sprint 9.
-3. Rà trực tiếp XLSX/DOCX/PDF/ZIP thu được; nếu có máy Windows/Microsoft Office thì ghi kết quả, nếu không thì ghi NOT_RUN.
-4. Viết runbook, `docs/sprint-10-closure.md`, cập nhật status/README; chỉ đóng khi mọi tiêu chí trong plan đạt, nêu rõ giới hạn.
+1. Đọc lại Git: PR 10.4/10.5 đã merge chưa; không xếp chồng Sprint 11 lên nhánh chưa merge nếu tránh được.
+2. Chưa viết code. Lập `docs/sprint-11-plan.md` dạng đề xuất và hỏi chủ dự án chốt: actor/scope (ai tạo hoạt động, ai điểm danh), sức chứa và danh sách chờ, trạng thái đăng ký/hủy/điểm danh và tranh chấp, quan hệ với minh chứng điểm rèn luyện. Không tự cộng điểm từ hoạt động khi chưa có quy tắc.
+3. Sau khi chốt: ADR trước schema/migration, theo gate hiện có.
+
+Chạy lại diễn tập Sprint 10 theo runbook khi đổi code xuất; nhớ đặt `WORKFLOW_PLAYWRIGHT_MODULE`/`WORKFLOW_CHROMIUM_EXECUTABLE`.
 
 ## 6. Bất biến nghiệp vụ
 
@@ -141,13 +142,15 @@ Web acceptance dùng cache Nuxt riêng để không ghi đè manifest bản buil
 
 ### Bằng chứng gần nhất, không phải test vừa chạy hôm nay
 
+Ngày 02/11 (container Linux, khi đóng Sprint 10): 1.092 đạt / 2 bỏ qua / 0 thất bại trên các nhóm ADR gate, unit, integration, storage/recovery/bundle/guard và web; diễn tập Sprint 10 và Sprint 9 PASS. Chi tiết tại `docs/sprint-10-closure.md`.
+
 Ngày 23/10: baseline toàn dự án ghi 1.065 đạt/1 bỏ qua do symlink Windows. Sau sửa Sprint 9, web 147 bài và diễn tập 14 nhóm/16 responsive đạt. Sprint 10.2 cuối có 9 unit Excel/service và 19 theo runner HTTP/SQL (18 ca con + 1 nhóm), typecheck/lint/build API đạt. Tệp Excel được đọc lại và rà bằng LibreOffice; Microsoft Excel desktop chưa kiểm trực tiếp. Không cộng các lần chạy lại hoặc các con số này thành tổng mới.
 
 Các báo cáo hiện nằm ở `docs/sprint-9-closure.md`, `docs/sprint-10-xlsx.md` và status tương ứng. Chỉ mục bằng chứng byte/ảnh/log được giữ local, nhiều đường dẫn không nằm trong Git. AI trên máy khác phải chạy lại phần cần thiết hoặc xin nguồn bằng chứng nếu cần xác minh, không giả định đã thấy các tệp đó.
 
 ## 8. Tiếp tục các sprint sau và cập nhật tài liệu
 
-Hoàn thành 10.3 → 10.4 → 10.5 trước khi tuyên bố Sprint 10 CLOSED. Sau đó mới mở kế hoạch Sprint 11 chi tiết: chốt actor/scope, sức chứa đăng ký, trạng thái và tranh chấp đăng ký/điểm danh, rồi mối liên hệ với minh chứng. Với Sprint 12, chốt vòng đời đề tài, thành viên, giảng viên hướng dẫn và quy trình xét duyệt trước khi thiết kế schema. Các chi tiết này là việc phải làm rõ, chưa phải đặc tả đã được chấp thuận.
+Sprint 10 đã đóng LOCAL_TECHNICAL. Kế hoạch Sprint 11 chi tiết cần: chốt actor/scope, sức chứa đăng ký, trạng thái và tranh chấp đăng ký/điểm danh, rồi mối liên hệ với minh chứng. Với Sprint 12, chốt vòng đời đề tài, thành viên, giảng viên hướng dẫn và quy trình xét duyệt trước khi thiết kế schema. Các chi tiết này là việc phải làm rõ, chưa phải đặc tả đã được chấp thuận.
 
 Sprint 13 tập trung hardening/UAT, bảo mật, phục hồi, hiệu năng và accessibility theo roadmap. Lỗi mất dữ liệu, sai quyền, thiếu test discovery hoặc chặn tích hợp không nên trì hoãn chỉ vì có sprint hardening riêng. Quy chế, mẫu chính thức, ký thật và triển khai phải theo yêu cầu và phê duyệt tương ứng, không tự suy ra từ kết quả local.
 
