@@ -9,6 +9,8 @@ const tableAdrMap = new Map([
   ['class_monitor_assignments', 'docs/adr/0028-class-monitor-role.md'],
   ['clubs', 'docs/adr/0029-clubs-and-activity-roles.md'],
   ['club_leader_assignments', 'docs/adr/0029-clubs-and-activity-roles.md'],
+  ['activities', 'docs/adr/0030-extracurricular-activities.md'],
+  ['activity_events', 'docs/adr/0030-extracurricular-activities.md'],
   ['training_periods', 'docs/adr/0019-training-points-foundation.md'],
   ['training_declarations', 'docs/adr/0019-training-points-foundation.md'],
   ['training_evidence', 'docs/adr/0019-training-points-foundation.md'],

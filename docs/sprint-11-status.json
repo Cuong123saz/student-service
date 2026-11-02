@@ -132,7 +132,45 @@
       ]
     },
     "11.2": {
-      "status": "PENDING"
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0030_ACTIVITIES_KINDS_OWNERSHIP_DELEGATION_ELIGIBILITY_LIFECYCLE",
+      "adr": "docs/adr/0030-extracurricular-activities.md",
+      "migration": "apps/api/drizzle/0032_activities.sql",
+      "quality": {
+        "check": "PASS",
+        "lint": "PASS",
+        "formatCheck": "PASS",
+        "build": "PASS",
+        "adrGate": "PASS (52)"
+      },
+      "apiUnit": {
+        "passed": 228,
+        "failed": 0
+      },
+      "apiIntegration": {
+        "passed": 382,
+        "failed": 0
+      },
+      "storageRecoveryBundleGuards": {
+        "passed": 82,
+        "failed": 0
+      },
+      "web": {
+        "passed": 179,
+        "failed": 0
+      },
+      "decisions": [
+        "Mandatory activities only by CTSV / Phòng ĐT (faculty-scoped Phòng ĐT limited to its faculties); voluntary only by an active club leader",
+        "Owner is the unit (role), not the person; delegated club sees but never edits",
+        "Eligibility faculty AND class AND cohort, empty = all, shared SQL function activity_student_eligible",
+        "Lifecycle DRAFT→PUBLISHED⇄SUSPENDED (CTSV only)→CANCELLED (final); DB triggers keep history append-only and activities undeletable",
+        "Every change bumps revision and records before/after"
+      ],
+      "limitations": [
+        "Registration, waitlist and cancellation requests come in 11.3; students only view in 11.2",
+        "No dedicated browser rehearsal yet; folded into 11.6",
+        "Eligibility by organisational unit not supported (assumption in ADR 0030)"
+      ]
     },
     "11.3": {
       "status": "PENDING"
@@ -148,7 +186,7 @@
     }
   },
   "productionReadiness": "NOT_READY",
-  "nextIncrement": "11.2 — activities",
+  "nextIncrement": "11.3 — registration, waitlist and cancellation",
   "academyTemplates": {
     "status": "COMPLETE_LOCAL",
     "adr": "docs/adr/0026-academy-criteria-classification-templates.md",
