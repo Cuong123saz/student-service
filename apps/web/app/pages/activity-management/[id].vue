@@ -231,6 +231,7 @@ onBeforeUnmount(() => {
           >
         </div>
       </section>
+      <ActivityRosterPanel v-if="activity.status !== 'DRAFT'" :activity-id="activity.id" />
       <section class="tp-panel" aria-labelledby="activity-history-title">
         <h2 id="activity-history-title">Lịch sử</h2>
         <ul class="tp-files">

@@ -12,6 +12,7 @@ import { ClubRepository } from './modules/clubs/club.repository.js'
 import { clubRoutes } from './modules/clubs/club.routes.js'
 import { ActivityRepository } from './modules/activities/activity.repository.js'
 import { activityRoutes } from './modules/activities/activity.routes.js'
+import { ActivityRegistrationRepository } from './modules/activities/activity-registration.repository.js'
 import { TrainingPointService } from './modules/training-points/training-points.service.js'
 import {
   trainingAdminRoutes,
@@ -129,6 +130,7 @@ export interface BuildAppOptions {
   trainingReviewService?: TrainingReviewService
   clubRepository?: ClubRepository
   activityRepository?: ActivityRepository
+  registrationRepository?: ActivityRegistrationRepository
   trainingService?: TrainingPointService
   submissionService?: SubmissionService
   procedureService?: ProcedureUseCase
@@ -417,6 +419,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.register(activityRoutes, {
     prefix: USER_API_PREFIX,
     activityRepository: options.activityRepository ?? new ActivityRepository(),
+    registrationRepository: options.registrationRepository ?? new ActivityRegistrationRepository(),
   })
   app.register(serviceRoutes)
 

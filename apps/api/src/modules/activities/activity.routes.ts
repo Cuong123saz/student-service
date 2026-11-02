@@ -8,6 +8,7 @@ import {
 } from '../submissions/submission.http.js'
 import { portalExecute, portalInput } from '../shared/portal-input.js'
 import { ActivityRepository } from './activity.repository.js'
+import { ActivityRegistrationRepository } from './activity-registration.repository.js'
 import {
   activityCategories,
   activityKinds,
@@ -87,13 +88,17 @@ function clean<T extends Omit<Editable, 'expectedRevision'>>(b: T): T {
 /** ADR 0030: activity management (CTSV, Phòng Đào tạo, club leaders) and the student view. */
 export async function activityRoutes(
   app: FastifyInstance,
-  options: { activityRepository: ActivityRepository },
+  options: {
+    activityRepository: ActivityRepository
+    registrationRepository: ActivityRegistrationRepository
+  },
 ) {
   configureSubmissionErrors(app)
   app.addHook('onRequest', async (_req, reply) => {
     reply.header('Cache-Control', 'private, no-store')
   })
   const r = options.activityRepository,
+    reg = options.registrationRepository,
     auth = [requireSubmissionSession('user')],
     student = [requireSubmissionSession('user', true)],
     write = [...auth, submissionOrigin],
@@ -213,6 +218,94 @@ export async function activityRoutes(
           req.body.expectedRevision,
           req.body.clubId?.toLowerCase() ?? null,
           text(req.body.reason ?? '', 'Lý do', false) || null,
+        ),
+      ),
+  )
+
+  // ADR 0031: registration, waitlist and cancellation requests.
+  const studentWrite = [...student, submissionOrigin]
+  app.get('/activities/registrations', { preHandler: student }, (req, reply) =>
+    execute(req, reply, () => reg.history(submissionActor(req).userId)),
+  )
+  const studentActions = {
+    registration: (req: { params: { id: string } }, actor: ReturnType<typeof submissionActor>) =>
+      reg.register(actor, req.params.id.toLowerCase()),
+    'registration/withdraw': (
+      req: { params: { id: string } },
+      actor: ReturnType<typeof submissionActor>,
+    ) => reg.withdraw(actor, req.params.id.toLowerCase()),
+    'registration/promotion-seen': (
+      req: { params: { id: string } },
+      actor: ReturnType<typeof submissionActor>,
+    ) => reg.acknowledgePromotion(actor.userId, req.params.id.toLowerCase()),
+  }
+  for (const [path, run] of Object.entries(studentActions))
+    app.post<{ Params: { id: string } }>(
+      '/activities/:id/' + path,
+      {
+        preHandler: studentWrite,
+        config: limited,
+        preValidation: async (req) => strict(req.body, []),
+        // No body schema: these POSTs may arrive without a body; strict() rejects any field.
+        schema: { params },
+      },
+      (req, reply) => execute(req, reply, () => run(req, submissionActor(req))),
+    )
+  app.post<{ Params: { id: string }; Body: { reason: string } }>(
+    '/activities/:id/registration/cancel-request',
+    {
+      preHandler: studentWrite,
+      config: limited,
+      preValidation: async (req) => strict(req.body, ['reason']),
+      schema: { params, body: Type.Object({ reason }, { additionalProperties: false }) },
+    },
+    (req, reply) =>
+      execute(req, reply, () =>
+        reg.requestCancel(
+          submissionActor(req),
+          req.params.id.toLowerCase(),
+          text(req.body.reason, 'Lý do'),
+        ),
+      ),
+  )
+  app.get<{ Params: { id: string } }>(
+    '/activities/manage/:id/registrations',
+    { preHandler: auth, schema: { params } },
+    (req, reply) =>
+      execute(req, reply, () =>
+        reg.roster(submissionActor(req).userId, req.params.id.toLowerCase()),
+      ),
+  )
+  app.post<{
+    Params: { id: string; registrationId: string }
+    Body: { expectedRevision: number; accept: boolean; note?: string }
+  }>(
+    '/activities/manage/:id/registrations/:registrationId/decision',
+    {
+      preHandler: write,
+      config: limited,
+      preValidation: async (req) => strict(req.body, ['expectedRevision', 'accept', 'note']),
+      schema: {
+        params: Type.Object({ id: uuid, registrationId: uuid }, { additionalProperties: false }),
+        body: Type.Object(
+          {
+            expectedRevision: rev,
+            accept: Type.Boolean(),
+            note: Type.Optional(Type.String({ maxLength: 500 })),
+          },
+          { additionalProperties: false },
+        ),
+      },
+    },
+    (req, reply) =>
+      execute(req, reply, () =>
+        reg.decide(
+          submissionActor(req),
+          req.params.id.toLowerCase(),
+          req.params.registrationId.toLowerCase(),
+          req.body.expectedRevision,
+          req.body.accept,
+          text(req.body.note ?? '', 'Ghi chú', false) || null,
         ),
       ),
   )

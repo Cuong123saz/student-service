@@ -6,6 +6,9 @@ import type {
   ActivityOptions,
   MandatoryOwner,
   StudentActivity,
+  StudentRegistrationView,
+  RegistrationHistoryItem,
+  ActivityRoster,
 } from '~/types/activity'
 import { trainingFetchError } from '~/utils/training-point'
 
@@ -43,6 +46,34 @@ export function useActivities() {
       request<ActivityDetail>('/' + id + '/' + action, {
         method: 'POST',
         body: action === 'publish' ? { expectedRevision } : { expectedRevision, reason },
+      }),
+    // ADR 0031: registration, waitlist and cancellation.
+    register: (id: string) =>
+      request<StudentRegistrationView>('/' + id + '/registration', { method: 'POST' }),
+    withdraw: (id: string) =>
+      request<StudentRegistrationView>('/' + id + '/registration/withdraw', { method: 'POST' }),
+    requestCancel: (id: string, reason: string) =>
+      request<StudentRegistrationView>('/' + id + '/registration/cancel-request', {
+        method: 'POST',
+        body: { reason },
+      }),
+    acknowledgePromotion: (id: string) =>
+      request<StudentRegistrationView>('/' + id + '/registration/promotion-seen', {
+        method: 'POST',
+      }),
+    history: () =>
+      request<{ items: RegistrationHistoryItem[]; truncated: boolean }>('/registrations'),
+    roster: (id: string) => request<ActivityRoster>('/manage/' + id + '/registrations'),
+    decide: (
+      id: string,
+      registrationId: string,
+      expectedRevision: number,
+      accept: boolean,
+      note: string,
+    ) =>
+      request<ActivityRoster>('/manage/' + id + '/registrations/' + registrationId + '/decision', {
+        method: 'POST',
+        body: { expectedRevision, accept, ...(note ? { note } : {}) },
       }),
     delegate: (id: string, expectedRevision: number, clubId: string | null, reason: string) =>
       request<ActivityDetail>('/' + id + '/delegation', {

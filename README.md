@@ -595,3 +595,11 @@ Theo [ADR 0030](docs/adr/0030-extracurricular-activities.md), có hai loại ho�
 Đối tượng xác định theo khoa, lớp và niên khóa, và được kiểm ở máy chủ. Vòng đời: bản nháp → công bố ⇄ tạm dừng → hủy. Chỉ CTSV được tạm dừng; hủy là thao tác cuối cùng. Mọi thay đổi ghi lịch sử với giá trị trước/sau.
 
 Trang `/activity-management` dành cho người quản lý; sinh viên xem hoạt động phù hợp ở `/activities`. Đăng ký thuộc 11.3.
+
+### Sprint 11.3 — Đăng ký, danh sách chờ và hủy
+
+Theo [ADR 0031](docs/adr/0031-activity-registration-waitlist.md):
+
+- **Đăng ký và danh sách chờ.** Sinh viên đúng đối tượng đăng ký trước giờ bắt đầu. Hết chỗ thì vào danh sách chờ theo thứ tự đăng ký. Database chặn vượt sức chứa, kể cả khi nhiều người đăng ký cùng lúc. Có chỗ trống thì người đầu danh sách chờ tự lên và thấy thông báo trên trang hoạt động.
+- **Hủy.** Sinh viên gửi yêu cầu hủy trước giờ bắt đầu ít nhất 24 giờ, kèm lý do. Chủ hoạt động hoặc CLB được giao chấp nhận hoặc từ chối; không ai tự xử lý yêu cầu của chính mình. Yêu cầu chưa xử lý tới giờ bắt đầu được tự động chấp nhận.
+- **Vắng.** Người đã đăng ký mà không tham gia có trạng thái Vắng riêng, chưa áp dụng phạt.
