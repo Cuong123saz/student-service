@@ -1,18 +1,16 @@
 import { strToU8, zipSync } from 'fflate'
-import { SubmissionError } from '../submissions/submission.types.js'
 import { groups } from '../training-points/training-points.types.js'
-import { trainingExportMaxRows, type TrainingExportSnapshot } from './training-export.types.js'
+import type { TrainingExportSnapshot } from './training-export.types.js'
+import {
+  assertTrainingExportSnapshot,
+  trainingExportIntegrityError,
+} from './training-export.integrity.js'
 
 export const trainingXlsxMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 type Cell = string | number | null | { date: string }
 const ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 const declaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-const integrity = () =>
-  new SubmissionError(
-    409,
-    'TRAINING_EXPORT_INTEGRITY',
-    'Dữ liệu xét duyệt không nhất quán. Chưa thể xuất.',
-  )
+const integrity = trainingExportIntegrityError
 function xml(s: string) {
   return (
     s
@@ -121,36 +119,7 @@ const styles =
  </cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`
 
 export function createTrainingExportWorkbook(s: TrainingExportSnapshot): Buffer {
-  if (s.rows.length > trainingExportMaxRows)
-    throw new SubmissionError(
-      422,
-      'TRAINING_EXPORT_TOO_LARGE',
-      'Một lần xuất tối đa 1.000 bản đã duyệt.',
-    )
-  const total = s.rows.reduce((n, r) => n + r.approvedPoints, 0)
-  const average = s.rows.length ? Math.round((total * 100) / s.rows.length) / 100 : null
-  if (
-    s.summary.approved !== s.rows.length ||
-    s.summary.approvedTotalPoints !== total ||
-    s.summary.approvedAveragePoints !== average
-  )
-    throw integrity()
-  for (const r of s.rows) {
-    const values = groups.map((g) => r.approvedAnswers[g]?.points)
-    if (
-      values.some(
-        (v, i) =>
-          !Number.isInteger(v) ||
-          v! < 0 ||
-          v! > (s.period.criteria.find((c) => c.code === groups[i])?.maxPoints ?? -1),
-      ) ||
-      values.reduce<number>((n, v) => n + (v ?? 0), 0) !== r.approvedPoints ||
-      !Number.isInteger(r.selfPoints) ||
-      r.selfPoints < 0 ||
-      r.selfPoints > 100
-    )
-      throw integrity()
-  }
+  assertTrainingExportSnapshot(s)
   const metadata: [string, Cell][] = [
     ['Mã snapshot', s.snapshotId],
     ['Chốt dữ liệu (UTC+7)', { date: s.capturedAt }],

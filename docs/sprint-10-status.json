@@ -1,7 +1,7 @@
 {
   "sprint": 10,
   "status": "IN_PROGRESS",
-  "updatedAt": "2026-10-23",
+  "updatedAt": "2026-11-02",
   "closureScope": "NOT_CLOSED",
   "increments": {
     "10.1": {
@@ -55,7 +55,53 @@
       ]
     },
     "10.3": {
-      "status": "PENDING"
+      "status": "COMPLETE_LOCAL",
+      "scope": "ADR_0023_VERSIONED_MINUTES_DOCX_AND_PDF_FROM_EXACT_DOCX",
+      "templateVersion": "training-minutes-v1",
+      "verifiedAt": "2026-11-02",
+      "baseCommit": "4034d89",
+      "environment": "Linux cloud container, Node 22.23.4 (pin 22.23.2), PostgreSQL 17 test container, LibreOffice and Poppler installed",
+      "newUnitCases": 10,
+      "newUnitOptInCases": 1,
+      "newIntegrationSubcases": 1,
+      "apiUnit": {
+        "passed": 203,
+        "skipped": 2,
+        "failed": 0,
+        "discoveryPassed": 6
+      },
+      "apiIntegration": {
+        "passed": 357,
+        "failed": 0
+      },
+      "trainingReviewRunner": {
+        "passed": 20,
+        "subcases": 19
+      },
+      "realPdfOptIn": "PASS",
+      "quality": {
+        "check": "PASS",
+        "lint": "PASS",
+        "formatCheck": "PASS"
+      },
+      "documentQA": {
+        "fixturePdfPages": 3,
+        "largePdfRows": 120,
+        "largePdfPages": 14,
+        "studentCodesExtracted": 120,
+        "repeatedHeaderPages": 12,
+        "renderedPagesReviewed": "PASS",
+        "fixtureDocxSha256": "2a682a5d9c4a03c1946c3e4cae978e61dbab3e1b8991e0764e8f4d01982db352",
+        "microsoftWordDesktop": "NOT_RUN"
+      },
+      "usageDocument": "docs/sprint-10-minutes.md",
+      "limitations": [
+        "No UI button, CORS header exposure or ZIP yet (10.4)",
+        "CI has no LibreOffice; real PDF test is opt-in via TRAINING_MINUTES_REAL_PDF=true",
+        "Times New Roman substituted by Liberation Serif in the verification container",
+        "Minutes and submission converters are separate instances (up to 4 LibreOffice processes per API process)",
+        "Evidence images/files kept in a session scratch directory, not committed"
+      ]
     },
     "10.4": {
       "status": "PENDING"
@@ -66,7 +112,7 @@
   },
   "productionReadiness": "NOT_READY",
   "workingTreeHasUncommittedChanges": true,
-  "nextIncrement": "10.3 — meeting Word/PDF",
+  "nextIncrement": "10.4 — UI download, CORS exposed headers and single-snapshot ZIP with manifest",
   "evidenceDirectory": "C:\\Users\\Personal\\Documents\\ChatGPT\\New project\\sprint10-1\\verification",
   "runtimeFiles": [
     {

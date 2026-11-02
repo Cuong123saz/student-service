@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto'
 import { readSheet } from 'read-excel-file/node'
 import { createTrainingExportWorkbook } from './training-export.xlsx.js'
+import { createTrainingMinutesDocx } from './training-export.docx.js'
+import { strFromU8, unzipSync } from 'fflate'
 import { TrainingExportService } from './training-export.service.js'
 import assert from 'node:assert/strict'
 import { test, after } from 'node:test'
@@ -512,6 +514,147 @@ test('advisor and faculty workflow uses an isolated synthetic database', async (
             assert.equal(limited.statusCode, i < 5 ? 200 : 429)
             assert.match(limited.headers['cache-control'] as string, /no-store/)
           }
+        } finally {
+          await db`UPDATE academic_advisor_assignments SET status='ACTIVE' WHERE advisor_user_id=${advisor}`
+          await app.close()
+        }
+      },
+    )
+
+    await t.test(
+      'minutes DOCX/PDF HTTP download uses one snapshot, exact DOCX for PDF, fresh rights and audit',
+      async () => {
+        const { p, d } = await fixture()
+        await repo.act(advisor, d.id, 'ADVISOR_SIGNED', input())
+        await repo.act(faculty, d.id, 'FACULTY_APPROVED', input(1, false))
+        let revokeAfterConvert = false,
+          failConvert = false,
+          converted: Buffer | undefined
+        const exporter = new TrainingExportService(
+          repo,
+          createTrainingExportWorkbook,
+          createTrainingMinutesDocx,
+          {
+            convert: async (docx) => {
+              converted = docx
+              if (failConvert) throw new Error('synthetic converter failure')
+              if (revokeAfterConvert)
+                await db`UPDATE academic_advisor_assignments SET status='INACTIVE' WHERE advisor_user_id=${advisor}`
+              return Buffer.from('%PDF-1.7 synthetic minutes %%EOF')
+            },
+          },
+        )
+        const app = buildApp({
+          trainingReviewService: service,
+          trainingService: points,
+          trainingExportService: exporter,
+        })
+        await app.ready()
+        const cookie = (user = advisor) =>
+          'user_session=' +
+          app.jwt.sign(
+            {
+              sub: user,
+              username: 'test',
+              roles: ['ACADEMIC_ADVISOR', 'STUDENT'],
+              portal: 'user',
+              mustChangePassword: false,
+              iss: JWT_ISSUER,
+              aud: USER_JWT_AUDIENCE,
+            },
+            { expiresIn: '5m' },
+          )
+        const base = '/api/v1/user/training-reviews/periods/' + p.id
+        let ip = 1
+        const request = (format: 'docx' | 'pdf', headers: Record<string, string> = {}) =>
+          app.inject({
+            method: 'POST',
+            payload: {},
+            url: `${base}/minutes.${format}`,
+            headers: { cookie: cookie(), origin: env.corsOrigin, ...headers },
+            remoteAddress: '127.0.4.' + ip++,
+          })
+        const audits = (action: string) =>
+          db<
+            { metadata: Record<string, unknown> }[]
+          >`SELECT metadata FROM audit_logs WHERE action=${action} AND resource_id=${p.id} ORDER BY occurred_at`
+        try {
+          assert.equal((await request('docx', { cookie: '' })).statusCode, 401)
+          assert.equal(
+            (await request('docx', { origin: 'https://foreign.invalid' })).statusCode,
+            403,
+          )
+          assert.equal((await request('pdf', { cookie: cookie(student) })).statusCode, 403)
+          assert.equal((await request('pdf', { cookie: cookie(outsider) })).statusCode, 404)
+          assert.equal(
+            (await app.inject({ url: `${base}/minutes.pdf`, headers: { cookie: cookie() } }))
+              .statusCode,
+            404,
+            'GET never generates a file',
+          )
+          assert.equal(converted, undefined, 'rejected requests never reach the converter')
+
+          const docx = await request('docx')
+          assert.equal(docx.statusCode, 200, docx.body)
+          assert.match(docx.headers['content-type'] as string, /wordprocessingml/)
+          assert.match(
+            docx.headers['content-disposition'] as string,
+            /attachment; filename="training-minutes.docx"/,
+          )
+          assert.equal(docx.headers['x-export-template-version'], 'training-minutes-v1')
+          assert.match(docx.headers['cache-control'] as string, /private.*no-store/)
+          const word = strFromU8(unzipSync(docx.rawPayload)['word/document.xml']!)
+          assert.ok(word.includes('S9001'))
+          assert.ok(word.includes(docx.headers['x-export-snapshot-id'] as string))
+
+          const pdf = await request('pdf')
+          assert.equal(pdf.statusCode, 200, pdf.body)
+          assert.equal(pdf.headers['content-type'], 'application/pdf')
+          const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex')
+          assert.equal(pdf.headers['x-export-sha256'], sha(pdf.rawPayload))
+          assert.equal(pdf.headers['x-export-source-docx-sha256'], sha(converted!))
+          // The PDF comes from the DOCX of its own snapshot, rendered by the same code path.
+          assert.ok(
+            strFromU8(unzipSync(converted!)['word/document.xml']!).includes(
+              pdf.headers['x-export-snapshot-id'] as string,
+            ),
+          )
+
+          const [docxAudit] = await audits('training.export.docx.prepared')
+          assert.deepEqual(docxAudit!.metadata, {
+            format: 'DOCX',
+            rowCount: 1,
+            sha256: sha(docx.rawPayload),
+            size: docx.rawPayload.length,
+            snapshotId: docx.headers['x-export-snapshot-id'],
+            templateVersion: 'training-minutes-v1',
+          })
+          const [pdfAudit] = await audits('training.export.pdf.prepared')
+          assert.deepEqual(pdfAudit!.metadata, {
+            format: 'PDF',
+            rowCount: 1,
+            sha256: sha(pdf.rawPayload),
+            size: pdf.rawPayload.length,
+            snapshotId: pdf.headers['x-export-snapshot-id'],
+            templateVersion: 'training-minutes-v1',
+            sourceDocxSha256: sha(converted!),
+          })
+
+          failConvert = true
+          const failed = await request('pdf')
+          assert.equal(failed.statusCode, 503)
+          assert.match(failed.body, /TRAINING_EXPORT_PDF_UNAVAILABLE/)
+          assert.doesNotMatch(failed.body, /synthetic converter failure/)
+          assert.equal(failed.headers['x-export-sha256'], undefined)
+          failConvert = false
+
+          revokeAfterConvert = true
+          const revoked = await request('pdf')
+          assert.equal(revoked.statusCode, 404)
+          assert.equal(revoked.headers['x-export-snapshot-id'], undefined)
+          assert.match(revoked.headers['content-type'] as string, /json/)
+          revokeAfterConvert = false
+          assert.equal((await audits('training.export.pdf.prepared')).length, 1)
         } finally {
           await db`UPDATE academic_advisor_assignments SET status='ACTIVE' WHERE advisor_user_id=${advisor}`
           await app.close()

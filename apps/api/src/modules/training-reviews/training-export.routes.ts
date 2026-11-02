@@ -1,5 +1,5 @@
 import { Type } from '@sinclair/typebox'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import {
   configureSubmissionErrors,
   executeSubmission,
@@ -7,8 +7,43 @@ import {
   submissionActor,
   submissionOrigin,
 } from '../submissions/submission.http.js'
-import { SubmissionError } from '../submissions/submission.types.js'
-import type { TrainingExportUseCase } from './training-export.service.js'
+import { SubmissionError, type SubmissionActor } from '../submissions/submission.types.js'
+import type { TrainingExportFile, TrainingExportUseCase } from './training-export.service.js'
+
+type Params = { Params: { id: string } }
+const exportOptions = {
+  preHandler: [requireSubmissionSession('user'), submissionOrigin],
+  schema: {
+    body: Type.Object({}, { additionalProperties: false }),
+    params: Type.Object({ id: Type.String({ format: 'uuid' }) }, { additionalProperties: false }),
+  },
+  preValidation: async (request: FastifyRequest) => {
+    if (
+      Object.keys(request.query as object).length ||
+      (request.body && typeof request.body === 'object' && Object.keys(request.body).length)
+    )
+      throw new SubmissionError(
+        400,
+        'INVALID_TRAINING_EXPORT',
+        'Không nhận bộ lọc hoặc định dạng tùy ý khi xuất.',
+      )
+  },
+  config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+}
+
+function sendFile(reply: FastifyReply, file: TrainingExportFile, fallbackName: string) {
+  reply.header('X-Export-Snapshot-Id', file.snapshotId).header('X-Export-Sha256', file.sha256)
+  if (file.templateVersion) reply.header('X-Export-Template-Version', file.templateVersion)
+  if (file.sourceDocxSha256) reply.header('X-Export-Source-Docx-Sha256', file.sourceDocxSha256)
+  return reply
+    .type(file.mimeType)
+    .header(
+      'Content-Disposition',
+      `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+    )
+    .header('X-Content-Type-Options', 'nosniff')
+    .send(file.bytes)
+}
 
 export async function trainingExportRoutes(
   app: FastifyInstance,
@@ -18,45 +53,26 @@ export async function trainingExportRoutes(
   app.addHook('onRequest', async (_request, reply) => {
     reply.header('Cache-Control', 'private, no-store')
   })
-  app.post<{ Params: { id: string } }>(
-    '/training-reviews/periods/:id/export.xlsx',
-    {
-      preHandler: [requireSubmissionSession('user'), submissionOrigin],
-      schema: {
-        body: Type.Object({}, { additionalProperties: false }),
-        params: Type.Object(
-          { id: Type.String({ format: 'uuid' }) },
-          { additionalProperties: false },
+  const route = (
+    suffix: string,
+    fallbackName: string,
+    download: (actor: SubmissionActor, periodId: string) => Promise<TrainingExportFile>,
+  ) =>
+    app.post<Params>(`/training-reviews/periods/:id/${suffix}`, exportOptions, (request, reply) =>
+      executeSubmission(request, reply, async () =>
+        sendFile(
+          reply,
+          await download(submissionActor(request), request.params.id.toLowerCase()),
+          fallbackName,
         ),
-      },
-      preValidation: async (request) => {
-        if (
-          Object.keys(request.query as object).length ||
-          (request.body && typeof request.body === 'object' && Object.keys(request.body).length)
-        )
-          throw new SubmissionError(
-            400,
-            'INVALID_TRAINING_EXPORT',
-            'Không nhận bộ lọc hoặc định dạng tùy ý khi xuất.',
-          )
-      },
-      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
-    },
-    (request, reply) =>
-      executeSubmission(request, reply, async () => {
-        const file = await options.trainingExportService.downloadXlsx(
-          submissionActor(request),
-          request.params.id.toLowerCase(),
-        )
-        reply.header('X-Export-Snapshot-Id', file.snapshotId).header('X-Export-Sha256', file.sha256)
-        return reply
-          .type(file.mimeType)
-          .header(
-            'Content-Disposition',
-            `attachment; filename="training-points.xlsx"; filename*=UTF-8''${encodeURIComponent(file.name)}`,
-          )
-          .header('X-Content-Type-Options', 'nosniff')
-          .send(file.bytes)
-      }),
+      ),
+    )
+  const service = options.trainingExportService
+  route('export.xlsx', 'training-points.xlsx', (actor, id) => service.downloadXlsx(actor, id))
+  route('minutes.docx', 'training-minutes.docx', (actor, id) =>
+    service.downloadMinutes(actor, id, 'docx'),
+  )
+  route('minutes.pdf', 'training-minutes.pdf', (actor, id) =>
+    service.downloadMinutes(actor, id, 'pdf'),
   )
 }
